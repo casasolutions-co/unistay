@@ -175,38 +175,95 @@
   transform: translateY(-1px);
 }
 
-/* Logged-in user display */
-.userMenu {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* User dropdown */
+.userDropdownWrapper {
+  position: relative;
 }
 
-.userName {
+.userDropdownTrigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
   font-family: var(--font-heading);
   font-weight: 700;
   font-size: 14px;
   color: var(--color-primary);
-  max-width: 120px;
+  cursor: pointer;
+  max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  transition: background 0.15s ease;
 }
 
-.logoutBtn {
+.userDropdownTrigger:hover {
+  background: rgba(100, 57, 255, 0.06);
+}
+
+.userChevron {
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.userChevronOpen {
+  transform: rotate(180deg);
+}
+
+.userDropdownPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 180px;
+  padding: 6px;
+  z-index: 1100;
+  animation: dropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.userDropdownItem {
   display: flex;
   align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--border-radius-sm);
   background: none;
   border: none;
-  color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: color 0.2s ease;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.logoutBtn:hover {
+.userDropdownItem:hover {
+  background: rgba(100, 57, 255, 0.05);
   color: var(--color-primary);
+}
+
+.userDropdownItemDanger:hover {
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+}
+
+.userDropdownDivider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 4px 0;
 }
 
 /* Mobile toggle button */

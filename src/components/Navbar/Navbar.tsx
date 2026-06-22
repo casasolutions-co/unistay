@@ -1,63 +1,74 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronDown, Building, GraduationCap as Degree, ShieldCheck, Home, LogOut } from "lucide-react";
+import {
+  Menu, X, ChevronDown, Building, GraduationCap as Degree,
+  ShieldCheck, Home, LogOut, User, Settings,
+} from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/unistay/firebase";
 import { useAuth } from "@/lib/unistay/auth-context";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
 
-  // Close menus on path changes — intentional sync of URL state to local UI
-  /* eslint-disable react-hooks/set-state-in-effect */
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close all menus on navigation
   useEffect(() => {
     setIsOpen(false);
     setDropdownOpen(false);
-  }, [pathname]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    setUserMenuOpen(false);
+  }, [pathname]); // eslint-disable-line react-hooks/set-state-in-effect
 
-  // Prevent scroll when mobile menu is open
+  // Close user dropdown on outside click
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
+    function onClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
     }
-    return () => {
-      document.body.style.overflow = "";
-    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  const toggleMenu = () => setIsOpen(!isOpen);
   const toggleDropdown = (e: React.MouseEvent) => {
     if (window.innerWidth <= 768) {
       e.preventDefault();
-      setDropdownOpen(!dropdownOpen);
+      setDropdownOpen((v) => !v);
     }
   };
 
   const displayName = user?.displayName || user?.email?.split("@")[0] || null;
+  const isUnistay = pathname.startsWith("/unistay");
 
   return (
     <nav className={styles.navbar}>
       <div className={styles.container}>
-        {/* Logo — UniStay icon on /unistay routes, Casa logo elsewhere */}
-        {pathname.startsWith('/unistay') ? (
-          <Link href="/unistay" className={styles.logo}>
+
+        {/* Logo */}
+        {isUnistay ? (
+          <Link href="/unistay/browse" className={styles.logo}>
             <Image
               src="/images/UniStay Primary Logo.png"
               alt="UniStay"
               width={400}
               height={120}
-              style={{ height: '40px', width: 'auto' }}
+              style={{ height: "40px", width: "auto" }}
               priority
             />
           </Link>
@@ -74,9 +85,11 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Desktop Navigation Links */}
+        {/* Nav items */}
         <ul className={`${styles.menu} ${isOpen ? styles.menuActive : ""}`}>
-          {!pathname.startsWith('/unistay') && (
+
+          {/* ── CASA website nav ── */}
+          {!isUnistay && (
             <>
               <li className={styles.item}>
                 <Link href="/" className={`${styles.link} ${pathname === "/" ? styles.activeLink : ""}`}>
@@ -93,50 +106,64 @@ export default function Navbar() {
                   Our Solutions <ChevronDown size={16} className={styles.arrowIcon} />
                 </span>
                 <ul className={styles.dropdownMenu}>
-                  <li>
-                    <Link href="/solutions#studymatch" className={styles.dropdownLink}>
-                      <Degree size={16} /> StudyMatch AI
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/unistay" className={styles.dropdownLink}>
-                      <Home size={16} /> UniStay
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/ausbildung-students" className={styles.dropdownLink}>
-                      <Building size={16} /> Ausbildung for Students
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/solutions#visa" className={styles.dropdownLink}>
-                      <ShieldCheck size={16} /> Visa Assistance
-                    </Link>
-                  </li>
+                  <li><Link href="/solutions#studymatch" className={styles.dropdownLink}><Degree size={16} /> StudyMatch AI</Link></li>
+                  <li><Link href="/unistay/browse" className={styles.dropdownLink}><Home size={16} /> UniStay</Link></li>
+                  <li><Link href="/ausbildung-students" className={styles.dropdownLink}><Building size={16} /> Ausbildung for Students</Link></li>
+                  <li><Link href="/solutions#visa" className={styles.dropdownLink}><ShieldCheck size={16} /> Visa Assistance</Link></li>
                 </ul>
               </li>
             </>
           )}
-          {pathname.startsWith('/unistay') && (
+
+          {/* ── UniStay nav ── */}
+          {isUnistay && (
             <>
               <li className={styles.item}>
-                <Link href="/unistay/search" className={`${styles.link} ${pathname === '/unistay/search' ? styles.activeLink : ''}`}>
+                <Link href="/unistay/search" className={`${styles.link} ${pathname === "/unistay/search" ? styles.activeLink : ""}`}>
                   View Listings
                 </Link>
               </li>
               <li className={styles.navBtn}>
                 {user ? (
-                  <div className={styles.userMenu}>
-                    <Link href="/unistay/profile" className={styles.userName}>
-                      {displayName}
-                    </Link>
+                  /* User dropdown */
+                  <div className={styles.userDropdownWrapper} ref={userMenuRef}>
                     <button
-                      onClick={() => signOut(auth)}
-                      className={styles.logoutBtn}
-                      aria-label="Sign out"
+                      className={styles.userDropdownTrigger}
+                      onClick={() => setUserMenuOpen((v) => !v)}
+                      aria-expanded={userMenuOpen}
                     >
-                      <LogOut size={15} />
+                      {displayName}
+                      <ChevronDown
+                        size={12}
+                        className={`${styles.userChevron} ${userMenuOpen ? styles.userChevronOpen : ""}`}
+                      />
                     </button>
+
+                    {userMenuOpen && (
+                      <div className={styles.userDropdownPanel}>
+                        <Link
+                          href="/unistay/dashboard?tab=profile"
+                          className={styles.userDropdownItem}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <User size={14} /> Profile
+                        </Link>
+                        <Link
+                          href="/unistay/dashboard?tab=security"
+                          className={styles.userDropdownItem}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Settings size={14} /> Settings
+                        </Link>
+                        <div className={styles.userDropdownDivider} />
+                        <button
+                          className={`${styles.userDropdownItem} ${styles.userDropdownItemDanger}`}
+                          onClick={() => { setUserMenuOpen(false); signOut(auth); }}
+                        >
+                          <LogOut size={14} /> Sign out
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Link href="/unistay/auth" className={styles.button}>
@@ -146,10 +173,11 @@ export default function Navbar() {
               </li>
             </>
           )}
+
         </ul>
 
-        {/* Mobile Toggle */}
-        <button className={styles.toggle} onClick={toggleMenu} aria-label="Toggle menu">
+        {/* Mobile hamburger */}
+        <button className={styles.toggle} onClick={() => setIsOpen((v) => !v)} aria-label="Toggle menu">
           {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>

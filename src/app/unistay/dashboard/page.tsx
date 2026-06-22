@@ -4,48 +4,44 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from 'firebase/auth';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/unistay/firebase';
 import { useAuth } from '@/lib/unistay/auth-context';
 import { DOC_TYPES, DocKey, DocsMap, uploadDocument } from '@/lib/unistay/documents';
 import Image from 'next/image';
 import {
-  Heart, MessageSquare, MapPin, BedDouble, Ruler,
+  Heart, MapPin, BedDouble, Ruler,
   LogOut, User, ChevronRight, Clock, CheckCircle2, XCircle,
   Bell, Shield, FileText, Upload, Trash2,
-  Eye, EyeOff, Lock, Loader2, ExternalLink, Home,
+  Eye, EyeOff, Lock, Loader2, ExternalLink,
+  Globe, GraduationCap, Calendar, Edit3, X, ArrowRight, PlusCircle,
+  Mail, Phone,
 } from 'lucide-react';
 import { Button } from '@/components/unistay/ui/button';
 import { Card } from '@/components/unistay/ui/card';
 import { casaProperties } from '@/lib/unistay/properties';
-import { FieldLabel, SoftInput, PrimaryBtn } from '@/components/unistay/ui/form-elements';
+import {
+  FieldLabel, SoftInput, SoftTextarea, SoftSelect,
+  PrimaryBtn, OutlineBtn,
+} from '@/components/unistay/ui/form-elements';
 import { seedCasaProperties } from '@/lib/unistay/seed-properties';
 import { Breadcrumbs } from '@/components/unistay/ui/breadcrumbs';
+import type { LandlordStatus } from '@/lib/unistay/types';
 
-type Tab = 'saved' | 'enquiries' | 'documents' | 'notifications' | 'security';
+type Tab = 'profile' | 'saved' | 'documents' | 'notifications' | 'security';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'saved',         label: 'Saved',         icon: <Heart        className="h-4 w-4" /> },
-  { key: 'enquiries',     label: 'Enquiries',     icon: <MessageSquare className="h-4 w-4" /> },
-  { key: 'documents',     label: 'Documents',     icon: <FileText     className="h-4 w-4" /> },
-  { key: 'notifications', label: 'Notifications', icon: <Bell         className="h-4 w-4" /> },
-  { key: 'security',      label: 'Security',      icon: <Shield       className="h-4 w-4" /> },
+  { key: 'profile',       label: 'Profile',       icon: <User     className="h-4 w-4" /> },
+  { key: 'saved',         label: 'Saved',          icon: <Heart    className="h-4 w-4" /> },
+  { key: 'documents',     label: 'Documents',      icon: <FileText className="h-4 w-4" /> },
+  { key: 'notifications', label: 'Notifications',  icon: <Bell     className="h-4 w-4" /> },
+  { key: 'security',      label: 'Security',       icon: <Shield   className="h-4 w-4" /> },
 ];
 
-const STATUS_CONFIG = {
-  new:         { label: 'Sent',    color: 'text-blue-600   bg-blue-50   border-blue-200',   icon: <Clock       className="h-3.5 w-3.5" /> },
-  in_progress: { label: 'In progress', color: 'text-amber-600 bg-amber-50  border-amber-200', icon: <Clock       className="h-3.5 w-3.5" /> },
-  resolved:    { label: 'Resolved', color: 'text-green-600 bg-green-50  border-green-200',  icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
-};
-
-interface UserEnquiry {
-  id: string;
-  propertyTitle: string;
-  propertyId: string;
-  message: string;
-  status: 'new' | 'in_progress' | 'resolved';
-  createdAt?: string;
-}
+const NATIONALITIES = [
+  'British', 'German', 'French', 'Spanish', 'Italian', 'Indian', 'Chinese',
+  'American', 'Nigerian', 'Brazilian', 'Turkish', 'Pakistani', 'Other',
+];
 
 const DEFAULT_NOTIFS = {
   newListings:   true,
@@ -55,37 +51,35 @@ const DEFAULT_NOTIFS = {
   appPush:       true,
 };
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function fmtDate(iso?: string) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('saved');
+  const [tab, setTab] = useState<Tab>('profile');
 
-  // ── Saved properties ────────────────────────────────────────────────────────
+  // ── Profile ───────────────────────────────────────────────────────────────────
+  const [profile, setProfile] = useState({
+    name: '', email: '', phone: '', nationality: '',
+    university: '', program: '', moveInDate: '', bio: '',
+  });
+  const [draft, setDraft] = useState(profile);
+  const [editing, setEditing] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [landlordStatus, setLandlordStatus] = useState<LandlordStatus | null>(null);
+
+  // ── Saved properties ──────────────────────────────────────────────────────────
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
-  // ── Enquiries ────────────────────────────────────────────────────────────────
-  const [enquiries, setEnquiries]         = useState<UserEnquiry[]>([]);
-  const [enquiriesLoading, setEnqLoading] = useState(true);
-
-  // ── Documents ────────────────────────────────────────────────────────────────
-  const [documents, setDocuments]   = useState<DocsMap>({});
+  // ── Documents ─────────────────────────────────────────────────────────────────
+  const [documents, setDocuments]    = useState<DocsMap>({});
   const [docProgress, setDocProgress] = useState<Partial<Record<DocKey, number>>>({});
   const [docError, setDocError]       = useState<Partial<Record<DocKey, string>>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const activeDocKey = useRef<DocKey | null>(null);
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const activeDocKey   = useRef<DocKey | null>(null);
 
-  // ── Notifications ────────────────────────────────────────────────────────────
+  // ── Notifications ─────────────────────────────────────────────────────────────
   const [notifs, setNotifs] = useState(DEFAULT_NOTIFS);
 
-  // ── Security ─────────────────────────────────────────────────────────────────
+  // ── Security ──────────────────────────────────────────────────────────────────
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [oldPw, setOldPw] = useState('');
@@ -97,48 +91,64 @@ export default function DashboardPage() {
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState('');
 
-  // ── Load user data from Firestore on mount ────────────────────────────────────
+  // ── Read initial tab from URL ?tab= param ─────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab') as Tab | null;
+    if (tabParam && TABS.some((t) => t.key === tabParam)) {
+      setTab(tabParam);
+    }
+  }, []);
+
+  // ── Load user data from Firestore ─────────────────────────────────────────────
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.replace('/unistay/register'); return; }
 
+    const base = { name: user.displayName ?? '', email: user.email ?? '' };
+    setProfile((p) => ({ ...p, ...base })); // eslint-disable-line react-hooks/set-state-in-effect
+    setDraft((p) => ({ ...p, ...base }));   // eslint-disable-line react-hooks/set-state-in-effect
+
     getDoc(doc(db, 'users', user.uid)).then((snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
-      if (data.savedProperties)  setSavedIds(data.savedProperties);       // eslint-disable-line react-hooks/set-state-in-effect
-      if (data.documents)        setDocuments(data.documents as DocsMap); // eslint-disable-line react-hooks/set-state-in-effect
-      if (data.notifications)    setNotifs((n) => ({ ...n, ...data.notifications })); // eslint-disable-line react-hooks/set-state-in-effect
+      const profileData = {
+        name:        (data.name        as string) ?? user.displayName ?? '',
+        email:       (data.email       as string) ?? user.email ?? '',
+        phone:       (data.phone       as string) ?? '',
+        nationality: (data.nationality as string) ?? '',
+        university:  (data.university  as string) ?? '',
+        program:     (data.program     as string) ?? '',
+        moveInDate:  (data.moveInDate  as string) ?? '',
+        bio:         (data.bio         as string) ?? '',
+      };
+      setProfile(profileData);                                                                   // eslint-disable-line react-hooks/set-state-in-effect
+      setDraft(profileData);                                                                     // eslint-disable-line react-hooks/set-state-in-effect
+      if (data.savedProperties)  setSavedIds(data.savedProperties as string[]);                 // eslint-disable-line react-hooks/set-state-in-effect
+      if (data.documents)        setDocuments(data.documents as DocsMap);                       // eslint-disable-line react-hooks/set-state-in-effect
+      if (data.notifications)    setNotifs((n) => ({ ...n, ...(data.notifications as object) })); // eslint-disable-line react-hooks/set-state-in-effect
+      if (data.landlordStatus)   setLandlordStatus(data.landlordStatus as LandlordStatus);      // eslint-disable-line react-hooks/set-state-in-effect
     });
 
-    // Load this user's enquiries
-    getDocs(query(collection(db, 'enquiries'), where('userId', '==', user.uid)))
-      .then((snap) => {
-        const list: UserEnquiry[] = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id:            d.id,
-            propertyTitle: data.propertyTitle ?? '—',
-            propertyId:    data.propertyId    ?? '',
-            message:       data.message       ?? '',
-            status:        data.status        ?? 'new',
-            createdAt:     data.createdAt?.toDate?.()?.toISOString() ?? data.createdAt,
-          };
-        });
-        setEnquiries(list.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));
-      })
-      .catch(() => setEnquiries([]))
-      .finally(() => setEnqLoading(false));
   }, [user, authLoading, router]);
 
   const savedProperties = casaProperties.filter((p) => savedIds.includes(p.id));
 
-  // ── Unsave a property ─────────────────────────────────────────────────────────
+  // ── Profile save ──────────────────────────────────────────────────────────────
+  async function handleProfileSave(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (user) await setDoc(doc(db, 'users', user.uid), draft, { merge: true });
+    setProfile(draft);
+    setEditing(false);
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2500);
+  }
+
+  // ── Unsave property ───────────────────────────────────────────────────────────
   async function unsave(id: string) {
     const updated = savedIds.filter((s) => s !== id);
     setSavedIds(updated);
-    if (user) {
-      await updateDoc(doc(db, 'users', user.uid), { savedProperties: updated });
-    }
+    if (user) await updateDoc(doc(db, 'users', user.uid), { savedProperties: updated });
   }
 
   // ── Document upload ───────────────────────────────────────────────────────────
@@ -153,7 +163,6 @@ export default function DashboardPage() {
     const key = activeDocKey.current;
     if (!file || !key || !user) return;
     activeDocKey.current = null;
-
     setDocError((p) => ({ ...p, [key]: undefined }));
     setDocProgress((p) => ({ ...p, [key]: 0 }));
     try {
@@ -170,21 +179,17 @@ export default function DashboardPage() {
 
   async function removeDoc(key: DocKey) {
     setDocuments((p) => { const n = { ...p }; delete n[key]; return n; });
-    if (user) {
-      await updateDoc(doc(db, 'users', user.uid), { [`documents.${key}`]: null });
-    }
+    if (user) await updateDoc(doc(db, 'users', user.uid), { [`documents.${key}`]: null });
   }
 
-  // ── Notification toggle ───────────────────────────────────────────────────────
+  // ── Notifications ─────────────────────────────────────────────────────────────
   async function toggleNotif(key: keyof typeof DEFAULT_NOTIFS) {
     const updated = { ...notifs, [key]: !notifs[key] };
     setNotifs(updated);
-    if (user) {
-      await updateDoc(doc(db, 'users', user.uid), { notifications: updated });
-    }
+    if (user) await updateDoc(doc(db, 'users', user.uid), { notifications: updated });
   }
 
-  // ── Auth actions ──────────────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────────────
   async function handleSignOut() {
     await signOut(auth);
     router.replace('/unistay/register');
@@ -235,28 +240,47 @@ export default function DashboardPage() {
   }
 
   const docsCount = DOC_TYPES.filter(({ key }) => !!documents[key]).length;
+  const profileComplete = Math.round(
+    ([profile.name, profile.email, profile.phone, profile.nationality,
+      profile.university, profile.program, profile.moveInDate, profile.bio]
+      .filter(Boolean).length / 8) * 100,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'UniStay', href: '/unistay' }, { label: 'Dashboard' }]} />
+        <Breadcrumbs crumbs={[{ label: 'Browse', href: '/unistay/browse' }, { label: 'Dashboard' }]} />
 
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-1">Saved properties, enquiries, documents and account settings</p>
-          </div>
-          <button onClick={handleSignOut} className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+        <div className="mb-6 mt-2">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">Your profile, saved properties and account settings</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        {/* User identity banner */}
+        {user && (
+          <div className="flex items-center gap-4 mb-6 p-4 bg-white rounded-2xl border border-gray-100">
+            <div className="w-14 h-14 rounded-full bg-blue-50 border-2 border-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl shrink-0 select-none">
+              {(profile.name || user.displayName || user.email || '?')[0].toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-gray-900 text-lg leading-tight truncate">
+                {profile.name || user.displayName || 'Your Name'}
+              </p>
+              <p className="text-sm text-gray-400 truncate">{profile.email || user.email}</p>
+              {(profile.university || profile.program) && (
+                <p className="text-xs text-gray-400 mt-0.5 truncate">
+                  {[profile.university, profile.program].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
           {[
-            { icon: <Heart className="h-5 w-5 text-red-500" />,      bg: 'bg-red-50',   value: savedProperties.length, label: 'Saved'      },
-            { icon: <MessageSquare className="h-5 w-5 text-blue-600" />, bg: 'bg-blue-50',  value: enquiries.length,       label: 'Enquiries'  },
-            { icon: <FileText className="h-5 w-5 text-green-600" />,  bg: 'bg-green-50', value: docsCount,               label: 'Documents'  },
+            { icon: <Heart className="h-5 w-5 text-red-500" />,     bg: 'bg-red-50',   value: savedProperties.length, label: 'Saved'     },
+            { icon: <FileText className="h-5 w-5 text-green-600" />, bg: 'bg-green-50', value: docsCount,               label: 'Documents' },
           ].map(({ icon, bg, value, label }) => (
             <Card key={label} className="p-4 flex items-center gap-3">
               <div className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center shrink-0`}>{icon}</div>
@@ -269,25 +293,185 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar */}
+          {/* Left sidebar */}
           <div className="lg:w-52 shrink-0">
-            <Card className="p-2">
-              {TABS.map(({ key, label, icon }) => (
+            <Card className="p-2 flex flex-col">
+              <div className="flex-1">
+                {TABS.map(({ key, label, icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setTab(key)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-0.5 ${
+                      tab === key ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    {icon}{label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 pt-2 border-t border-gray-100">
                 <button
-                  key={key}
-                  onClick={() => setTab(key)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-0.5 ${
-                    tab === key ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                 >
-                  {icon}{label}
+                  <LogOut className="h-4 w-4" /> Sign out
                 </button>
-              ))}
+              </div>
             </Card>
           </div>
 
-          {/* Content */}
+          {/* Right content */}
           <div className="flex-1 min-w-0">
+
+            {/* ── PROFILE ── */}
+            {tab === 'profile' && (
+              <div className="space-y-5">
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Personal Information</h2>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="w-28 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                            style={{ width: `${profileComplete}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-400">{profileComplete}% complete</span>
+                      </div>
+                    </div>
+                    {!editing ? (
+                      <button
+                        onClick={() => { setDraft(profile); setEditing(true); }}
+                        className="flex items-center gap-1.5 text-sm font-medium text-blue-600 border border-blue-200 hover:border-blue-400 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setDraft(profile); setEditing(false); }}
+                        className="flex items-center gap-1.5 text-sm font-medium text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-50"
+                      >
+                        <X className="h-3.5 w-3.5" /> Cancel
+                      </button>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleProfileSave}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div>
+                        <FieldLabel>Full Name</FieldLabel>
+                        <SoftInput icon={User} value={draft.name} onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" disabled={!editing} />
+                      </div>
+                      <div>
+                        <FieldLabel>Email</FieldLabel>
+                        <SoftInput icon={Mail} type="email" value={draft.email} placeholder="you@example.com" disabled />
+                      </div>
+                      <div>
+                        <FieldLabel>Phone</FieldLabel>
+                        <SoftInput icon={Phone} type="tel" value={draft.phone} onChange={(e) => setDraft((p) => ({ ...p, phone: e.target.value }))} placeholder="+49 ..." disabled={!editing} />
+                      </div>
+                      <div>
+                        <FieldLabel>Nationality</FieldLabel>
+                        <SoftSelect icon={Globe} value={draft.nationality} onChange={(e) => setDraft((p) => ({ ...p, nationality: e.target.value }))} disabled={!editing}>
+                          <option value="">Select...</option>
+                          {NATIONALITIES.map((n) => <option key={n} value={n}>{n}</option>)}
+                        </SoftSelect>
+                      </div>
+                      <div>
+                        <FieldLabel>University</FieldLabel>
+                        <SoftInput icon={GraduationCap} value={draft.university} onChange={(e) => setDraft((p) => ({ ...p, university: e.target.value }))} placeholder="Technical University of Berlin" disabled={!editing} />
+                      </div>
+                      <div>
+                        <FieldLabel>Program / Course</FieldLabel>
+                        <SoftInput value={draft.program} onChange={(e) => setDraft((p) => ({ ...p, program: e.target.value }))} placeholder="MSc Computer Science" disabled={!editing} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <FieldLabel>Expected Move-in Date</FieldLabel>
+                        <SoftInput icon={Calendar} type="date" value={draft.moveInDate} onChange={(e) => setDraft((p) => ({ ...p, moveInDate: e.target.value }))} disabled={!editing} />
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <FieldLabel>
+                        Bio <span className="normal-case font-normal text-gray-300">(optional)</span>
+                      </FieldLabel>
+                      <SoftTextarea rows={3} value={draft.bio} onChange={(e) => setDraft((p) => ({ ...p, bio: e.target.value }))} placeholder="Tell landlords about yourself..." disabled={!editing} />
+                    </div>
+
+                    {editing && (
+                      <div className="flex items-center gap-3 mt-6 pt-5 border-t border-gray-100">
+                        <PrimaryBtn type="submit">
+                          Save Changes <ArrowRight className="h-4 w-4" />
+                        </PrimaryBtn>
+                        <OutlineBtn type="button" onClick={() => { setDraft(profile); setEditing(false); }}>
+                          Cancel
+                        </OutlineBtn>
+                        {profileSaved && (
+                          <span className="flex items-center gap-1 text-sm text-green-600">
+                            <CheckCircle2 className="h-4 w-4" /> Saved
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </form>
+                </Card>
+
+                {/* Landlord / List a property */}
+                <Card className="p-6">
+                  <h2 className="font-semibold text-gray-900 mb-4">List a Property</h2>
+                  {landlordStatus === 'approved' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-green-600 font-medium bg-green-50 px-3 py-2 rounded-xl">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Verified landlord
+                      </div>
+                      <Link
+                        href="/unistay/list-property"
+                        className="flex items-center justify-between gap-2 w-full px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        <span>List a property</span>
+                        <PlusCircle className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  ) : landlordStatus === 'pending' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-amber-600 font-medium bg-amber-50 px-3 py-2 rounded-xl">
+                        <Clock className="h-3.5 w-3.5 shrink-0" /> Application under review
+                      </div>
+                      <p className="text-xs text-gray-400 leading-relaxed">
+                        Our team is verifying your application. You'll hear back within 1–2 business days.
+                      </p>
+                    </div>
+                  ) : landlordStatus === 'rejected' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-xl">
+                        <XCircle className="h-3.5 w-3.5 shrink-0" /> Application not approved
+                      </div>
+                      <Link
+                        href="/unistay/landlord/apply"
+                        className="flex items-center justify-between gap-2 w-full px-4 py-3 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:border-blue-400 hover:text-blue-600 transition-colors"
+                      >
+                        <span>Re-apply</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                        Become a verified landlord to list your property and reach vetted international students.
+                      </p>
+                      <Link
+                        href="/unistay/landlord"
+                        className="flex items-center justify-between gap-2 w-full px-4 py-3 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:border-blue-400 hover:text-blue-600 transition-colors"
+                      >
+                        <span>Become a landlord</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
 
             {/* ── SAVED ── */}
             {tab === 'saved' && (
@@ -338,57 +522,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* ── ENQUIRIES ── */}
-            {tab === 'enquiries' && (
-              <div className="space-y-4">
-                <h2 className="font-semibold text-gray-900">My Enquiries</h2>
-                {enquiriesLoading ? (
-                  <Card className="p-10 text-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-300 mx-auto" />
-                  </Card>
-                ) : enquiries.length === 0 ? (
-                  <Card className="p-12 text-center">
-                    <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium mb-1">No enquiries yet</p>
-                    <p className="text-gray-400 text-sm mb-4">Contact Casa via WhatsApp on any property page.</p>
-                    <Link href="/unistay/search">
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white">Browse properties</Button>
-                    </Link>
-                  </Card>
-                ) : (
-                  enquiries.map((enq) => {
-                    const status = STATUS_CONFIG[enq.status] ?? STATUS_CONFIG.new;
-                    return (
-                      <Card key={enq.id} className="p-5">
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                            <Home className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 flex-wrap">
-                              <div>
-                                <h3 className="font-semibold text-gray-900 text-sm">{enq.propertyTitle}</h3>
-                                <p className="text-xs text-gray-400 mt-0.5">{fmtDate(enq.createdAt)}</p>
-                              </div>
-                              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${status.color}`}>
-                                {status.icon}{status.label}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-2 line-clamp-2">&quot;{enq.message}&quot;</p>
-                            {enq.propertyId && (
-                              <Link href={`/unistay/properties/${enq.propertyId}`} className="text-xs text-blue-600 hover:underline mt-2 block">
-                                View property →
-                              </Link>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
             {/* ── DOCUMENTS ── */}
             {tab === 'documents' && (
               <div className="space-y-4">
@@ -404,11 +537,10 @@ export default function DashboardPage() {
                   onChange={handleFileChange}
                 />
                 {DOC_TYPES.map(({ key, label, hint }) => {
-                  const record   = documents[key];
-                  const progress = docProgress[key];
-                  const error    = docError[key];
+                  const record    = documents[key];
+                  const progress  = docProgress[key];
+                  const error     = docError[key];
                   const uploading = progress !== undefined;
-
                   return (
                     <Card key={key} className="p-5">
                       <div className="flex items-center gap-4">
@@ -437,12 +569,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2 shrink-0">
                           {record && (
                             <>
-                              <a
-                                href={record.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                              >
+                              <a href={record.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1">
                                 <ExternalLink className="h-3.5 w-3.5" /> View
                               </a>
                               <button onClick={() => removeDoc(key)} className="text-gray-300 hover:text-red-400 transition-colors">
@@ -513,7 +640,7 @@ export default function DashboardPage() {
                     <div>
                       <FieldLabel>Current Password</FieldLabel>
                       <div className="relative">
-                        <SoftInput icon={Lock} type={showOld ? 'text' : 'password'} value={oldPw} onChange={(e) => setOldPw(e.target.value)} required className="pr-12" />
+                        <SoftInput icon={Lock} type={showOld ? 'text' : 'password'} value={oldPw} onChange={(e) => setOldPw(e.target.value)} required />
                         <button type="button" onClick={() => setShowOld((v) => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-600">
                           {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
@@ -522,7 +649,7 @@ export default function DashboardPage() {
                     <div>
                       <FieldLabel>New Password</FieldLabel>
                       <div className="relative">
-                        <SoftInput icon={Lock} type={showNew ? 'text' : 'password'} value={newPw} onChange={(e) => setNewPw(e.target.value)} required placeholder="Min. 8 characters" className="pr-12" />
+                        <SoftInput icon={Lock} type={showNew ? 'text' : 'password'} value={newPw} onChange={(e) => setNewPw(e.target.value)} required placeholder="Min. 8 characters" />
                         <button type="button" onClick={() => setShowNew((v) => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-600">
                           {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
