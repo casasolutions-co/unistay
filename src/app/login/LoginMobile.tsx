@@ -105,7 +105,7 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
       const token = await cred.user.getIdToken();
       await syncUser(token);
       const isNew = getAdditionalUserInfo(cred)?.isNewUser;
-      router.push(isNew ? '/register/complete' : '/');
+      router.push(isNew ? '/register/complete' : '/search');
     } catch {
       setError('Google sign-in failed.');
     } finally {

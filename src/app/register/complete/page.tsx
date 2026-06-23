@@ -43,7 +43,7 @@ export default function CompleteProfile() {
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      router.push('/');
+      router.push('/search');
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {

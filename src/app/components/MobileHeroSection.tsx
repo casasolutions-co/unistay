@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './MobileHeroSection.module.css';
 
 const RECENT = [
@@ -82,6 +83,7 @@ function IconClock() {
 
 /* ── Component ──────────────────────────────────────────────── */
 export default function MobileHeroSection() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
   const [openWhere, setOpenWhere] = useState(false);
@@ -164,9 +166,9 @@ export default function MobileHeroSection() {
 
           {navOpen && (
             <div className={styles.navMenu}>
-              <a href="#" className={styles.navMenuLink}>View Listings</a>
+              <a href="/search" className={styles.navMenuLink}>View Listings</a>
               <div className={styles.navMenuDivider} />
-              <a href="#" className={styles.navMenuLoginBtn}>Login / Register</a>
+              <a href="/login" className={styles.navMenuLoginBtn}>Login / Register</a>
             </div>
           )}
         </div>
@@ -342,7 +344,19 @@ export default function MobileHeroSection() {
         </div>
 
         {/* Search button */}
-        <button type="button" className={styles.searchBtn}>
+        <button
+          type="button"
+          className={styles.searchBtn}
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (location) params.set('location', location);
+            if (type !== 'Any type') params.set('type', type);
+            if (maxRent !== 'Any budget') params.set('maxRent', maxRent);
+            if (moveIn) params.set('moveIn', moveIn);
+            if (moveOut) params.set('moveOut', moveOut);
+            router.push(`/search?${params.toString()}`);
+          }}
+        >
           <IconSearch />
           Search flats
         </button>
