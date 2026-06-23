@@ -1,0 +1,110 @@
+.band {
+  background: var(--dark);
+  padding: 64px 56px 38px;
+  margin-top: 40px;
+}
+
+.inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 26px;
+  min-width: 200px;
+}
+
+.cardRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.tpLabel {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 17px;
+  color: #14121a;
+}
+
+.stars {
+  font-size: 15px;
+  letter-spacing: 2px;
+  margin-bottom: 5px;
+}
+
+.cardSub {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Students card */
+.avatarRow {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  border: 2px solid #fff;
+  display: block;
+}
+
+.statNumber {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--brand);
+}
+
+/* Google row */
+.googleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.googleWord {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 34px;
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .band {
+    padding: 0;
+    margin: 20px 16px 24px;
+    background: none;
+  }
+  .inner {
+    background: var(--dark);
+    border-radius: 18px;
+    padding: 18px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .card {
+    display: none;
+  }
+  .googleRow {
+    display: none;
+  }
+  /* Mobile: show compact stats inline */
+  .inner::before {
+    content: '';
+  }
+}

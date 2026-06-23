@@ -1,0 +1,401 @@
+/* ── Section wrapper ─────────────────────────────────────────── */
+.section {
+  position: relative;
+  overflow: visible;
+}
+
+/* ── Hero image area ─────────────────────────────────────────── */
+.heroImgWrap {
+  position: relative;
+  min-height: 600px;
+  overflow: hidden;
+}
+
+.heroGradient {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(100deg, rgba(20, 14, 32, 0.82) 0%, rgba(20, 14, 32, 0.5) 42%, rgba(20, 14, 32, 0.18) 72%, rgba(20, 14, 32, 0.32) 100%),
+    repeating-linear-gradient(135deg, #2a2336 0 22px, #312942 22px 44px);
+}
+
+.heroContent {
+  position: relative;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 110px 56px 150px;
+}
+
+.heroText {
+  max-width: 620px;
+  color: #fff;
+}
+
+.eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 0 14px;
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 78px;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  margin: 0;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.subline {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.86);
+  margin: 24px 0 0;
+  max-width: 460px;
+}
+
+/* ── Search bar wrapper (floats over hero bottom) ────────────── */
+.searchWrap {
+  position: relative;
+  z-index: 50;
+  max-width: 1500px;
+  margin: -56px auto 0;
+  padding: 0 56px;
+}
+
+.searchBar {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: var(--shadow-search);
+  padding: 10px;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+/* ── Segment ─────────────────────────────────────────────────── */
+.segment {
+  position: relative;
+}
+
+.segmentBtn {
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: transparent;
+  transition: background 0.14s;
+  font-family: var(--font-ui);
+}
+.segmentBtn:hover {
+  background: var(--tint-hover);
+}
+
+.segmentLabel {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  margin-bottom: 3px;
+}
+
+.segmentValue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Inline input that replaces the segment value when WHERE is open */
+.inlineInput {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  caret-color: var(--brand);
+}
+.inlineInput::placeholder {
+  color: var(--placeholder);
+  font-weight: 600;
+}
+
+.segmentValueRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ── Divider ─────────────────────────────────────────────────── */
+.divider {
+  width: 1px;
+  background: var(--divider);
+  margin: 8px 0;
+  flex: none;
+}
+
+/* ── Search button ───────────────────────────────────────────── */
+.searchBtn {
+  flex: none;
+  align-self: stretch;
+  padding: 0 30px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  box-shadow: 0 8px 18px -6px rgba(109, 40, 217, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: filter 0.15s, transform 0.12s;
+}
+.searchBtn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.searchBtn:active {
+  transform: translateY(0);
+}
+
+/* ── Dropdown panel ──────────────────────────────────────────── */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 40, 217, 0.08);
+  box-shadow: var(--shadow-dropdown);
+  padding: 8px;
+  z-index: 55;
+  min-width: 200px;
+}
+
+.dropdownList {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.emptyResults {
+  padding: 28px 16px;
+  text-align: center;
+}
+
+/* ── Group header ────────────────────────────────────────────── */
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 6px;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+.groupLine {
+  flex: 1;
+  height: 1px;
+  background: var(--divider-soft);
+}
+
+/* ── Dropdown row ────────────────────────────────────────────── */
+.dropdownRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-family: var(--font-ui);
+}
+.dropdownRow:hover {
+  background: var(--tint-hover);
+}
+
+/* ── Icon tile ───────────────────────────────────────────────── */
+.iconTile {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.rowName {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowSub {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Budget panel ────────────────────────────────────────────── */
+.budgetHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.budgetHeaderLabel {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+.budgetHeaderValue {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--brand);
+}
+
+.rangeTrack {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: #ece8f6;
+}
+
+.rangeFill {
+  position: absolute;
+  top: 10px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7c3aed, #6d28d9);
+}
+
+/* ── Date inputs ─────────────────────────────────────────────── */
+.dateLabel {
+  display: block;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  margin-bottom: 8px;
+}
+
+.dateInput {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.dateInput:focus {
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Chips ───────────────────────────────────────────────────── */
+.chip {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chip-text);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  padding: 5px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.14s;
+  white-space: nowrap;
+}
+.chip:hover {
+  border-color: var(--brand);
+  background: var(--tint);
+  color: var(--brand);
+}
+
+/* ── Popular chips row ───────────────────────────────────────── */
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 18px 6px 0;
+}
+
+.chipsLabel {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+/* ── Desktop/Mobile show-hide ────────────────────────────────── */
+.mobileOnly {
+  display: none;
+}
+.desktopOnly {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .mobileOnly {
+    display: block;
+  }
+  .desktopOnly {
+    display: none;
+  }
+}

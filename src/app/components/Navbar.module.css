@@ -1,0 +1,70 @@
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 40px;
+  background: #fff;
+  position: relative;
+  z-index: 60;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.logoWrap {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  color: var(--brand-ink);
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.navLink {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-body);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.navLink:hover {
+  color: var(--brand);
+}
+
+.loginBtn {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--brand);
+  text-decoration: none;
+  border: 1.5px solid var(--brand);
+  padding: 9px 20px;
+  border-radius: 999px;
+  transition: background 0.15s, color 0.15s;
+}
+.loginBtn:hover {
+  background: var(--brand);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .nav {
+    display: none;
+  }
+}

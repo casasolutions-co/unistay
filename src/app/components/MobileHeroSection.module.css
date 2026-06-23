@@ -1,0 +1,588 @@
+/* ── Wrapper ─────────────────────────────────────────────────── */
+.wrapper {
+  font-family: var(--font-ui);
+  background: var(--page);
+  min-height: 100vh;
+}
+
+/* ── Hero ────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  padding: 0 0 56px;
+}
+
+.heroGradient {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(20, 14, 32, 0.55) 0%, rgba(20, 14, 32, 0.35) 40%, rgba(20, 14, 32, 0.85) 100%),
+    repeating-linear-gradient(135deg, #2a2336 0 20px, #312942 20px 40px);
+}
+
+/* ── Nav (overlaid on hero) ──────────────────────────────────── */
+.nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 50px 22px 0;
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.hamburger {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+/* ── Headline ────────────────────────────────────────────────── */
+.headline {
+  position: relative;
+  padding: 56px 22px 0;
+}
+
+.eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 0 10px;
+}
+
+.h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 44px;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  margin: 0;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.subline {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.86);
+  margin: 16px 0 0;
+}
+
+/* ── Nav dropdown menu ───────────────────────────────────────── */
+.navMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: rgba(30, 20, 50, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 8px;
+  min-width: 200px;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+.navMenuLink {
+  display: block;
+  padding: 12px 16px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border-radius: 10px;
+  transition: background 0.13s;
+}
+.navMenuLink:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.navMenuDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 8px;
+}
+
+.navMenuLoginBtn {
+  display: block;
+  margin: 4px 4px 4px;
+  padding: 11px 16px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  color: #c084fc;
+  text-decoration: none;
+  border-radius: 10px;
+  border: 1.5px solid rgba(192, 132, 252, 0.35);
+  text-align: center;
+  transition: background 0.13s, border-color 0.13s;
+}
+.navMenuLoginBtn:hover {
+  background: rgba(192, 132, 252, 0.12);
+  border-color: rgba(192, 132, 252, 0.6);
+}
+
+/* ── Search card ─────────────────────────────────────────────── */
+.searchCard {
+  position: relative;
+  margin: -24px 16px 0;
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 18px 40px -14px rgba(34, 18, 68, 0.35);
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  color: var(--text);
+}
+
+/* ── Field label ─────────────────────────────────────────────── */
+.fieldLabel {
+  display: block;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  margin-bottom: 7px;
+}
+
+/* ── Where field ─────────────────────────────────────────────── */
+.whereWrap {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  top: 17px;
+  pointer-events: none;
+  color: #b0aabf;
+  z-index: 1;
+}
+
+.whereClear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border);
+  color: var(--text-soft);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.textInput {
+  width: 100%;
+  height: 50px;
+  padding: 0 38px 0 42px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.textInput:focus {
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: var(--focus-ring);
+}
+
+/* Where dropdown */
+.whereDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(109, 40, 217, 0.1);
+  box-shadow: 0 16px 40px -8px rgba(34, 18, 68, 0.22);
+  padding: 6px;
+  z-index: 80;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.whereGroupHeader {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  padding: 8px 12px 4px;
+}
+
+.whereRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.whereRow:hover {
+  background: var(--tint-hover);
+}
+
+.whereIconTile {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.whereRowText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.whereRowName {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whereRowSub {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whereEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px;
+  gap: 4px;
+}
+
+.whereEmptyTitle {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.whereEmptySub {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+/* ── 2-column row ────────────────────────────────────────────── */
+.row2 {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* ── Custom dropdown (Type + Max rent) ───────────────────────── */
+.dropdownWrap {
+  flex: 1;
+  position: relative;
+}
+
+.dropdownTrigger {
+  width: 100%;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropdownTrigger:focus-visible {
+  border-color: var(--brand);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.dropdownTriggerText {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  text-align: left;
+}
+
+.chevron {
+  display: inline-flex;
+  transition: transform 0.18s;
+  flex-shrink: 0;
+}
+
+.dropdownPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 40, 217, 0.08);
+  box-shadow: var(--shadow-dropdown);
+  padding: 6px;
+  z-index: 60;
+}
+
+.dropdownOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.12s;
+}
+.dropdownOption:hover {
+  background: var(--tint-hover);
+}
+
+/* ── Rent custom input ───────────────────────────────────────── */
+.rentInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 4px;
+}
+
+.rentInputPrefix {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.rentInput {
+  flex: 1;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.rentInput:focus {
+  border-color: var(--brand);
+  box-shadow: var(--focus-ring);
+}
+.rentInput::-webkit-inner-spin-button,
+.rentInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.rentDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 6px;
+}
+
+/* ── Date inputs ─────────────────────────────────────────────── */
+.dateInput {
+  width: 100%;
+  height: 50px;
+  padding: 0 12px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.dateInput:focus {
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Search button ───────────────────────────────────────────── */
+.searchBtn {
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  box-shadow: 0 10px 22px -6px rgba(109, 40, 217, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: filter 0.15s, transform 0.12s;
+}
+.searchBtn:active {
+  transform: translateY(1px);
+}
+
+/* ── Popular cities ──────────────────────────────────────────── */
+.popularWrap {
+  padding: 18px 0 4px;
+}
+
+.popularLabel {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  padding: 0 22px 9px;
+}
+
+.popularScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 22px 2px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.popularScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.cityChip {
+  flex: none;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chip-text);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  padding: 8px 15px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.14s;
+}
+.cityChip:hover {
+  border-color: var(--brand);
+  background: var(--tint);
+  color: var(--brand);
+}
+
+/* ── Trust strip ─────────────────────────────────────────────── */
+.trustStrip {
+  margin: 20px 16px 24px;
+  background: var(--dark);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trustRatingRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.trustStars {
+  color: var(--google-gold);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.trustScore {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: #fff;
+}
+
+.trustSub {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.trustCount {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  color: #c084fc;
+}

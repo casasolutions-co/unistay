@@ -1,0 +1,212 @@
+/* ── Fallback map (no token) ──────────────────────────────────── */
+.fallback {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.fallbackGrid {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.5) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.5) 0 1px, transparent 1px 64px),
+    linear-gradient(135deg, #dce8df 0%, #e6ece2 40%, #dbe6ee 100%);
+}
+
+.fallbackWater1 {
+  position: absolute;
+  top: 8%;
+  right: -6%;
+  width: 52%;
+  height: 30%;
+  background: #c4dcec;
+  border-radius: 50% 40% 45% 55%;
+  opacity: .8;
+}
+
+.fallbackWater2 {
+  position: absolute;
+  bottom: 10%;
+  left: -8%;
+  width: 34%;
+  height: 26%;
+  background: #c4dcec;
+  border-radius: 45% 55% 50% 40%;
+  opacity: .7;
+}
+
+.fallbackLabel {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: rgba(28, 21, 48, .45);
+  background: rgba(255, 255, 255, .7);
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+
+.fallbackNote {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6675;
+  background: rgba(255, 255, 255, .9);
+  padding: 8px 16px;
+  border-radius: 10px;
+  white-space: nowrap;
+  border: 1px solid #e6e2ef;
+  text-align: center;
+}
+
+.fallbackNote code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #6d28d9;
+  background: #f3effe;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── Zoom controls ───────────────────────────────────────────── */
+.zoomControls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(34, 18, 68, .18);
+  overflow: hidden;
+}
+
+.zoomBtn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  color: #4a3d6b;
+  font-size: 20px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: background 0.12s;
+}
+
+.zoomBtn:hover {
+  background: #f3effe;
+  color: #6d28d9;
+}
+
+/* ── Price pins ──────────────────────────────────────────────── */
+.pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 12.5px;
+  color: #1c1530;
+  background: #fff;
+  padding: 6px 11px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px -2px rgba(76, 29, 149, .4);
+  border: 1.5px solid #fff;
+  cursor: pointer;
+  transition: transform .14s;
+  white-space: nowrap;
+}
+
+.pin:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.pinFeatured {
+  composes: pin;
+  color: #fff;
+  background: #6d28d9;
+}
+
+/* ── Popup ───────────────────────────────────────────────────── */
+.popupWrapper :global(.mapboxgl-popup-content) {
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 40, 217, .1);
+  box-shadow: 0 12px 32px -8px rgba(34, 18, 68, .35);
+  overflow: hidden;
+}
+
+.popupWrapper :global(.mapboxgl-popup-tip) {
+  border-top-color: #fff;
+}
+
+.popup {
+  padding: 13px 15px 12px;
+  min-width: 200px;
+}
+
+.popupTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: #1c1530;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popupAddress {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9a94a8;
+  margin: 0 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popupFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f0edf7;
+}
+
+.popupPrice {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: #1c1530;
+}
+
+.popupUnit {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a94a8;
+}
+
+.popupAvail {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.popupDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
