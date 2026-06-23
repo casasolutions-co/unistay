@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import styles from './page.module.css';
 import type { MapProperty } from './MapPanel';
 import { PROPERTIES } from '../data/properties';
@@ -119,7 +121,22 @@ function MenuIcon({ path }: { path: string }) {
 /* ═══════════════════════════════════════════════════════════════
    PAGE
 ═══════════════════════════════════════════════════════════════ */
+function initials(user: User | null) {
+  if (!user) return '??';
+  if (user.displayName) {
+    const parts = user.displayName.trim().split(/\s+/);
+    return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+  }
+  return (user.email?.[0] ?? '?').toUpperCase();
+}
+
 export default function SearchPage() {
+  const [authUser, setAuthUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, setAuthUser);
+  }, []);
+
   /* ── Panel state ── */
   const [open, setOpen]       = useState<OpenPanel>(null);
   const toggle = useCallback((name: OpenPanel) => setOpen(o => o === name ? null : name), []);
@@ -209,16 +226,6 @@ export default function SearchPage() {
 
         {/* ── Fixed header ── */}
         <div className={styles.mobileHeader}>
-          {/* status bar */}
-          <div className={styles.mobileStatus}>
-            <span className={styles.mobileTime}>9:41</span>
-            <div className={styles.mobileDynIsland} />
-            <div className={styles.mobileStatusRight}>
-              <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
-              <svg width="22" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" strokeOpacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.6" height="4" rx="1" fill="currentColor" fillOpacity=".6"/></svg>
-            </div>
-          </div>
-
           {/* search row */}
           <div className={styles.mobileSearchRow}>
             <div className={styles.mobileSearchField}>
@@ -658,17 +665,17 @@ export default function SearchPage() {
             <button type="button"
               className={`${styles.avatarBtn} ${isOpen('avatar') ? styles.avatarBtnOpen : ''}`}
               onClick={() => toggle('avatar')}>
-              <span className={styles.avatarInitials}>MK</span>
+              <span className={styles.avatarInitials}>{initials(authUser)}</span>
               <span className={styles.avatarChevron}><IChevG open={isOpen('avatar')} /></span>
             </button>
 
             {isOpen('avatar') && (
               <div className={styles.avatarDropdown}>
                 <div className={styles.avatarProfile}>
-                  <span className={styles.avatarProfileInitials}>MK</span>
+                  <span className={styles.avatarProfileInitials}>{initials(authUser)}</span>
                   <span style={{ minWidth: 0 }}>
-                    <span className={styles.avatarProfileName}>Mara Keller</span>
-                    <span className={styles.avatarProfileEmail}>mara.keller@example.com</span>
+                    <span className={styles.avatarProfileName}>{authUser?.displayName ?? authUser?.email?.split('@')[0] ?? 'Account'}</span>
+                    <span className={styles.avatarProfileEmail}>{authUser?.email ?? ''}</span>
                   </span>
                 </div>
                 <div className={styles.avatarDivider} />

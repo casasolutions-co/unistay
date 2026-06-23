@@ -18,39 +18,6 @@
   position: relative;
 }
 
-/* ── Status bar ──────────────────────────────────────────────── */
-.statusBar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 26px 0;
-  color: #fff;
-}
-
-.time {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.dynamicIsland {
-  position: absolute;
-  left: 50%;
-  top: 11px;
-  transform: translateX(-50%);
-  width: 110px;
-  height: 26px;
-  background: #0d0a14;
-  border-radius: 999px;
-}
-
-.statusIcons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* ── App bar ─────────────────────────────────────────────────── */
 .appBar {
   display: flex;

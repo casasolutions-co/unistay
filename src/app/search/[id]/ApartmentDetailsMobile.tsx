@@ -64,14 +64,6 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
 
             {/* Controls */}
             <div className={styles.galleryControls}>
-              <div className={styles.statusRow}>
-                <span className={styles.statusTime}>9:41</span>
-                <div className={styles.dynamicIsland} />
-                <div className={styles.statusIcons}>
-                  <svg width="17" height="12" viewBox="0 0 17 12" fill="#fff"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
-                  <svg width="22" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="#fff" strokeOpacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="#fff"/><rect x="22" y="4" width="1.6" height="4" rx="1" fill="#fff" fillOpacity=".6"/></svg>
-                </div>
-              </div>
               <div className={styles.controlsRow}>
                 <button type="button" className={styles.iconBtn} onClick={() => router.back()}>
                   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
@@ -298,12 +290,10 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
             <span className={styles.bookingAmount}>€{fmtN(warmRent)}</span>
             <span className={styles.bookingPer}>/mo</span>
           </div>
-          {p.incl && (
-            <span className={styles.bookingIncl}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-              Utilities incl.
-            </span>
-          )}
+          <span className={styles.bookingIncl}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Utilities incl.
+          </span>
         </div>
         <button type="button" className={styles.bookingBtn}>Request to book</button>
       </div>

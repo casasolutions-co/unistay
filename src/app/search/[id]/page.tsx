@@ -3,9 +3,20 @@
 import { useState, useEffect, use, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { PROPERTIES, Property, PropertyPhoto } from '../../data/properties';
 import styles from './page.module.css';
 import ApartmentDetailsMobile from './ApartmentDetailsMobile';
+
+function initials(user: User | null) {
+  if (!user) return '??';
+  if (user.displayName) {
+    const parts = user.displayName.trim().split(/\s+/);
+    return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+  }
+  return (user.email?.[0] ?? '?').toUpperCase();
+}
 
 /* ── SVGs ───────────────────────────────────────────────────────── */
 const IBack = () => (
@@ -95,6 +106,9 @@ export default function DetailsPage({ params }: PageProps) {
   
   // Find property
   const property = PROPERTIES.find(p => p.id === id) || PROPERTIES[0];
+
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
   // States
   const [saved, setSaved] = useState(false);
@@ -208,7 +222,7 @@ export default function DetailsPage({ params }: PageProps) {
           <button type="button" className={styles.bellBtn}>
             <IBell /><span className={styles.bellDot} />
           </button>
-          <span className={styles.avatar}>MK</span>
+          <span className={styles.avatar}>{initials(authUser)}</span>
         </div>
       </nav>
 

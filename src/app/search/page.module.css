@@ -896,38 +896,6 @@
   border-bottom: 1px solid #eee9f6;
 }
 
-.mobileStatus {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 13px 26px 4px;
-  color: #1c1530;
-  position: relative;
-}
-
-.mobileTime {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.mobileDynIsland {
-  position: absolute;
-  left: 50%;
-  top: 10px;
-  transform: translateX(-50%);
-  width: 110px;
-  height: 26px;
-  background: #0d0a14;
-  border-radius: 999px;
-}
-
-.mobileStatusRight {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* ── Mobile search row ── */
 .mobileSearchRow {
   display: flex;

@@ -87,23 +87,6 @@ const GoogleIcon = () => (
   </svg>
 );
 
-/* Signal bars SVG */
-const ISignal = () => (
-  <svg width="17" height="12" viewBox="0 0 17 12" fill="#fff">
-    <rect x="0" y="7" width="3" height="5" rx="1" />
-    <rect x="4.5" y="4.5" width="3" height="7.5" rx="1" />
-    <rect x="9" y="2" width="3" height="10" rx="1" />
-    <rect x="13.5" y="0" width="3" height="12" rx="1" />
-  </svg>
-);
-
-/* Battery SVG */
-const IBattery = () => (
-  <svg width="22" height="12" viewBox="0 0 24 12" fill="none">
-    <rect x="1" y="1" width="20" height="10" rx="2.5" stroke="#fff" strokeOpacity=".5" />
-    <rect x="3" y="3" width="14" height="6" rx="1" fill="#fff" />
-  </svg>
-);
 
 /* ── Main component ─────────────────────────────────────────────── */
 interface RegisterMobileProps {
@@ -190,15 +173,6 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
 
       {/* ── Photo banner ── */}
       <div className={styles.photoBanner}>
-
-        {/* Status bar */}
-        <div className={styles.statusBar}>
-          <span className={styles.time}>9:41</span>
-          <div className={styles.dynamicIsland} />
-          <div className={styles.statusIcons}>
-            <ISignal /><IBattery />
-          </div>
-        </div>
 
         {/* App bar */}
         <div className={styles.appBar}>

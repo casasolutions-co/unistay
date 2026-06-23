@@ -57,39 +57,7 @@
   top: 0;
   left: 0;
   right: 0;
-  padding: 48px 20px 0;
-}
-
-.statusRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #fff;
-  margin-bottom: 12px;
-  position: relative;
-}
-
-.statusTime {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.dynamicIsland {
-  position: absolute;
-  left: 50%;
-  top: -36px;
-  transform: translateX(-50%);
-  width: 110px;
-  height: 26px;
-  background: #0d0a14;
-  border-radius: 999px;
-}
-
-.statusIcons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  padding: 54px 20px 0;
 }
 
 .controlsRow {
