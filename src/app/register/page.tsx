@@ -2,19 +2,30 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, getAdditionalUserInfo } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './page.module.css';
 import RegisterMobile from './RegisterMobile';
 import LegalModal from '../components/LegalModal';
 
-async function syncUser(token: string, role?: string) {
+async function syncUser(token: string, role?: string): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, role }),
   });
   if (!res.ok) throw new Error('Sync failed');
+  const { user } = await res.json();
+  return !!user?.profile_complete;
+}
+
+async function saveProfile(token: string, data: Record<string, string | null>) {
+  const res = await fetch('/api/user/profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, ...data }),
+  });
+  if (!res.ok) throw new Error('Profile save failed');
 }
 
 type Role = 'student' | 'employed' | null;
@@ -84,6 +95,10 @@ export default function RegisterPage() {
       await updateProfile(cred.user, { displayName: name });
       const token = await cred.user.getIdToken();
       await syncUser(token, role ?? 'student');
+      await saveProfile(token, {
+        name, phone, nationality, role: role ?? 'student',
+        university, program, startYear, jobTitle, why,
+      });
       router.push('/search');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
@@ -105,9 +120,8 @@ export default function RegisterPage() {
     try {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
-      await syncUser(token, 'student');
-      const isNew = getAdditionalUserInfo(cred)?.isNewUser;
-      router.push(isNew ? '/register/complete' : '/search');
+      const profileComplete = await syncUser(token, 'student');
+      router.push(profileComplete ? '/search' : '/register/complete');
     } catch {
       setError('Google sign-in failed. Please try again.');
     } finally {

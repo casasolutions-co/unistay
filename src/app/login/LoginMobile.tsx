@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, getAdditionalUserInfo } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './LoginMobile.module.css';
 
-async function syncUser(token: string) {
+async function syncUser(token: string): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
   });
   if (!res.ok) throw new Error('Sync failed');
+  const { user } = await res.json();
+  return !!user?.profile_complete;
 }
 
 /* ── Icons ──────────────────────────────────────────────────────── */
@@ -88,8 +90,8 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();
-      await syncUser(token);
-      router.push('/search');
+      const profileComplete = await syncUser(token);
+      router.push(profileComplete ? '/search' : '/register/complete');
     } catch {
       setError('Incorrect email or password.');
     } finally {
@@ -103,9 +105,8 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
     try {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
-      await syncUser(token);
-      const isNew = getAdditionalUserInfo(cred)?.isNewUser;
-      router.push(isNew ? '/register/complete' : '/search');
+      const profileComplete = await syncUser(token);
+      router.push(profileComplete ? '/search' : '/register/complete');
     } catch {
       setError('Google sign-in failed.');
     } finally {

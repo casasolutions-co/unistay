@@ -31,9 +31,9 @@ export async function POST(req: NextRequest) {
     [decoded.uid, decoded.email ?? '', userRole, now, now]
   );
 
-  // Return the user record
+  // Return the user record including profile completeness
   const [user] = await d1Query(
-    'SELECT id, email, role, verification_status FROM users WHERE id = ?',
+    'SELECT id, email, role, verification_status, profile_complete FROM users WHERE id = ?',
     [decoded.uid]
   );
 
