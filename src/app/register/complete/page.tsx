@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import styles from '../page.module.css';
+import CompleteProfileMobile from './CompleteProfileMobile';
 
 type Role = 'student' | 'employed' | null;
 
@@ -52,6 +53,11 @@ export default function CompleteProfile() {
   }
 
   return (
+    <>
+      <div className={styles.mobileOnly}>
+        <CompleteProfileMobile />
+      </div>
+      <div className={styles.desktopOnly}>
     <div className={styles.page}>
       <nav className={styles.nav}>
         <div className={styles.brand}>
@@ -208,5 +214,7 @@ export default function CompleteProfile() {
         </div>
       </div>
     </div>
+      </div>
+    </>
   );
 }
