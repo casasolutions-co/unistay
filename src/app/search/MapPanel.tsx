@@ -5,7 +5,7 @@ import Map, { Marker, NavigationControl, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import styles from './MapPanel.module.css';
 
-const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+const TOKEN = process.env.MAPBOX_TOKEN ?? '';
 
 export interface MapProperty {
   title: string;
@@ -41,7 +41,7 @@ export default function MapPanel({ properties }: Props) {
         <div className={styles.fallbackWater2} />
         <span className={styles.fallbackLabel}>[ interactive map — Munich ]</span>
         <div className={styles.fallbackNote}>
-          Add <code>NEXT_PUBLIC_MAPBOX_TOKEN</code> to <code>.env.local</code> to enable the map
+          Add <code>MAPBOX_TOKEN</code> to <code>.env.local</code> to enable the map
         </div>
         <div className={styles.zoomControls}>
           <button className={styles.zoomBtn} style={{ borderBottom: '1px solid #efecf5' }}>+</button>
