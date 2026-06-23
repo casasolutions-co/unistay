@@ -1,0 +1,736 @@
+/* ── Screen ── */
+.screen {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  background: #f7f6fa;
+  font-family: var(--font-ui);
+  color: #1c1530;
+  overflow-x: hidden;
+}
+
+/* ── Scroll area ── */
+.scrollArea {
+  position: relative;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scrollArea::-webkit-scrollbar { display: none; }
+
+/* ── Gallery ── */
+.gallery {
+  position: relative;
+}
+
+.galleryTrack {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.galleryTrack::-webkit-scrollbar { display: none; }
+
+.gallerySlide {
+  flex: none;
+  width: 100vw;
+  height: 300px;
+  scroll-snap-align: center;
+  display: grid;
+  place-items: center;
+}
+
+.galleryGradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(20,14,32,.6) 0%, rgba(20,14,32,0) 100%);
+  pointer-events: none;
+}
+
+/* ── Gallery overlay controls ── */
+.galleryControls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 48px 20px 0;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.statusTime {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.dynamicIsland {
+  position: absolute;
+  left: 50%;
+  top: -36px;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 26px;
+  background: #0d0a14;
+  border-radius: 999px;
+}
+
+.statusIcons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.controlsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.iconBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,.92);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #1c1530;
+  box-shadow: 0 2px 8px rgba(20,14,32,.25);
+  text-decoration: none;
+}
+
+.iconBtnGroup {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.photoPill {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(20,14,32,.7);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Title block ── */
+.titleBlock {
+  padding: 18px 20px 4px;
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.badgeCasa {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: #fff;
+  background: #6d28d9;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.badgeAvail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: #27ae73;
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+
+.availDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1.08;
+  letter-spacing: -.025em;
+  margin: 0 0 10px;
+  color: #1c1530;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b6675;
+  margin-bottom: 8px;
+}
+
+.ratingRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c1530;
+}
+
+.ratingCount {
+  font-weight: 600;
+  color: #9a94a8;
+}
+
+/* ── Stat band ── */
+.statGrid {
+  margin: 18px 16px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #fff;
+  border: 1px solid #efecf5;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(34,18,68,.05);
+  overflow: hidden;
+}
+
+.statCell {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-right: 1px solid #f0edf7;
+  border-bottom: 1px solid #f0edf7;
+}
+
+.statIcon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: #f3effe;
+  display: grid;
+  place-items: center;
+  color: #6d28d9;
+}
+
+.statValue {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: #1c1530;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #9a94a8;
+  margin-top: 3px;
+}
+
+/* ── Section ── */
+.section {
+  padding: 24px 20px;
+  margin: 0 4px;
+  border-bottom: 1px solid #ece8f3;
+}
+
+.sectionFirst {
+  padding: 26px 20px 24px;
+  margin: 0 4px;
+  border-bottom: 1px solid #ece8f3;
+}
+
+.sectionH2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -.01em;
+  color: #1c1530;
+  margin: 0 0 12px;
+}
+
+.sectionSub {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #9a94a8;
+  margin: 0 0 14px;
+}
+
+.bodyText {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #4a4654;
+  margin: 0 0 12px;
+}
+.bodyText:last-child { margin-bottom: 0; }
+
+/* ── Amenities grid ── */
+.amenitiesGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+
+.amenityItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.amenityIcon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f3effe;
+  display: grid;
+  place-items: center;
+  color: #6d28d9;
+}
+
+.amenityLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1c1530;
+}
+
+/* ── Map placeholder ── */
+.mapPlaceholder {
+  position: relative;
+  height: 200px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e3ece1;
+  margin-bottom: 16px;
+}
+
+.mapBg {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.5) 0 1px, transparent 1px 52px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.5) 0 1px, transparent 1px 52px),
+    linear-gradient(135deg, #dce8df 0%, #e6ece2 40%, #dbe6ee 100%);
+}
+
+.mapWater {
+  position: absolute;
+  top: 10%;
+  right: -6%;
+  width: 48%;
+  height: 32%;
+  background: #c4dcec;
+  border-radius: 50% 40% 45% 55%;
+  opacity: .8;
+}
+
+.mapPin {
+  position: absolute;
+  top: 50%;
+  left: 48%;
+  width: 42px;
+  height: 42px;
+  border-radius: 50% 50% 50% 0;
+  background: #6d28d9;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  box-shadow: 0 6px 16px -4px rgba(76,29,149,.5);
+  display: grid;
+  place-items: center;
+}
+
+.mapPinInner {
+  transform: rotate(45deg);
+  display: inline-flex;
+  color: #fff;
+}
+
+/* ── Nearby list ── */
+.nearbyList {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.nearbyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a4654;
+}
+
+.nearbyIcon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #f0f5f1;
+  display: grid;
+  place-items: center;
+  color: #1f8a5b;
+}
+
+.nearbyDist {
+  color: #9a94a8;
+}
+
+/* ── Cost breakdown ── */
+.costCard {
+  background: #fff;
+  border: 1px solid #efecf5;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(34,18,68,.05);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.costRow {
+  padding: 15px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.costRowDashed {
+  padding: 15px 18px;
+  border-top: 1px dashed #ece8f3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.costRowTotal {
+  padding: 16px 18px;
+  border-top: 1px solid #ece8f3;
+  background: #f3effe;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.costLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c1530;
+}
+
+.costSub {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a94a8;
+}
+
+.costTotalLabel {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  color: #4a1d95;
+}
+
+.costTotalSub {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a6fc0;
+}
+
+.costValue {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: #1c1530;
+}
+
+.costTotalValue {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 21px;
+  color: #6d28d9;
+}
+
+.costTotalPer {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a6fc0;
+}
+
+.costOneTime {
+  background: #fff;
+  border: 1px solid #efecf5;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(34,18,68,.05);
+  padding: 4px 18px;
+}
+
+.costDueRow {
+  padding: 16px 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.costDueLabel {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14.5px;
+  color: #1c1530;
+}
+
+.costDueValue {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  color: #1c1530;
+}
+
+/* ── Host card ── */
+.hostSection {
+  padding: 24px 20px;
+}
+
+.hostCard {
+  background: #fff;
+  border: 1px solid #efecf5;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.hostTop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.hostAvatar {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #312942, #1c1530);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: #fff;
+}
+
+.hostNameRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hostName {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: #1c1530;
+}
+
+.hostVerified {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d28d9;
+  background: #f3effe;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.hostMeta {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #9a94a8;
+  margin-top: 3px;
+}
+
+.messageBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 48px;
+  border: 1.5px solid #ddd0f6;
+  border-radius: 13px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #6d28d9;
+  background: #fff;
+  transition: background .14s;
+}
+.messageBtn:hover { background: #f3effe; }
+
+/* ── Spacer ── */
+.bottomSpacer { height: 96px; }
+
+/* ── Full-screen gallery ── */
+.galleryOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #14121a;
+  display: flex;
+  flex-direction: column;
+}
+
+.galleryOverlayHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 52px 18px 12px;
+}
+
+.galleryOverlayTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+}
+
+.galleryOverlayClose {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,.14);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #fff;
+}
+
+.galleryOverlayScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 14px 28px;
+  scrollbar-width: none;
+}
+.galleryOverlayScroll::-webkit-scrollbar { display: none; }
+
+.galleryOverlayPhoto {
+  position: relative;
+  width: 100%;
+  height: 210px;
+  border-radius: 14px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+}
+
+.photoLabel {
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+  color: rgba(255,255,255,.5);
+  background: rgba(20,14,32,.4);
+  padding: 4px 10px;
+  border-radius: 7px;
+}
+
+/* ── Booking bar ── */
+.bookingBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: rgba(255,255,255,.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid #ece8f3;
+  box-shadow: 0 -8px 28px -16px rgba(34,18,68,.4);
+  padding: 12px 18px 34px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bookingPrice {
+  flex: 1;
+  min-width: 0;
+}
+
+.bookingPriceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.bookingAmount {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 23px;
+  color: #1c1530;
+}
+
+.bookingPer {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9a94a8;
+}
+
+.bookingIncl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1f8a5b;
+}
+
+.bookingBtn {
+  flex: none;
+  height: 52px;
+  padding: 0 26px;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  box-shadow: 0 10px 22px -6px rgba(109,40,217,.55), inset 0 1px 0 rgba(255,255,255,.22);
+  transition: filter .15s;
+}
+.bookingBtn:active { transform: translateY(1px); }

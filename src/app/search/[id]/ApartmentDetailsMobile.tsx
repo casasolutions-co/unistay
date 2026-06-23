@@ -1,0 +1,312 @@
+'use client';
+
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { Property } from '../../data/properties';
+import styles from './ApartmentDetailsMobile.module.css';
+
+function fmtN(n: number) { return n.toLocaleString('en-US'); }
+
+const PHOTO_BGS = [
+  'repeating-linear-gradient(135deg, #2a2336 0 22px, #312942 22px 44px)',
+  'repeating-linear-gradient(135deg, #2f2740 0 22px, #372e4a 22px 44px)',
+  'repeating-linear-gradient(135deg, #2a2336 0 22px, #332b46 22px 44px)',
+];
+
+interface Props { property: Property; }
+
+export default function ApartmentDetailsMobile({ property: p }: Props) {
+  const router = useRouter();
+  const [saved, setSaved] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  const photos = p.photos ?? [];
+  const warmRent = p.price;
+  const dueTotal = warmRent + p.deposit + p.serviceFee;
+
+  function onGalleryScroll() {
+    const el = galleryRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== galleryIndex) setGalleryIndex(idx);
+  }
+
+  return (
+    <>
+      <div className={styles.screen}>
+        <div className={styles.scrollArea}>
+
+          {/* ── Gallery ── */}
+          <div className={styles.gallery}>
+            <div
+              className={styles.galleryTrack}
+              ref={galleryRef}
+              onScroll={onGalleryScroll}
+            >
+              {photos.length > 0 ? photos.map((ph, i) => (
+                <div
+                  key={i}
+                  className={styles.gallerySlide}
+                  style={{ background: PHOTO_BGS[i % PHOTO_BGS.length] }}
+                >
+                  <span className={styles.photoLabel}>[ {ph.label} ]</span>
+                </div>
+              )) : (
+                <div className={styles.gallerySlide} style={{ background: PHOTO_BGS[0] }}>
+                  <span className={styles.photoLabel}>[ photo ]</span>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.galleryGradient} />
+
+            {/* Controls */}
+            <div className={styles.galleryControls}>
+              <div className={styles.statusRow}>
+                <span className={styles.statusTime}>9:41</span>
+                <div className={styles.dynamicIsland} />
+                <div className={styles.statusIcons}>
+                  <svg width="17" height="12" viewBox="0 0 17 12" fill="#fff"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
+                  <svg width="22" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="#fff" strokeOpacity=".5"/><rect x="3" y="3" width="14" height="6" rx="1" fill="#fff"/><rect x="22" y="4" width="1.6" height="4" rx="1" fill="#fff" fillOpacity=".6"/></svg>
+                </div>
+              </div>
+              <div className={styles.controlsRow}>
+                <button type="button" className={styles.iconBtn} onClick={() => router.back()}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+                </button>
+                <div className={styles.iconBtnGroup}>
+                  <button type="button" className={styles.iconBtn}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    onClick={() => setSaved(s => !s)}
+                    style={{ color: saved ? '#6d28d9' : '#1c1530' }}
+                  >
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? '#6d28d9' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Photo count pill */}
+            {photos.length > 0 && (
+              <button type="button" className={styles.photoPill} onClick={() => setGalleryOpen(true)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                {galleryIndex + 1} / {photos.length}
+              </button>
+            )}
+          </div>
+
+          {/* ── Title block ── */}
+          <div className={styles.titleBlock}>
+            <div className={styles.badgeRow}>
+              <span className={styles.badgeCasa}>{p.badge}</span>
+              {p.now && (
+                <span className={styles.badgeAvail}>
+                  <span className={styles.availDot} />
+                  Available now
+                </span>
+              )}
+            </div>
+            <h1 className={styles.h1}>{p.title}</h1>
+            <div className={styles.addressRow}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b0aabf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              {p.address}
+            </div>
+            <div className={styles.ratingRow}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="#f5a623" stroke="#f5a623" strokeWidth="1.5" strokeLinejoin="round"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              {p.rating ?? '4.86'} <span className={styles.ratingCount}>· {p.reviewsCount ?? 32} reviews</span>
+            </div>
+          </div>
+
+          {/* ── Stat band ── */}
+          <div className={styles.statGrid}>
+            {[
+              { value: `${p.area} m²`, label: 'Living area', icon: 'M21 3 3 21M9 3H3v6M21 15v6h-6' },
+              { value: p.beds, label: 'Bedrooms', icon: 'M2 11h20M2 11V6a2 2 0 0 1 2-2h6v7M22 11v6M2 17h20M4 20v-3M20 20v-3' },
+              { value: p.bathrooms ?? '1 bath', label: 'Bathroom', icon: 'M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1ZM6 12V5a2 2 0 0 1 2-2c1 0 1.5.5 2 1' },
+              { value: p.floor ?? '3rd flr', label: 'with lift', icon: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M9 3v18M14 9l3-3 3 3M14 15l3 3 3-3' },
+            ].map((s, i) => (
+              <div key={i} className={styles.statCell}>
+                <span className={styles.statIcon}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={s.icon}/></svg>
+                </span>
+                <div>
+                  <div className={styles.statValue}>{s.value}</div>
+                  <div className={styles.statLabel}>{s.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── About ── */}
+          <div className={styles.sectionFirst}>
+            <h2 className={styles.sectionH2}>About this place</h2>
+            <p className={styles.bodyText}>{p.description}</p>
+          </div>
+
+          {/* ── Amenities ── */}
+          {p.amenities?.length > 0 && (
+            <div className={styles.section}>
+              <h2 className={styles.sectionH2}>What this place offers</h2>
+              <div className={styles.amenitiesGrid}>
+                {p.amenities.map((a, i) => (
+                  <div key={i} className={styles.amenityItem}>
+                    <span className={styles.amenityIcon}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={a.icon}/></svg>
+                    </span>
+                    <span className={styles.amenityLabel}>{a.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Location ── */}
+          <div className={styles.section}>
+            <h2 className={styles.sectionH2}>Where you&apos;ll be</h2>
+            <p className={styles.sectionSub}>{p.city} · Germany</p>
+            <div className={styles.mapPlaceholder}>
+              <div className={styles.mapBg} />
+              <div className={styles.mapWater} />
+              <div className={styles.mapPin}>
+                <span className={styles.mapPinInner}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V20h13V9.8"/></svg>
+                </span>
+              </div>
+            </div>
+            {p.nearby?.length > 0 && (
+              <div className={styles.nearbyList}>
+                {p.nearby.map((n, i) => (
+                  <span key={i} className={styles.nearbyItem}>
+                    <span className={styles.nearbyIcon}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={n.icon}/></svg>
+                    </span>
+                    {n.label} <span className={styles.nearbyDist}>· {n.dist}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Cost breakdown ── */}
+          <div className={styles.section}>
+            <h2 className={styles.sectionH2}>What you&apos;ll pay</h2>
+            <p className={styles.sectionSub}>Transparent monthly cost and one-time deposit — no hidden fees.</p>
+
+            <div className={styles.costCard}>
+              <div className={styles.costRow}>
+                <div>
+                  <div className={styles.costLabel}>Cold rent</div>
+                  <div className={styles.costSub}>Kaltmiete · base rent</div>
+                </div>
+                <span className={styles.costValue}>€{fmtN(p.coldRent)}</span>
+              </div>
+              <div className={styles.costRowDashed}>
+                <div>
+                  <div className={styles.costLabel}>Utilities</div>
+                  <div className={styles.costSub}>Nebenkosten · heating, water, internet</div>
+                </div>
+                <span className={styles.costValue}>+ €{fmtN(p.utilities)}</span>
+              </div>
+              <div className={styles.costRowTotal}>
+                <div>
+                  <div className={styles.costTotalLabel}>Warm rent</div>
+                  <div className={styles.costTotalSub}>Warmmiete · total per month</div>
+                </div>
+                <span className={styles.costTotalValue}>€{fmtN(warmRent)}<span className={styles.costTotalPer}> /mo</span></span>
+              </div>
+            </div>
+
+            <div className={styles.costOneTime}>
+              <div className={styles.costRowDashed}>
+                <div>
+                  <div className={styles.costLabel}>Deposit</div>
+                  <div className={styles.costSub}>Kaution · 2 months, refundable</div>
+                </div>
+                <span className={styles.costValue}>€{fmtN(p.deposit)}</span>
+              </div>
+              <div className={styles.costRowDashed}>
+                <div>
+                  <div className={styles.costLabel}>Service fee</div>
+                  <div className={styles.costSub}>UniStay · one-time</div>
+                </div>
+                <span className={styles.costValue}>€{fmtN(p.serviceFee)}</span>
+              </div>
+              <div className={styles.costDueRow}>
+                <span className={styles.costDueLabel}>Due at move-in</span>
+                <span className={styles.costDueValue}>€{fmtN(dueTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Host ── */}
+          <div className={styles.hostSection}>
+            <div className={styles.hostCard}>
+              <div className={styles.hostTop}>
+                <div className={styles.hostAvatar}>C</div>
+                <div>
+                  <div className={styles.hostNameRow}>
+                    <span className={styles.hostName}>Listed by Casa</span>
+                    <span className={styles.hostVerified}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Verified
+                    </span>
+                  </div>
+                  <div className={styles.hostMeta}>Replies within an hour · 240+ listings</div>
+                </div>
+              </div>
+              <button type="button" className={styles.messageBtn}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Message host
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.bottomSpacer} />
+        </div>
+      </div>
+
+      {/* ── Full-screen gallery overlay ── */}
+      {galleryOpen && (
+        <div className={styles.galleryOverlay}>
+          <div className={styles.galleryOverlayHeader}>
+            <button type="button" className={styles.galleryOverlayClose} onClick={() => setGalleryOpen(false)}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+            <span className={styles.galleryOverlayTitle}>All photos · {photos.length}</span>
+            <span style={{ width: 40 }} />
+          </div>
+          <div className={styles.galleryOverlayScroll}>
+            {photos.map((ph, i) => (
+              <div key={i} className={styles.galleryOverlayPhoto} style={{ background: PHOTO_BGS[i % PHOTO_BGS.length] }}>
+                <span className={styles.photoLabel}>[ {ph.label} ]</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Booking bar ── */}
+      <div className={styles.bookingBar}>
+        <div className={styles.bookingPrice}>
+          <div className={styles.bookingPriceRow}>
+            <span className={styles.bookingAmount}>€{fmtN(warmRent)}</span>
+            <span className={styles.bookingPer}>/mo</span>
+          </div>
+          {p.incl && (
+            <span className={styles.bookingIncl}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Utilities incl.
+            </span>
+          )}
+        </div>
+        <button type="button" className={styles.bookingBtn}>Request to book</button>
+      </div>
+    </>
+  );
+}

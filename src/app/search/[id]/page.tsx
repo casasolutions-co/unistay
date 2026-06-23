@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PROPERTIES, Property, PropertyPhoto } from '../../data/properties';
 import styles from './page.module.css';
+import ApartmentDetailsMobile from './ApartmentDetailsMobile';
 
 /* ── SVGs ───────────────────────────────────────────────────────── */
 const IBack = () => (
@@ -159,6 +160,14 @@ export default function DetailsPage({ params }: PageProps) {
 
   return (
     <div style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif', color: '#1c1530', background: 'var(--page)', minHeight: '100vh' }}>
+
+      {/* ── MOBILE VIEW ── */}
+      <div className={styles.mobileOnly}>
+        <ApartmentDetailsMobile property={property} />
+      </div>
+
+      {/* ── DESKTOP VIEW ── */}
+      <div className={styles.desktopOnly}>
       
       {/* ── TOAST NOTIFICATIONS ── */}
       {copied && (
@@ -650,6 +659,8 @@ export default function DetailsPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      </div>{/* end desktopOnly */}
 
     </div>
   );
