@@ -8,6 +8,7 @@ import styles from './MapPanel.module.css';
 const TOKEN = process.env.MAPBOX_TOKEN ?? '';
 
 export interface MapProperty {
+  id: string;
   title: string;
   address: string;
   price: number;
@@ -49,7 +50,7 @@ export default function MapPanel({ properties }: Props) {
         </div>
         {properties.map(p => (
           <span
-            key={p.title}
+            key={p.id}
             className={p.featured ? styles.pinFeatured : styles.pin}
             style={{ top: `${24 + Math.random() * 50}%`, left: `${20 + Math.random() * 60}%` }}
           >
@@ -60,6 +61,14 @@ export default function MapPanel({ properties }: Props) {
     );
   }
 
+  // One pin per unique coordinate — show cheapest listing at each location
+  const pinMap: Record<string, MapProperty> = {}
+  for (const p of properties) {
+    const k = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`
+    if (!pinMap[k] || p.price < pinMap[k].price) pinMap[k] = p
+  }
+  const pins = Object.values(pinMap)
+
   return (
     <Map
       mapboxAccessToken={TOKEN}
@@ -69,8 +78,8 @@ export default function MapPanel({ properties }: Props) {
     >
       <NavigationControl position="top-right" showCompass={false} />
 
-      {properties.map(p => (
-        <Marker key={p.title} longitude={p.lng} latitude={p.lat} anchor="center">
+      {pins.map(p => (
+        <Marker key={p.id} longitude={p.lng} latitude={p.lat} anchor="center">
           <button
             className={p.featured ? styles.pinFeatured : styles.pin}
             onMouseEnter={() => onEnter(p)}

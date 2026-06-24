@@ -7,7 +7,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './page.module.css';
 import type { MapProperty } from './MapPanel';
-import { PROPERTIES } from '../data/properties';
+import type { UnifiedListing } from '@/lib/listings/types';
 
 const MapPanel = dynamic(() => import('./MapPanel'), { ssr: false });
 
@@ -188,24 +188,52 @@ export default function SearchPage() {
   const pc = (name: OpenPanel, set: boolean) =>
     isOpen(name) ? styles.pillOpen : set ? styles.pillSet : styles.pill;
 
-  /* ── Filter + sort properties ── */
-  const q = query.trim().toLowerCase();
-  let filtered = PROPERTIES.filter(p => {
-    if (q && !(p.title + ' ' + p.address + ' ' + p.city).toLowerCase().includes(q)) return false;
-    if (typeSet   && p.type  !== filterType)  return false;
-    if (sourceSet && p.badge !== filterSource) return false;
-    if (p.price < lo || p.price > hi)         return false;
-    return true;
-  });
-  if      (filterSort === 'price_asc')  filtered = [...filtered].sort((a, b) => a.price - b.price);
-  else if (filterSort === 'price_desc') filtered = [...filtered].sort((a, b) => b.price - a.price);
-  else if (filterSort === 'area_desc')  filtered = [...filtered].sort((a, b) => b.area  - a.area);
-  else                                  filtered = [...filtered].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+  /* ── API-fetched listings ── */
+  const [listings, setListings]         = useState<UnifiedListing[]>([]);
+  const [partnerTotal, setPartnerTotal] = useState(0);
+  const [hasMore, setHasMore]           = useState(false);
+  const [loadingMore, setLoadingMore]   = useState(false);
+  const [page, setPage]                 = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+    setListings([]);
+  }, [query, filterType, filterSource, minVal, maxVal, moveIn]);
+
+  useEffect(() => {
+    if (!query.trim()) return;
+    const params = new URLSearchParams({ city: query.trim(), page: String(page) });
+    if (minVal > 0)              params.set('minPrice', String(lo));
+    if (maxVal < 3000)           params.set('maxPrice', String(hi));
+    if (typeSet)                 params.set('type', filterType);
+    if (sourceSet)               params.set('source', filterSource);
+    if (moveIn)                  params.set('moveIn', moveIn);
+
+    const ctrl = new AbortController();
+    (page === 1 ? fetch : (url: string, init: RequestInit) => { setLoadingMore(true); return fetch(url, init); })(
+      `/api/listings?${params}`, { signal: ctrl.signal }
+    )
+      .then(r => r.json())
+      .then(data => {
+        setListings(prev => page === 1 ? data.listings : [...prev, ...data.listings]);
+        setPartnerTotal(data.partnerTotal);
+        setHasMore(data.hasMore);
+        setLoadingMore(false);
+      })
+      .catch(() => { setLoadingMore(false); });
+    return () => ctrl.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, page, filterType, filterSource, lo, hi, moveIn]);
+
+  let filtered = listings;
+  if      (filterSort === 'price_asc')  filtered = [...listings].sort((a, b) => a.price - b.price);
+  else if (filterSort === 'price_desc') filtered = [...listings].sort((a, b) => b.price - a.price);
+  else if (filterSort === 'area_desc')  filtered = [...listings].sort((a, b) => b.area  - a.area);
 
   const mapProps: MapProperty[] = filtered.map(p => ({
-    title: p.title, address: p.address, price: p.price,
-    featured: p.featured, lat: p.lat,   lng: p.lng,
-    now: p.now,           avail: p.avail,
+    id: p.id, title: p.title, address: p.address, price: p.price,
+    featured: p.featured, lat: p.lat, lng: p.lng,
+    now: p.now, avail: p.avail,
   }));
 
 
@@ -333,7 +361,7 @@ export default function SearchPage() {
           {/* count + sort row */}
           <div className={styles.mobileResultsBar}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-              <span className={styles.mobileResultCount}>{filtered.length}</span>
+              <span className={styles.mobileResultCount}>{partnerTotal + filtered.filter(l => l.source === 'casa').length || filtered.length}</span>
               <span className={styles.mobileResultSub}>stays{cityName ? ` in ${cityName}` : ''}</span>
             </div>
             <button type="button" className={styles.mobileSortBtn} onClick={() => setMobileSheet('sort')}>
@@ -352,12 +380,12 @@ export default function SearchPage() {
                   <div key={p.id} className={styles.mobileCard}>
                     <Link href={`/search/${p.id}`} className={styles.mobileCardLink}>
                       <div className={styles.mobileCardImg}
-                        style={{ background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}>
+                        style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}>
                         <span className={styles.mobileCardBadge}
                           style={{ background: p.badge === 'PARTNER' ? '#1c1530' : '#6d28d9' }}>
                           {p.badge}
                         </span>
-                        <span className={styles.mobileCardImgLabel}>[ photo ]</span>
+                        {!p.coverPhoto && <span className={styles.mobileCardImgLabel}>[ photo ]</span>}
                       </div>
                       <div className={styles.mobileCardBody}>
                         <h3 className={styles.mobileCardTitle}>{p.title}</h3>
@@ -393,6 +421,19 @@ export default function SearchPage() {
               <div className={styles.noResultsTitle}>No places match</div>
               <div className={styles.noResultsSub}>Try widening your budget or clearing a filter.</div>
               <button type="button" className={styles.resetBtn} onClick={resetFilters}>Reset filters</button>
+            </div>
+          )}
+
+          {hasMore && (
+            <div style={{ padding: '16px 16px 0', textAlign: 'center' }}>
+              <button
+                type="button"
+                className={styles.resetBtn}
+                onClick={() => setPage(p => p + 1)}
+                disabled={loadingMore}
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
             </div>
           )}
 
@@ -516,7 +557,7 @@ export default function SearchPage() {
             </div>
             <div className={styles.mobileSheetFooter}>
               <button type="button" className={styles.mobileShowBtn} onClick={() => setMobileSheet(null)}>
-                Show {filtered.length} stays
+                Show stays
               </button>
             </div>
           </div>
@@ -836,7 +877,7 @@ export default function SearchPage() {
           {/* Results */}
           <div>
             <div className={styles.resultsHeader}>
-              <span className={styles.resultCount}>{filtered.length}</span>
+              <span className={styles.resultCount}>{partnerTotal + filtered.filter(l => l.source === 'casa').length || filtered.length}</span>
               <span className={styles.resultSub}>
                 properties{cityName ? ` in ${cityName}` : ''}
               </span>
@@ -851,7 +892,7 @@ export default function SearchPage() {
                       {/* Image */}
                       <div
                         className={styles.cardImg}
-                        style={{ background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}
+                        style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}
                       >
                         <span
                           className={styles.cardBadge}
@@ -859,7 +900,7 @@ export default function SearchPage() {
                         >
                           {p.badge}
                         </span>
-                        <span className={styles.cardImgLabel}>[ photo ]</span>
+                        {!p.coverPhoto && <span className={styles.cardImgLabel}>[ photo ]</span>}
                       </div>
 
                       {/* Body */}
@@ -897,6 +938,18 @@ export default function SearchPage() {
                 <div className={styles.noResultsSub}>Try widening your budget or clearing a filter.</div>
                 <button type="button" className={styles.resetBtn} onClick={resetFilters}>
                   Reset filters
+                </button>
+              </div>
+            )}
+            {hasMore && (
+              <div style={{ marginTop: 24, textAlign: 'center' }}>
+                <button
+                  type="button"
+                  className={styles.resetBtn}
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Load more'}
                 </button>
               </div>
             )}

@@ -3,6 +3,9 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Property } from '../../data/properties';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyListing = Property & { source?: string; externalLink?: string | null; [key: string]: any };
 import styles from './ApartmentDetailsMobile.module.css';
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
@@ -13,7 +16,7 @@ const PHOTO_BGS = [
   'repeating-linear-gradient(135deg, #2a2336 0 22px, #332b46 22px 44px)',
 ];
 
-interface Props { property: Property; }
+interface Props { property: AnyListing; }
 
 export default function ApartmentDetailsMobile({ property: p }: Props) {
   const router = useRouter();
@@ -24,7 +27,8 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
 
   const photos = p.photos ?? [];
   const warmRent = p.price;
-  const dueTotal = warmRent + p.deposit + p.serviceFee;
+  const dueTotal = warmRent + (p.deposit ?? 0);
+  const isPartner = !!p.externalLink;
 
   function onGalleryScroll() {
     const el = galleryRef.current;
@@ -49,9 +53,11 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
                 <div
                   key={i}
                   className={styles.gallerySlide}
-                  style={{ background: PHOTO_BGS[i % PHOTO_BGS.length] }}
+                  style={ph.url
+                    ? { backgroundImage: `url(${ph.url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                    : { background: PHOTO_BGS[i % PHOTO_BGS.length] }}
                 >
-                  <span className={styles.photoLabel}>[ {ph.label} ]</span>
+                  {!ph.url && <span className={styles.photoLabel}>[ {ph.label} ]</span>}
                 </div>
               )) : (
                 <div className={styles.gallerySlide} style={{ background: PHOTO_BGS[0] }}>
@@ -222,13 +228,6 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
                 </div>
                 <span className={styles.costValue}>€{fmtN(p.deposit)}</span>
               </div>
-              <div className={styles.costRowDashed}>
-                <div>
-                  <div className={styles.costLabel}>Service fee</div>
-                  <div className={styles.costSub}>UniStay · one-time</div>
-                </div>
-                <span className={styles.costValue}>€{fmtN(p.serviceFee)}</span>
-              </div>
               <div className={styles.costDueRow}>
                 <span className={styles.costDueLabel}>Due at move-in</span>
                 <span className={styles.costDueValue}>€{fmtN(dueTotal)}</span>
@@ -275,8 +274,11 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
           </div>
           <div className={styles.galleryOverlayScroll}>
             {photos.map((ph, i) => (
-              <div key={i} className={styles.galleryOverlayPhoto} style={{ background: PHOTO_BGS[i % PHOTO_BGS.length] }}>
-                <span className={styles.photoLabel}>[ {ph.label} ]</span>
+              <div key={i} className={styles.galleryOverlayPhoto}
+                style={ph.url
+                  ? { backgroundImage: `url(${ph.url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : { background: PHOTO_BGS[i % PHOTO_BGS.length] }}>
+                {!ph.url && <span className={styles.photoLabel}>[ {ph.label} ]</span>}
               </div>
             ))}
           </div>
@@ -295,7 +297,13 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
             Utilities incl.
           </span>
         </div>
-        <button type="button" className={styles.bookingBtn}>Request to book</button>
+        {isPartner ? (
+          <a href={p.externalLink!} target="_blank" rel="noopener noreferrer" className={styles.bookingBtn} style={{ textDecoration: 'none', textAlign: 'center' }}>
+            View on HousingAnywhere →
+          </a>
+        ) : (
+          <button type="button" className={styles.bookingBtn}>Request to book</button>
+        )}
       </div>
     </>
   );

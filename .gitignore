@@ -42,3 +42,4 @@ next-env.d.ts
 
 # local helper/reference files
 /helper_files
+src/lib/CASASolutions.json

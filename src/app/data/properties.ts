@@ -1,6 +1,7 @@
 export interface PropertyPhoto {
-  a: string;
-  b: string;
+  url?: string;
+  a?: string;
+  b?: string;
   label: string;
 }
 

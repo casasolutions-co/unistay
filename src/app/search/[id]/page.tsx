@@ -100,45 +100,59 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyListing = Property & { source?: string; [key: string]: any };
+
 export default function DetailsPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  
-  // Find property
-  const property = PROPERTIES.find(p => p.id === id) || PROPERTIES[0];
 
   const [authUser, setAuthUser] = useState<User | null>(null);
   useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
-  // States
+  const [listing, setListing] = useState<AnyListing | null>(
+    (PROPERTIES.find(p => p.id === id) as AnyListing) ?? null
+  );
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (listing) return; // already found in static array
+    fetch(`/api/listings/${id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.listing) setListing(data.listing as AnyListing);
+        else setNotFound(true);
+      })
+      .catch(() => setNotFound(true));
+  }, [id, listing]);
+
+  // States — must all be declared before any early returns
   const [saved, setSaved] = useState(false);
   const [moveIn, setMoveIn] = useState('2026-07-01');
   const [moveOut, setMoveOut] = useState('2027-06-30');
-  
-  // Lightbox
   const [lightbox, setLightbox] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
-
-  // Message Host Modal
   const [msgModal, setMsgModal] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [msgSent, setMsgSent] = useState(false);
-  
-  // Notification states
   const [booked, setBooked] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Keyboard handlers for lightbox
   useEffect(() => {
-    if (!lightbox) return;
+    if (!lightbox || !listing) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setLightbox(false);
-      if (e.key === 'ArrowRight') setPhotoIdx(i => (i + 1) % property.photos.length);
-      if (e.key === 'ArrowLeft') setPhotoIdx(i => (i - 1 + property.photos.length) % property.photos.length);
+      if (e.key === 'ArrowRight') setPhotoIdx(i => (i + 1) % listing.photos.length);
+      if (e.key === 'ArrowLeft') setPhotoIdx(i => (i - 1 + listing.photos.length) % listing.photos.length);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightbox, property.photos.length]);
+  }, [lightbox, listing]);
+
+  if (notFound) return <div style={{ padding: 40, textAlign: 'center' }}>Listing not found.</div>;
+  if (!listing) return <div style={{ padding: 40, textAlign: 'center' }}>Loading…</div>;
+
+  const property = listing;
 
   // Live calculations
   const fmtN = (n: number) => n.toLocaleString('en-US');
@@ -254,24 +268,28 @@ export default function DetailsPage({ params }: PageProps) {
           <div
             onClick={() => { setPhotoIdx(0); setLightbox(true); }}
             className={styles.galleryMain}
-            style={{ background: `repeating-linear-gradient(135deg, ${property.photos[0].a} 0 18px, ${property.photos[0].b} 18px 36px)` }}
+            style={property.photos?.[0]?.url
+              ? { backgroundImage: `url(${property.photos[0].url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : { background: `repeating-linear-gradient(135deg, ${property.photos?.[0]?.a ?? '#e9e3f5'} 0 18px, ${property.photos?.[0]?.b ?? '#f1ecfa'} 18px 36px)` }}
           >
             <span className={styles.badge} style={{ background: property.badge === 'PARTNER' ? '#1c1530' : 'var(--brand)' }}>
               {property.badge}
             </span>
-            <span className={styles.photoLabel}>{property.photos[0].label}</span>
+            {!property.photos?.[0]?.url && <span className={styles.photoLabel}>{property.photos?.[0]?.label}</span>}
           </div>
 
           {/* Right 2x2 grid */}
           <div className={styles.galleryThumbs}>
-            {property.photos.slice(1, 5).map((photo, i) => (
+            {(property.photos ?? []).slice(1, 5).map((photo: (PropertyPhoto & { url?: string }), i: number) => (
               <div
                 key={photo.label}
                 onClick={() => { setPhotoIdx(i + 1); setLightbox(true); }}
                 className={styles.galleryThumb}
-                style={{ background: `repeating-linear-gradient(135deg, ${photo.a} 0 14px, ${photo.b} 14px 28px)` }}
+                style={photo.url
+                  ? { backgroundImage: `url(${photo.url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : { background: `repeating-linear-gradient(135deg, ${photo.a} 0 14px, ${photo.b} 14px 28px)` }}
               >
-                <span className={styles.thumbLabel}>{photo.label}</span>
+                {!photo.url && <span className={styles.thumbLabel}>{photo.label}</span>}
                 {i === 3 && (
                   <button
                     type="button"
@@ -365,57 +383,22 @@ export default function DetailsPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Description & What you pay grid */}
-            <div className={styles.aboutGrid}>
-              <div className={styles.descriptionSection}>
-                <h2 className={styles.sectionHeader}>About this place</h2>
-                <p className={styles.descriptionText}>{property.description}</p>
+            {/* Description */}
+            <div className={styles.descriptionSection}>
+              <h2 className={styles.sectionHeader}>About this place</h2>
+              <p className={styles.descriptionText}>{property.description}</p>
+              {!property.externalLink && (
                 <p className={styles.descriptionText}>
                   Rent is all-inclusive: heating, water, electricity, and high-speed internet are covered. Ideal for students or young professionals on a 6–12 month contract.
                 </p>
-              </div>
-
-              {/* What you pay cost breakdown */}
-              <div className={styles.costsCard}>
-                <div className={styles.costsCardHeader}>
-                  <h3 className={styles.costsCardTitle}>What you pay</h3>
-                  <p className={styles.costsCardSubtitle}>Transparent — no hidden fees</p>
-                </div>
-                <div className={styles.costsList}>
-                  <div className={styles.costItem}>
-                    <span>Cold rent <span className={styles.langMuted}>· Kaltmiete</span></span>
-                    <span className={styles.bricolageVal}>€{fmtN(coldRent)}</span>
-                  </div>
-                  <div className={styles.costItem} style={{ borderTop: '1px dashed var(--divider)' }}>
-                    <span>Utilities <span className={styles.langMuted}>· Nebenkosten</span></span>
-                    <span className={styles.bricolageVal}>+ €{fmtN(utilities)}</span>
-                  </div>
-                </div>
-                <div className={styles.warmRentBanner}>
-                  <div>
-                    <div className={styles.warmRentLabel}>Warm rent</div>
-                    <div className={styles.warmRentMuted}>Warmmiete · per month</div>
-                  </div>
-                  <span className={styles.warmRentPrice}>€{fmtN(warmRent)}</span>
-                </div>
-                <div className={styles.costsList} style={{ borderTop: '1px solid var(--divider)', paddingTop: '6px' }}>
-                  <div className={styles.costItem}>
-                    <span>Deposit <span className={styles.langMuted}>· Refundable</span></span>
-                    <span className={styles.bricolageVal}>€{fmtN(deposit)}</span>
-                  </div>
-                  <div className={styles.costItem} style={{ borderTop: '1px dashed var(--divider)' }}>
-                    <span>UniStay service fee <span className={styles.langMuted}>· One-time</span></span>
-                    <span className={styles.bricolageVal}>€{fmtN(serviceFee)}</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Amenities */}
             <div className={styles.amenitiesSection}>
               <h2 className={styles.sectionHeader}>What this place offers</h2>
               <div className={styles.amenitiesGrid}>
-                {property.amenities.map(amenity => (
+                {(property.amenities ?? []).map(amenity => (
                   <div key={amenity.label} className={styles.amenityRow}>
                     <span className={styles.amenityIcon}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -449,7 +432,7 @@ export default function DetailsPage({ params }: PageProps) {
               </div>
 
               <div className={styles.nearbyGrid}>
-                {property.nearby.map(place => (
+                {(property.nearby ?? []).map(place => (
                   <span key={place.label} className={styles.nearbyItem}>
                     <span className={styles.nearbyIcon}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -494,56 +477,68 @@ export default function DetailsPage({ params }: PageProps) {
                 <ICheck /> Utilities included
               </div>
 
-              {/* Date pickers */}
-              <div className={styles.datePickerContainer}>
-                <div className={styles.datePickerInput} style={{ borderRight: '1.5px solid var(--border)' }}>
-                  <label className={styles.datePickerLabel}>Move-in</label>
-                  <input
-                    type="date"
-                    className={styles.nativeDatePicker}
-                    value={moveIn}
-                    onChange={e => setMoveIn(e.target.value)}
-                  />
+              {/* Date pickers — CASA only */}
+              {!property.externalLink && (
+                <div className={styles.datePickerContainer}>
+                  <div className={styles.datePickerInput} style={{ borderRight: '1.5px solid var(--border)' }}>
+                    <label className={styles.datePickerLabel}>Move-in</label>
+                    <input
+                      type="date"
+                      className={styles.nativeDatePicker}
+                      value={moveIn}
+                      onChange={e => setMoveIn(e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.datePickerInput}>
+                    <label className={styles.datePickerLabel}>Move-out</label>
+                    <input
+                      type="date"
+                      className={styles.nativeDatePicker}
+                      value={moveOut}
+                      onChange={e => setMoveOut(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className={styles.datePickerInput}>
-                  <label className={styles.datePickerLabel}>Move-out</label>
-                  <input
-                    type="date"
-                    className={styles.nativeDatePicker}
-                    value={moveOut}
-                    onChange={e => setMoveOut(e.target.value)}
-                  />
-                </div>
-              </div>
+              )}
 
-              <button type="button" className={styles.bookBtn} onClick={handleBook}>
-                Request to book
-              </button>
-              
-              <button type="button" className={styles.msgBtn} onClick={() => setMsgModal(true)}>
-                <IMessage /> Message host
-              </button>
+              {property.externalLink ? (
+                <a href={property.externalLink} target="_blank" rel="noopener noreferrer" className={styles.bookBtn} style={{ textAlign: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  View on HousingAnywhere →
+                </a>
+              ) : (
+                <>
+                  <button type="button" className={styles.bookBtn} onClick={handleBook}>
+                    Request to book
+                  </button>
+                  <button type="button" className={styles.msgBtn} onClick={() => setMsgModal(true)}>
+                    <IMessage /> Message host
+                  </button>
+                </>
+              )}
 
               <p className={styles.noChargeText}>You won&apos;t be charged yet</p>
 
-              {/* Cost breakdown items */}
+              {/* Full cost breakdown */}
               <div className={styles.breakdownContainer}>
                 <div className={styles.breakdownRow}>
-                  <span>First month rent</span>
+                  <span>Cold rent <span className={styles.langMuted}>· Kaltmiete</span></span>
+                  <span className={styles.breakdownVal}>€{fmtN(coldRent)}</span>
+                </div>
+                <div className={styles.breakdownRow}>
+                  <span>Utilities <span className={styles.langMuted}>· Nebenkosten</span></span>
+                  <span className={styles.breakdownVal}>+ €{fmtN(utilities)}</span>
+                </div>
+                <div className={styles.breakdownRow} style={{ borderTop: '1px solid var(--divider)', paddingTop: 8, fontWeight: 600 }}>
+                  <span>Warm rent <span className={styles.langMuted}>· per month</span></span>
                   <span className={styles.breakdownVal}>€{fmtN(warmRent)}</span>
                 </div>
-                <div className={styles.breakdownRow}>
-                  <span>Deposit (refundable)</span>
+                <div className={styles.breakdownRow} style={{ borderTop: '1px solid var(--divider)', paddingTop: 8 }}>
+                  <span>Deposit <span className={styles.langMuted}>· Refundable</span></span>
                   <span className={styles.breakdownVal}>€{fmtN(deposit)}</span>
                 </div>
-                <div className={styles.breakdownRow}>
-                  <span>UniStay service fee</span>
-                  <span className={styles.breakdownVal}>€{fmtN(serviceFee)}</span>
-                </div>
-                
                 <div className={styles.breakdownTotalRow}>
                   <span>Due at move-in</span>
-                  <span>€{fmtN(totalDue)}</span>
+                  <span>€{fmtN(warmRent + deposit)}</span>
                 </div>
               </div>
             </div>
@@ -562,7 +557,7 @@ export default function DetailsPage({ params }: PageProps) {
       </div>
 
       {/* ── LIGHTBOX MODAL ── */}
-      {lightbox && (
+      {lightbox && property.photos?.length > 0 && (
         <div className={styles.lightboxOverlay} onClick={() => setLightbox(false)}>
           
           {/* Top navigation */}
@@ -590,9 +585,11 @@ export default function DetailsPage({ params }: PageProps) {
             <div
               className={styles.lightboxActiveImg}
               onClick={e => e.stopPropagation()}
-              style={{ background: `repeating-linear-gradient(135deg, ${property.photos[photoIdx].a} 0 26px, ${property.photos[photoIdx].b} 26px 52px)` }}
+              style={property.photos[photoIdx].url
+                ? { backgroundImage: `url(${property.photos[photoIdx].url})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', backgroundColor: '#000' }
+                : { background: `repeating-linear-gradient(135deg, ${property.photos[photoIdx].a} 0 26px, ${property.photos[photoIdx].b} 26px 52px)` }}
             >
-              <span className={styles.lightboxPhotoLabel}>{property.photos[photoIdx].label}</span>
+              {!property.photos[photoIdx].url && <span className={styles.lightboxPhotoLabel}>{property.photos[photoIdx].label}</span>}
             </div>
 
             <button
@@ -613,10 +610,9 @@ export default function DetailsPage({ params }: PageProps) {
                 key={p.label}
                 onClick={() => setPhotoIdx(idx)}
                 className={`${styles.lightboxStripThumb} ${idx === photoIdx ? styles.lightboxStripThumbActive : ''}`}
-                style={{
-                  background: `repeating-linear-gradient(135deg, ${p.a} 0 12px, ${p.b} 12px 24px)`,
-                  opacity: idx === photoIdx ? 1 : 0.4
-                }}
+                style={p.url
+                  ? { backgroundImage: `url(${p.url})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: idx === photoIdx ? 1 : 0.4 }
+                  : { background: `repeating-linear-gradient(135deg, ${p.a} 0 12px, ${p.b} 12px 24px)`, opacity: idx === photoIdx ? 1 : 0.4 }}
               />
             ))}
           </div>
