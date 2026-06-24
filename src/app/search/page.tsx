@@ -21,12 +21,21 @@ const RECENT = [
   { name: 'Berlin', sub: 'Germany' },
 ];
 const CITIES = [
-  { name: 'Berlin', sub: 'Germany' },
-  { name: 'Munich', sub: 'Germany' },
-  { name: 'Hamburg', sub: 'Germany' },
-  { name: 'Frankfurt', sub: 'Germany' },
-  { name: 'Cologne', sub: 'Germany' },
-  { name: 'Stuttgart', sub: 'Germany' },
+  { name: 'Berlin',           sub: 'Germany' },
+  { name: 'Munich',           sub: 'Germany' },
+  { name: 'Hamburg',          sub: 'Germany' },
+  { name: 'Frankfurt am Main', sub: 'Germany' },
+  { name: 'Köln',             sub: 'Germany' },
+  { name: 'Stuttgart',        sub: 'Germany' },
+  { name: 'Düsseldorf',       sub: 'Germany' },
+  { name: 'Dortmund',         sub: 'Germany' },
+  { name: 'Essen',            sub: 'Germany' },
+  { name: 'Leipzig',          sub: 'Germany' },
+  { name: 'Bremen',           sub: 'Germany' },
+  { name: 'Dresden',          sub: 'Germany' },
+  { name: 'Nürnberg',         sub: 'Germany' },
+  { name: 'Münster',          sub: 'Germany' },
+  { name: 'Bonn',             sub: 'Germany' },
 ];
 const UNIS = [
   { name: 'Technical University of Munich', sub: 'Munich, Germany' },
@@ -148,15 +157,6 @@ export default function SearchPage() {
   const [query, setQuery]     = useState('Munich');
   const navRef                = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function h(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpen(null);
-    }
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [open]);
-
   /* ── Mobile state ── */
   const [mobileSheet,     setMobileSheet]     = useState<'filters' | 'sort' | null>(null);
   const [mobileMapOpen,   setMobileMapOpen]   = useState(false);
@@ -194,6 +194,7 @@ export default function SearchPage() {
   const [listings, setListings]         = useState<UnifiedListing[]>([]);
   const [partnerTotal, setPartnerTotal] = useState(0);
   const [hasMore, setHasMore]           = useState(false);
+  const [loading,     setLoading]       = useState(false);
   const [loadingMore, setLoadingMore]   = useState(false);
   const [page, setPage]                 = useState(1);
 
@@ -212,17 +213,17 @@ export default function SearchPage() {
     if (moveIn)                  params.set('moveIn', moveIn);
 
     const ctrl = new AbortController();
-    (page === 1 ? fetch : (url: string, init: RequestInit) => { setLoadingMore(true); return fetch(url, init); })(
-      `/api/listings?${params}`, { signal: ctrl.signal }
-    )
+    if (page === 1) setLoading(true); else setLoadingMore(true);
+    fetch(`/api/listings?${params}`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(data => {
         setListings(prev => page === 1 ? data.listings : [...prev, ...data.listings]);
         setPartnerTotal(data.partnerTotal);
         setHasMore(data.hasMore);
+        setLoading(false);
         setLoadingMore(false);
       })
-      .catch(() => { setLoadingMore(false); });
+      .catch(() => { setLoading(false); setLoadingMore(false); });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, page, filterType, filterSource, lo, hi, moveIn]);
@@ -373,7 +374,19 @@ export default function SearchPage() {
           </div>
 
           {/* cards */}
-          {filtered.length > 0 ? (
+          {loading ? (
+            <div className={styles.mobileCards}>
+              {[0,1,2,3].map(i => (
+                <div key={i} className={styles.mobileCard} style={{ opacity: 0.5 }}>
+                  <div className={styles.mobileCardImg} style={{ background: '#e9e3f5' }} />
+                  <div className={styles.mobileCardBody}>
+                    <div style={{ height: 14, borderRadius: 6, background: '#e9e3f5', marginBottom: 8, width: '70%' }} />
+                    <div style={{ height: 11, borderRadius: 6, background: '#f0edf7', width: '50%' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length > 0 ? (
             <div className={styles.mobileCards}>
               {filtered.map((p, i) => {
                 const hue = PH_HUES[i % PH_HUES.length];
