@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -131,6 +132,7 @@ function initials(user: User | null) {
 }
 
 export default function SearchPage() {
+  const router = useRouter();
   const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -450,27 +452,7 @@ export default function SearchPage() {
         {/* ── Map overlay ── */}
         {mobileMapOpen && (
           <div className={styles.mobileMapOverlay}>
-            <div className={styles.mobileMapBg} />
-            <div className={styles.mobileMapWater1} />
-            <div className={styles.mobileMapWater2} />
-            {filtered.slice(0, 6).map((p, i) => {
-              const positions = [
-                { top: '24%', left: '34%' }, { top: '20%', left: '52%' },
-                { top: '38%', left: '26%' }, { top: '44%', left: '46%' },
-                { top: '56%', left: '34%' }, { top: '64%', left: '50%' },
-              ];
-              const pos = positions[i] || { top: `${30 + i * 10}%`, left: `${30 + i * 8}%` };
-              return (
-                <span key={p.id} className={styles.mobileMapPin}
-                  style={{ top: pos.top, left: pos.left,
-                    background: p.featured ? '#6d28d9' : '#fff',
-                    color: p.featured ? '#fff' : '#1c1530',
-                    border: p.featured ? '1.5px solid #fff' : '1.5px solid #6d28d9',
-                  }}>
-                  €{fmtN(p.price)}
-                </span>
-              );
-            })}
+            <MapPanel properties={mapProps} />
             <button type="button" className={styles.mobileListFab} onClick={() => setMobileMapOpen(false)}>
               <IListIcon /> List
             </button>
@@ -693,7 +675,7 @@ export default function SearchPage() {
         <div className={styles.navRight}>
           <a href="#" className={styles.navExplore}>Explore</a>
 
-          <button type="button" className={styles.navListBtn}>
+          <button type="button" className={styles.navListBtn} onClick={() => router.push('/list')}>
             <IPlus /> List your place
           </button>
 

@@ -230,7 +230,7 @@ export default function DetailsPage({ params }: PageProps) {
 
         <div className={styles.navRight}>
           <Link href="/search" className={styles.navExplore}>Explore</Link>
-          <button type="button" className={styles.navListBtn}>
+          <button type="button" className={styles.navListBtn} onClick={() => router.push('/list')}>
             <IPlus /> List your place
           </button>
           <button type="button" className={styles.bellBtn}>

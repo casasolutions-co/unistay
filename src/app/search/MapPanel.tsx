@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import Map, { Marker, NavigationControl, Popup } from 'react-map-gl/mapbox';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import styles from './MapPanel.module.css';
-
-const TOKEN = process.env.MAPBOX_TOKEN ?? '';
 
 export interface MapProperty {
   id: string;
@@ -27,92 +26,111 @@ function fmtN(n: number) {
   return n.toLocaleString('en-US');
 }
 
+function makePinIcon(price: number, featured: boolean) {
+  const label = `€${fmtN(price)}`;
+  const bg = featured ? '#6d28d9' : '#fff';
+  const color = featured ? '#fff' : '#1c1530';
+  const html = `<div style="
+    display: inline-block;
+    font-family: system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 12.5px;
+    color: ${color};
+    background: ${bg};
+    padding: 6px 11px;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px -2px rgba(76,29,149,.4);
+    border: 1.5px solid #fff;
+    white-space: nowrap;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+  ">${label}</div>`;
+  return L.divIcon({ html, className: '', iconSize: [0, 0], iconAnchor: [0, 0] });
+}
+
+function ZoomControls() {
+  const map = useMap();
+  return (
+    <div className={styles.zoomControls}>
+      <button className={styles.zoomBtn} style={{ borderBottom: '1px solid #efecf5' }} onClick={() => map.zoomIn()}>+</button>
+      <button className={styles.zoomBtn} onClick={() => map.zoomOut()}>−</button>
+    </div>
+  );
+}
+
+function FitBoundsOnCity({ cityKey, pins }: { cityKey: string; pins: MapProperty[] }) {
+  const map = useMap();
+  const lastKey = useRef('');
+
+  useEffect(() => {
+    if (pins.length === 0 || cityKey === lastKey.current) return;
+    lastKey.current = cityKey;
+    if (pins.length === 1) {
+      map.setView([pins[0].lat, pins[0].lng], 13);
+      return;
+    }
+    const bounds = L.latLngBounds(pins.map(p => [p.lat, p.lng] as [number, number]));
+    map.fitBounds(bounds, { padding: [48, 48] });
+  }, [map, cityKey, pins]);
+  return null;
+}
+
 export default function MapPanel({ properties }: Props) {
   const [hovered, setHovered] = useState<MapProperty | null>(null);
 
   const onEnter = useCallback((p: MapProperty) => setHovered(p), []);
   const onLeave = useCallback(() => setHovered(null), []);
 
-  /* ── Fallback when no token is configured ── */
-  if (!TOKEN) {
-    return (
-      <div className={styles.fallback}>
-        <div className={styles.fallbackGrid} />
-        <div className={styles.fallbackWater1} />
-        <div className={styles.fallbackWater2} />
-        <span className={styles.fallbackLabel}>[ interactive map — Munich ]</span>
-        <div className={styles.fallbackNote}>
-          Add <code>MAPBOX_TOKEN</code> to <code>.env.local</code> to enable the map
-        </div>
-        <div className={styles.zoomControls}>
-          <button className={styles.zoomBtn} style={{ borderBottom: '1px solid #efecf5' }}>+</button>
-          <button className={styles.zoomBtn}>−</button>
-        </div>
-        {properties.map(p => (
-          <span
-            key={p.id}
-            className={p.featured ? styles.pinFeatured : styles.pin}
-            style={{ top: `${24 + Math.random() * 50}%`, left: `${20 + Math.random() * 60}%` }}
-          >
-            €{fmtN(p.price)}
-          </span>
-        ))}
-      </div>
-    );
-  }
-
   // One pin per unique coordinate — show cheapest listing at each location
-  const pinMap: Record<string, MapProperty> = {}
+  const pinMap: Record<string, MapProperty> = {};
   for (const p of properties) {
-    const k = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`
-    if (!pinMap[k] || p.price < pinMap[k].price) pinMap[k] = p
+    const k = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
+    if (!pinMap[k] || p.price < pinMap[k].price) pinMap[k] = p;
   }
-  const pins = Object.values(pinMap)
+  const pins = Object.values(pinMap);
+  // Stable key that only changes when the city changes, not on filter tweaks
+  const cityKey = pins.length > 0 ? `${pins[0].lat.toFixed(1)},${pins[0].lng.toFixed(1)}` : '';
 
   return (
-    <Map
-      mapboxAccessToken={TOKEN}
-      initialViewState={{ longitude: 11.582, latitude: 48.137, zoom: 12.2 }}
-      style={{ width: '100%', height: '100%' }}
-      mapStyle="mapbox://styles/mapbox/light-v11"
-    >
-      <NavigationControl position="top-right" showCompass={false} />
-
-      {pins.map(p => (
-        <Marker key={p.id} longitude={p.lng} latitude={p.lat} anchor="center">
-          <button
-            className={p.featured ? styles.pinFeatured : styles.pin}
-            onMouseEnter={() => onEnter(p)}
-            onMouseLeave={onLeave}
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <MapContainer
+        center={[48.137, 11.582]}
+        zoom={12}
+        style={{ width: '100%', height: '100%' }}
+        zoomControl={false}
+        attributionControl={true}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <ZoomControls />
+        <FitBoundsOnCity cityKey={cityKey} pins={pins} />
+        {pins.map(p => (
+          <Marker
+            key={p.id}
+            position={[p.lat, p.lng]}
+            icon={makePinIcon(p.price, p.featured)}
+            eventHandlers={{ mouseover: () => onEnter(p), mouseout: onLeave }}
           >
-            €{fmtN(p.price)}
-          </button>
-        </Marker>
-      ))}
-
-      {hovered && (
-        <Popup
-          longitude={hovered.lng}
-          latitude={hovered.lat}
-          anchor="bottom"
-          offset={16}
-          closeButton={false}
-          closeOnClick={false}
-          className={styles.popupWrapper}
-        >
-          <div className={styles.popup}>
-            <p className={styles.popupTitle}>{hovered.title}</p>
-            <p className={styles.popupAddress}>{hovered.address}</p>
-            <div className={styles.popupFooter}>
-              <span className={styles.popupPrice}>€{fmtN(hovered.price)}<span className={styles.popupUnit}>/mo</span></span>
-              <span className={styles.popupAvail} style={{ color: hovered.now ? '#1f8a5b' : '#9a94a8' }}>
-                <span className={styles.popupDot} style={{ background: hovered.now ? '#27ae73' : '#cfc8dd' }} />
-                {hovered.avail}
-              </span>
-            </div>
-          </div>
-        </Popup>
-      )}
-    </Map>
+            {hovered?.id === p.id && (
+              <Popup offset={[0, -8]} closeButton={false} autoPan={false}>
+                <div className={styles.popup}>
+                  <p className={styles.popupTitle}>{p.title}</p>
+                  <p className={styles.popupAddress}>{p.address}</p>
+                  <div className={styles.popupFooter}>
+                    <span className={styles.popupPrice}>€{fmtN(p.price)}<span className={styles.popupUnit}>/mo</span></span>
+                    <span className={styles.popupAvail} style={{ color: p.now ? '#1f8a5b' : '#9a94a8' }}>
+                      <span className={styles.popupDot} style={{ background: p.now ? '#27ae73' : '#cfc8dd' }} />
+                      {p.avail}
+                    </span>
+                  </div>
+                </div>
+              </Popup>
+            )}
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
   );
 }
