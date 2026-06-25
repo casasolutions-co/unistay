@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -72,7 +72,7 @@ const IBed    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none
    PAGE
 ═══════════════════════════════════════════════════════════════ */
 
-export default function SearchPage() {
+function SearchPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -806,5 +806,13 @@ export default function SearchPage() {
       </div>
       </div>{/* end desktopOnly */}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense>
+      <SearchPageInner />
+    </Suspense>
   );
 }
