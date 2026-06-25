@@ -245,14 +245,14 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
           >
             <IBack />
           </button>
+          <div className={styles.logoRow}>
+            <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 36, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
+          </div>
           <span className={styles.stepPill}>Step {step} of 2</span>
         </div>
 
         {/* Headline */}
         <div className={styles.bannerContent}>
-          <div className={styles.logoRow}>
-            <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
-          </div>
           <h1 className={styles.bannerTitle}>{bannerTitle}</h1>
         </div>
       </div>

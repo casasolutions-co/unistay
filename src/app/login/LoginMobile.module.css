@@ -20,9 +20,9 @@
 
 /* ── App bar ─────────────────────────────────────────────────── */
 .appBar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
   align-items: center;
-  justify-content: space-between;
   padding: 18px 20px 0;
 }
 
@@ -51,6 +51,7 @@
 .logoRow {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   margin-bottom: 8px;
 }

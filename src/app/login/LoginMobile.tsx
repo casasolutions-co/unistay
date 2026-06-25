@@ -201,10 +201,6 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
           >
             <IBack />
           </button>
-        </div>
-
-        {/* Banner Content */}
-        <div className={styles.bannerContent}>
           <div className={styles.logoRow}>
             <Image
               src="/primary-logo.png"
@@ -212,13 +208,18 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
               width={2049}
               height={1772}
               style={{
-                height: 40,
+                height: 36,
                 width: "auto",
                 filter: "brightness(0) invert(1)",
               }}
               priority
             />
           </div>
+          <div />
+        </div>
+
+        {/* Banner Content */}
+        <div className={styles.bannerContent}>
           <h1 className={styles.bannerTitle}>Welcome back.</h1>
           <p className={styles.bannerDesc}>
             Pick up where you left off — manage stays and explore listings.
