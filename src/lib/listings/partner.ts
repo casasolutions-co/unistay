@@ -2,8 +2,21 @@ import fs from 'fs'
 import path from 'path'
 import type { UnifiedListing, ListingFilters } from './types'
 
+const CITY_ALIASES: Record<string, string> = {
+  'cologne': 'köln',
+  'koln': 'köln',
+  'nuremberg': 'nürnberg',
+  'nuremburg': 'nürnberg',
+  'nuernberg': 'nürnberg',
+  'munster': 'münster',
+  'muenster': 'münster',
+  'dusseldorf': 'düsseldorf',
+  'duesseldorf': 'düsseldorf',
+}
+
 function citySlug(city: string): string {
-  return city.toLowerCase().replace(/[/\\]/g, '-').replace(/\s+/g, '-')
+  const raw = city.toLowerCase().replace(/[/\\]/g, '-').replace(/\s+/g, '-')
+  return CITY_ALIASES[raw] ?? raw
 }
 
 function mapType(kindLabel: string, bedrooms: number): string {
@@ -65,14 +78,27 @@ export function searchPartnerListings(
   page: number,
   limit: number
 ): { listings: UnifiedListing[]; total: number; hasMore: boolean } {
-  const filePath = path.join(process.cwd(), 'public', 'partner-cities', `${citySlug(city)}.json`)
+  const partnerDir = path.join(process.cwd(), 'public', 'partner-cities')
+  const slug = citySlug(city)
 
-  if (!fs.existsSync(filePath)) {
-    return { listings: [], total: 0, hasMore: false }
-  }
+  if (!slug) return { listings: [], total: 0, hasMore: false }
+
+  // Match exact slug or files where the slug is a dash-delimited prefix
+  // e.g. "frankfurt" matches "frankfurt-am-main.json"
+  const allFiles = fs.readdirSync(partnerDir).filter(f => f.endsWith('.json') && !f.startsWith('_'))
+  const matchingFiles = allFiles.filter(f => {
+    const fileSlug = f.slice(0, -5)
+    return fileSlug === slug || fileSlug.startsWith(slug + '-')
+  })
+
+  if (matchingFiles.length === 0) return { listings: [], total: 0, hasMore: false }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw: any[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+  let raw: any[] = []
+  for (const file of matchingFiles) {
+    const data = JSON.parse(fs.readFileSync(path.join(partnerDir, file), 'utf-8'))
+    raw = raw.concat(data)
+  }
 
   const filtered = raw.filter(l => {
     const price = l.costs.price / 100

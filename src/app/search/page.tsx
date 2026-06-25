@@ -1,51 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import styles from './page.module.css';
 import type { MapProperty } from './MapPanel';
 import type { UnifiedListing } from '@/lib/listings/types';
+import AppNav from '../components/AppNav';
+import MobileTabBar from '../components/MobileTabBar';
+import { useCitySearch } from '@/lib/useCitySearch';
 
 const MapPanel = dynamic(() => import('./MapPanel'), { ssr: false });
 
 /* ═══════════════════════════════════════════════════════════════
    DATA
 ═══════════════════════════════════════════════════════════════ */
-const RECENT = [
-  { name: 'Neumarkt in der Oberpfalz', sub: 'Germany' },
-  { name: 'Düsseldorf', sub: 'Germany' },
-  { name: 'Berlin', sub: 'Germany' },
-];
-const CITIES = [
-  { name: 'Berlin',           sub: 'Germany' },
-  { name: 'Munich',           sub: 'Germany' },
-  { name: 'Hamburg',          sub: 'Germany' },
-  { name: 'Frankfurt am Main', sub: 'Germany' },
-  { name: 'Köln',             sub: 'Germany' },
-  { name: 'Stuttgart',        sub: 'Germany' },
-  { name: 'Düsseldorf',       sub: 'Germany' },
-  { name: 'Dortmund',         sub: 'Germany' },
-  { name: 'Essen',            sub: 'Germany' },
-  { name: 'Leipzig',          sub: 'Germany' },
-  { name: 'Bremen',           sub: 'Germany' },
-  { name: 'Dresden',          sub: 'Germany' },
-  { name: 'Nürnberg',         sub: 'Germany' },
-  { name: 'Münster',          sub: 'Germany' },
-  { name: 'Bonn',             sub: 'Germany' },
-];
-const UNIS = [
-  { name: 'Technical University of Munich', sub: 'Munich, Germany' },
-  { name: 'Ludwig-Maximilians-Universität München', sub: 'Munich, Germany' },
-  { name: 'University of Seville', sub: 'Seville, Spain' },
-  { name: 'Sapienza Università di Roma', sub: 'Rome, Italy' },
-  { name: 'University of Amsterdam', sub: 'Amsterdam, Netherlands' },
-];
-
-// Properties are now imported from ../data/properties
 
 const PH_HUES = [
   { a: '#e9e3f5', b: '#f1ecfa' }, { a: '#e3ecf2', b: '#edf3f7' },
@@ -59,18 +29,11 @@ const SORTS    = [{ k: 'featured', l: 'Featured first' }, { k: 'price_asc', l: '
 const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', min: 0, max: 500 }, { label: '≤ €800', min: 0, max: 800 }, { label: '≤ €1,200', min: 0, max: 1200 }, { label: '≤ €2,000', min: 0, max: 2000 }];
 const DURATION = [{ label: 'This month', mi: '2026-06-23', mo: '2026-07-23' }, { label: 'Next semester', mi: '2026-10-01', mo: '2027-03-31' }, { label: 'Full year', mi: '2026-10-01', mo: '2027-09-30' }];
 
-const MENU_ITEMS = [
-  { label: 'My profile',       iconPath: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' },
-  { label: 'Saved homes',      iconPath: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z' },
-  { label: 'My applications',  iconPath: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4' },
-  { label: 'Messages', badge: '3', iconPath: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
-  { label: 'Settings',         iconPath: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z' },
-];
 
 /* ═══════════════════════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════════════════════ */
-type OpenPanel = 'search' | 'avatar' | 'when' | 'price' | 'type' | 'source' | 'sort' | null;
+type OpenPanel = 'search' | 'when' | 'price' | 'type' | 'source' | 'sort' | null;
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
 
@@ -81,19 +44,6 @@ function fmtDate(s: string) {
   return parseInt(p[2], 10) + ' ' + M[parseInt(p[1], 10) - 1];
 }
 
-function buildGroups(query: string) {
-  const q = query.trim().toLowerCase();
-  const hasQ = q.length > 0;
-  const match = (it: { name: string; sub: string }) =>
-    !hasQ || (it.name + ' ' + it.sub).toLowerCase().includes(q);
-  const groups: { title: string; items: { name: string; sub: string; kind: 'recent' | 'city' | 'uni' }[] }[] = [];
-  if (!hasQ) groups.push({ title: 'Your recent searches', items: RECENT.map(it => ({ ...it, kind: 'recent' as const })) });
-  const c = CITIES.filter(match);
-  if (c.length) groups.push({ title: 'Popular cities', items: c.map(it => ({ ...it, kind: 'city' as const })) });
-  const u = UNIS.filter(match);
-  if (u.length) groups.push({ title: 'Popular universities', items: u.map(it => ({ ...it, kind: 'uni' as const })) });
-  return groups;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    ICONS
@@ -105,14 +55,8 @@ const IChevSm = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none
 const IMapIcon = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>;
 const IListIcon = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h13M3 12h11M3 18h7"/></svg>;
 const IHeart = ({ saved }: { saved: boolean }) => <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? '#6d28d9' : 'none'} stroke={saved ? '#6d28d9' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>;
-const ITabHome = ({ active }: { active: boolean }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5h4v5"/></svg>;
-const ITabSearch = ({ active }: { active: boolean }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>;
-const ITabHeart = ({ active }: { active: boolean }) => <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>;
-const ITabMsg = ({ active }: { active: boolean }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
-const ITabUser = ({ active }: { active: boolean }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
 const IChev   = ({ open }: { open: boolean }) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="m6 9 6 6 6-6"/></svg>;
 const IChevW  = ({ open }: { open: boolean }) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white"   strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="m6 9 6 6 6-6"/></svg>;
-const IChevG  = ({ open }: { open: boolean }) => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a8499" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="m6 9 6 6 6-6"/></svg>;
 const ICheck  = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>;
 const ICal    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>;
 const ISort   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h13M3 12h9M3 18h5M18 9l3-3-3-3M21 6v12"/></svg>;
@@ -121,32 +65,16 @@ const IClock  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none
 const IPin    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>;
 const IBell   = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
 const IPlus   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
-const ILogout = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>;
 const IArea   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b0aabf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 3 3 21M9 3H3v6M21 15v6h-6"/></svg>;
 const IBed    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b0aabf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 11h20M2 11V6a2 2 0 0 1 2-2h6v7M22 11v6M2 17h20M4 20v-3M20 20v-3"/></svg>;
-function MenuIcon({ path }: { path: string }) {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={path}/></svg>;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    PAGE
 ═══════════════════════════════════════════════════════════════ */
-function initials(user: User | null) {
-  if (!user) return '??';
-  if (user.displayName) {
-    const parts = user.displayName.trim().split(/\s+/);
-    return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
-  }
-  return (user.email?.[0] ?? '?').toUpperCase();
-}
 
 export default function SearchPage() {
   const router = useRouter();
-  const [authUser, setAuthUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    return onAuthStateChanged(auth, setAuthUser);
-  }, []);
+  const searchParams = useSearchParams();
 
   /* ── Panel state ── */
   const [open, setOpen]       = useState<OpenPanel>(null);
@@ -154,23 +82,21 @@ export default function SearchPage() {
   const isOpen = (name: OpenPanel) => open === name;
 
   /* ── Nav search ── */
-  const [query, setQuery]     = useState('Munich');
-  const navRef                = useRef<HTMLElement>(null);
+  const { query, setQuery, groups, selectCity } = useCitySearch(searchParams.get('city') ?? 'Munich');
 
   /* ── Mobile state ── */
   const [mobileSheet,     setMobileSheet]     = useState<'filters' | 'sort' | null>(null);
   const [mobileMapOpen,   setMobileMapOpen]   = useState(false);
   const [mobileSaved,     setMobileSaved]     = useState<Record<string, boolean>>({});
-  const [mobileActiveTab, setMobileActiveTab] = useState('search');
 
   /* ── Filter state ── */
-  const [filterType,   setFilterType]   = useState('Any type');
+  const [filterType,   setFilterType]   = useState(() => searchParams.get('type') ?? 'Any type');
   const [filterSource, setFilterSource] = useState('all');
   const [filterSort,   setFilterSort]   = useState('featured');
-  const [minVal,       setMinVal]       = useState(0);
-  const [maxVal,       setMaxVal]       = useState(3000);
-  const [moveIn,       setMoveIn]       = useState('2026-06-23');
-  const [moveOut,      setMoveOut]      = useState('2026-07-01');
+  const [minVal,       setMinVal]       = useState(() => Number(searchParams.get('minPrice') ?? 0));
+  const [maxVal,       setMaxVal]       = useState(() => Number(searchParams.get('maxPrice') ?? 3000));
+  const [moveIn,       setMoveIn]       = useState(() => searchParams.get('moveIn') ?? '2026-06-23');
+  const [moveOut,      setMoveOut]      = useState(() => searchParams.get('moveOut') ?? '2026-07-01');
 
   /* ── Derived filter values ── */
   const lo            = Math.min(minVal, maxVal);
@@ -189,6 +115,7 @@ export default function SearchPage() {
   /* ── Pill class helper ── */
   const pc = (name: OpenPanel, set: boolean) =>
     isOpen(name) ? styles.pillOpen : set ? styles.pillSet : styles.pill;
+
 
   /* ── API-fetched listings ── */
   const [listings, setListings]         = useState<UnifiedListing[]>([]);
@@ -241,7 +168,6 @@ export default function SearchPage() {
 
 
   const cityName = query.trim();
-  const groups   = buildGroups(query);
 
   const resetFilters = () => {
     setFilterType('Any type'); setFilterSource('all');
@@ -338,7 +264,10 @@ export default function SearchPage() {
                   </div>
                   {group.items.map(item => (
                     <button key={item.name} type="button" className={styles.suggestRow}
-                      onClick={() => { setQuery(item.name); setOpen(null); }}>
+                      onClick={() => {
+                        selectCity(item.name, item.sub, item.kind);
+                        setQuery(item.name); setOpen(null);
+                      }}>
                       <span className={styles.suggestIcon} style={{
                         background: item.kind === 'uni' ? 'var(--tint-indigo)' : 'var(--tint)',
                         color:      item.kind === 'uni' ? 'var(--uni-accent)' : 'var(--brand)',
@@ -452,7 +381,7 @@ export default function SearchPage() {
             </div>
           )}
 
-          <div style={{ height: 90 }} />
+          <div style={{ height: 48 }} />
         </div>
 
         {/* ── Map FAB ── */}
@@ -577,33 +506,7 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* ── Bottom tab bar ── */}
-        <div className={styles.mobileTabBar}>
-          {[
-            { key: 'home',     label: 'Home',     icon: (a: boolean) => <ITabHome   active={a} /> },
-            { key: 'search',   label: 'Search',   icon: (a: boolean) => <ITabSearch active={a} /> },
-            { key: 'saved',    label: 'Saved',    icon: (a: boolean) => <ITabHeart  active={a} /> },
-            { key: 'messages', label: 'Messages', icon: (a: boolean) => <ITabMsg    active={a} />, badge: '3' },
-            { key: 'profile',  label: 'Profile',  icon: (a: boolean) => <ITabUser   active={a} /> },
-          ].map(tab => {
-            const active = mobileActiveTab === tab.key;
-            return (
-              <button key={tab.key} type="button" className={styles.mobileTab}
-                style={{ color: active ? '#6d28d9' : '#9a94a8' }}
-                onClick={() => setMobileActiveTab(tab.key)}>
-                <span style={{ position: 'relative', display: 'inline-flex' }}>
-                  {tab.icon(active)}
-                  {tab.badge && (
-                    <span className={styles.mobileTabBadge}>{tab.badge}</span>
-                  )}
-                </span>
-                <span className={styles.mobileTabLabel} style={{ fontWeight: active ? 700 : 500 }}>
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <MobileTabBar active="explore" />
       </div>
 
       {/* ══════════════════════════════════════════════════════════
@@ -617,17 +520,7 @@ export default function SearchPage() {
       {/* ══════════════════════════════════════════════════════════
           NAV
       ══════════════════════════════════════════════════════════ */}
-      <nav className={styles.nav} ref={navRef}>
-
-        {/* Brand */}
-        <a href="/" className={styles.brand}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5h4v5"/>
-          </svg>
-          <span className={styles.wordmark}>UniStay</span>
-        </a>
-
-        {/* Search */}
+      <AppNav centerSlot={
         <div className={styles.navSearchWrap}>
           <div className={styles.navSearchInner}>
             <span className={styles.navSearchIcon}><ISearch /></span>
@@ -662,7 +555,10 @@ export default function SearchPage() {
                     </div>
                     {group.items.map(item => (
                       <button key={item.name} type="button" className={styles.suggestRow}
-                        onClick={() => { setQuery(item.name); setOpen(null); }}>
+                        onClick={() => {
+                          selectCity(item.name, item.sub, item.kind);
+                          setQuery(item.name); setOpen(null);
+                        }}>
                         <span className={styles.suggestIcon} style={{
                           background: item.kind === 'uni' ? 'var(--tint-indigo)' : 'var(--tint)',
                           color:      item.kind === 'uni' ? 'var(--uni-accent)' : 'var(--brand)',
@@ -683,55 +579,7 @@ export default function SearchPage() {
             </div>
           )}
         </div>
-
-        {/* Right */}
-        <div className={styles.navRight}>
-          <a href="#" className={styles.navExplore}>Explore</a>
-
-          <button type="button" className={styles.navListBtn} onClick={() => router.push('/list')}>
-            <IPlus /> List your place
-          </button>
-
-          <button type="button" className={styles.bellBtn}>
-            <IBell /><span className={styles.bellDot} />
-          </button>
-
-          {/* Avatar */}
-          <div className={styles.avatarWrap}>
-            <button type="button"
-              className={`${styles.avatarBtn} ${isOpen('avatar') ? styles.avatarBtnOpen : ''}`}
-              onClick={() => toggle('avatar')}>
-              <span className={styles.avatarInitials}>{initials(authUser)}</span>
-              <span className={styles.avatarChevron}><IChevG open={isOpen('avatar')} /></span>
-            </button>
-
-            {isOpen('avatar') && (
-              <div className={styles.avatarDropdown}>
-                <div className={styles.avatarProfile}>
-                  <span className={styles.avatarProfileInitials}>{initials(authUser)}</span>
-                  <span style={{ minWidth: 0 }}>
-                    <span className={styles.avatarProfileName}>{authUser?.displayName ?? authUser?.email?.split('@')[0] ?? 'Account'}</span>
-                    <span className={styles.avatarProfileEmail}>{authUser?.email ?? ''}</span>
-                  </span>
-                </div>
-                <div className={styles.avatarDivider} />
-                {MENU_ITEMS.map(item => (
-                  <button key={item.label} type="button" className={styles.menuItem} onClick={() => setOpen(null)}>
-                    <span className={styles.menuItemIcon}><MenuIcon path={item.iconPath} /></span>
-                    <span className={styles.menuItemLabel}>{item.label}</span>
-                    {item.badge && <span className={styles.menuItemBadge}>{item.badge}</span>}
-                  </button>
-                ))}
-                <div className={styles.avatarDivider} style={{ marginTop: 6 }} />
-                <button type="button" className={styles.menuLogout} onClick={() => setOpen(null)}>
-                  <span className={styles.menuLogoutIcon}><ILogout /></span>
-                  <span className={styles.menuLogoutLabel}>Log out</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
+      } />
 
       {/* ══════════════════════════════════════════════════════════
           MAIN

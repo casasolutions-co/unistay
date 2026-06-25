@@ -4,39 +4,14 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import styles from './MobileHeroSection.module.css';
+import { useCitySearch } from '@/lib/useCitySearch';
+import MobileTabBar from './MobileTabBar';
 
-const RECENT = [
-  { name: 'Neumarkt in der Oberpfalz', sub: 'Germany' },
-  { name: 'Düsseldorf', sub: 'Germany' },
-  { name: 'Berlin', sub: 'Germany' },
-];
-const CITIES = [
-  { name: 'Berlin', sub: 'Germany' },
-  { name: 'Munich', sub: 'Germany' },
-  { name: 'Hamburg', sub: 'Germany' },
-  { name: 'Frankfurt', sub: 'Germany' },
-  { name: 'Cologne', sub: 'Germany' },
-  { name: 'Stuttgart', sub: 'Germany' },
-];
-const UNIS = [
-  { name: 'Aix-Marseille Université', sub: 'Marseille, France' },
-  { name: 'Ludwig-Maximilians-Universität München', sub: 'Garching bei München, Germany' },
-  { name: 'University of Seville', sub: 'Seville, Spain' },
-  { name: 'Sapienza Università di Roma', sub: 'Rome, Italy' },
-  { name: 'University of Amsterdam', sub: 'Amsterdam, Netherlands' },
-];
-const POPULAR_CITIES = ['Berlin', 'Munich', 'Hamburg', 'Frankfurt', 'Cologne', 'Stuttgart'];
+const POPULAR_CITIES = ['Berlin', 'Munich', 'Hamburg', 'Frankfurt am Main', 'Köln', 'Stuttgart'];
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
 const MAX_RENT_OPTS = ['Any budget', '€500', '€800', '€1,200', '€2,000'];
 
 /* ── Icons ──────────────────────────────────────────────────── */
-function IconHome() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 11.2 12 4l9 7.2" /><path d="M5.5 9.8V20h13V9.8" /><path d="M10 20v-5h4v5" />
-    </svg>
-  );
-}
 function IconSearch() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -85,7 +60,7 @@ function IconClock() {
 /* ── Component ──────────────────────────────────────────────── */
 export default function MobileHeroSection() {
   const router = useRouter();
-  const [query, setQuery] = useState('');
+  const { query, setQuery, groups, selectCity } = useCitySearch();
   const [location, setLocation] = useState('');
   const [openWhere, setOpenWhere] = useState(false);
   const [moveIn, setMoveIn] = useState('2026-06-23');
@@ -114,22 +89,8 @@ export default function MobileHeroSection() {
     return () => document.removeEventListener('mousedown', handle);
   }, []);
 
-  /* WHERE dropdown — same filtering logic as desktop */
-  const q = query.trim().toLowerCase();
-  const hasQuery = q.length > 0;
-  const match = (it: { name: string; sub: string }) =>
-    !hasQuery || (it.name + ' ' + it.sub).toLowerCase().includes(q);
-
-  type Kind = 'recent' | 'city' | 'uni';
-  type Group = { title: string; items: { name: string; sub: string; kind: Kind }[] };
-  const groups: Group[] = [];
-  if (!hasQuery) groups.push({ title: 'Your recent searches', items: RECENT.map(it => ({ ...it, kind: 'recent' as Kind })) });
-  const filteredCities = CITIES.filter(match);
-  if (filteredCities.length) groups.push({ title: 'Popular cities', items: filteredCities.map(it => ({ ...it, kind: 'city' as Kind })) });
-  const filteredUnis = UNIS.filter(match);
-  if (filteredUnis.length) groups.push({ title: 'Popular universities', items: filteredUnis.map(it => ({ ...it, kind: 'uni' as Kind })) });
-
-  function selectLocation(name: string) {
+  function selectLocation(name: string, sub = 'Germany', kind: 'recent' | 'city' | 'uni' = 'city') {
+    selectCity(name, sub, kind);
     setLocation(name);
     setQuery('');
     setOpenWhere(false);
@@ -145,8 +106,7 @@ export default function MobileHeroSection() {
         {/* Nav overlaid on hero */}
         <div className={styles.nav} ref={navRef}>
           <div className={styles.navBrand}>
-            <IconHome />
-            <span className={styles.wordmark}>UniStay</span>
+            <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
           </div>
           <button
             type="button"
@@ -226,7 +186,7 @@ export default function MobileHeroSection() {
                       key={item.name}
                       type="button"
                       className={styles.whereRow}
-                      onMouseDown={e => { e.preventDefault(); selectLocation(item.name); }}
+                      onMouseDown={e => { e.preventDefault(); selectLocation(item.name, item.sub, item.kind); }}
                     >
                       <span
                         className={styles.whereIconTile}
@@ -368,7 +328,7 @@ export default function MobileHeroSection() {
         <div className={styles.popularLabel}>Popular cities</div>
         <div className={styles.popularScroll}>
           {POPULAR_CITIES.map(city => (
-            <button key={city} type="button" className={styles.cityChip} onClick={() => selectLocation(city)}>
+            <button key={city} type="button" className={styles.cityChip} onClick={() => selectLocation(city, 'Germany', 'city')}>
               {city}
             </button>
           ))}
@@ -390,6 +350,7 @@ export default function MobileHeroSection() {
         </div>
       </div>
 
+      <MobileTabBar active="explore" />
     </div>
   );
 }

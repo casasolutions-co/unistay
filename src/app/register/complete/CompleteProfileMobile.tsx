@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import styles from '../RegisterMobile.module.css';
@@ -82,10 +83,7 @@ export default function CompleteProfileMobile() {
       <div className={styles.photoBanner}>
         <div className={styles.bannerContent} style={{ paddingTop: 48 }}>
           <div className={styles.logoRow}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 11.2 12 4l9 7.2" /><path d="M5.5 9.8V20h13V9.8" /><path d="M10 20v-5h4v5" />
-            </svg>
-            <span className={styles.logoText}>UniStay</span>
+            <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
           </div>
           <h1 className={styles.bannerTitle}>Your profile, your story.</h1>
         </div>

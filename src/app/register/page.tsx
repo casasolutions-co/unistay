@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AppNav from '../components/AppNav';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './page.module.css';
@@ -159,21 +160,7 @@ export default function RegisterPage() {
       </div>
       <div className={styles.desktopOnly}>
     <div className={styles.page}>
-      {/* Nav */}
-      <nav className={styles.nav}>
-        <div className={styles.brand}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 11.2 12 4l9 7.2" />
-            <path d="M5.5 9.8V20h13V9.8" />
-            <path d="M10 20v-5h4v5" />
-          </svg>
-          <span className={styles.wordmark}>UniStay</span>
-        </div>
-        <div className={styles.navLinks}>
-          <a href="/" className={styles.navLink}>View Listings</a>
-          <a href="/login" className={styles.navCta}>Login / Register</a>
-        </div>
-      </nav>
+      <AppNav />
 
       <div className={styles.split}>
         {/* Left image */}

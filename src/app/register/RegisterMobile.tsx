@@ -1,10 +1,71 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './RegisterMobile.module.css';
+
+/* ── Custom picker ──────────────────────────────────────────────── */
+interface CustomPickerProps {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  title: string;
+  options: string[];
+}
+
+function CustomPicker({ value, onChange, placeholder, title, options }: CustomPickerProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className={`${styles.pickerBtn} ${open ? styles.pickerBtnOpen : ''}`}
+        onClick={() => setOpen(true)}
+      >
+        <span className={value ? styles.pickerValue : styles.pickerPlaceholder}>
+          {value || placeholder}
+        </span>
+        <span className={`${styles.pickerChevron} ${open ? styles.pickerChevronOpen : ''}`}>
+          <IChevDown />
+        </span>
+      </button>
+      {open && (
+        <div className={styles.pickerOverlay} onClick={() => setOpen(false)}>
+          <div className={styles.pickerSheet} onClick={e => e.stopPropagation()}>
+            <div className={styles.pickerSheetHeader}>
+              <p className={styles.pickerSheetTitle}>{title}</p>
+              <button type="button" className={styles.pickerSheetClose} onClick={() => setOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+            <div className={styles.pickerList}>
+              {options.map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`${styles.pickerOption} ${value === opt ? styles.pickerOptionActive : ''}`}
+                  onClick={() => { onChange(opt); setOpen(false); }}
+                >
+                  {opt}
+                  {value === opt && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 async function syncUser(token: string, role?: string): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
@@ -190,10 +251,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
         {/* Headline */}
         <div className={styles.bannerContent}>
           <div className={styles.logoRow}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 11.2 12 4l9 7.2" /><path d="M5.5 9.8V20h13V9.8" /><path d="M10 20v-5h4v5" />
-            </svg>
-            <span className={styles.logoText}>UniStay</span>
+            <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
           </div>
           <h1 className={styles.bannerTitle}>{bannerTitle}</h1>
         </div>
@@ -289,42 +347,25 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
               <h2 className={styles.step2Title}>Tell us about you</h2>
               <p className={styles.step2Sub}>This helps landlords understand your situation.</p>
 
-              {/* Nationality + Phone */}
-              <div className={styles.twoCol}>
-                <div className={styles.twoColItem}>
-                  <label className={styles.label}>Nationality *</label>
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.select}
-                      value={nationality}
-                      onChange={e => setNationality(e.target.value)}
-                      style={{ color: nationality ? 'var(--text)' : 'var(--placeholder)' }}
-                    >
-                      <option value="">Select…</option>
-                      <option>Germany</option>
-                      <option>France</option>
-                      <option>Spain</option>
-                      <option>Italy</option>
-                      <option>Netherlands</option>
-                      <option>India</option>
-                      <option>China</option>
-                      <option>United States</option>
-                      <option>Other</option>
-                    </select>
-                    <span className={styles.selectArrow}><IChevDown /></span>
-                  </div>
-                </div>
-                <div className={styles.twoColItem}>
-                  <label className={styles.label}>Phone *</label>
-                  <input
-                    type="tel"
-                    className={styles.fieldMb0}
-                    placeholder="+49 …"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                  />
-                </div>
-              </div>
+              {/* Nationality */}
+              <label className={styles.label}>Nationality *</label>
+              <CustomPicker
+                value={nationality}
+                onChange={setNationality}
+                placeholder="Select nationality…"
+                title="Nationality"
+                options={['Afghanistan','Albania','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bangladesh','Belarus','Belgium','Bolivia','Bosnia and Herzegovina','Brazil','Bulgaria','Cambodia','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Ecuador','Egypt','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Hungary','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Japan','Jordan','Kazakhstan','Kenya','South Korea','Kosovo','Kuwait','Lebanon','Libya','Lithuania','Malaysia','Mexico','Moldova','Morocco','Nepal','Netherlands','New Zealand','Nigeria','North Macedonia','Norway','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Romania','Russia','Saudi Arabia','Serbia','Slovakia','Slovenia','South Africa','Spain','Sri Lanka','Sweden','Switzerland','Syria','Taiwan','Thailand','Tunisia','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States','Uzbekistan','Venezuela','Vietnam','Yemen','Other']}
+              />
+
+              {/* Phone */}
+              <label className={styles.label}>Phone *</label>
+              <input
+                type="tel"
+                className={styles.field}
+                placeholder="+49 …"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+              />
 
               {/* Role */}
               <label className={styles.label}>I am a *</label>
@@ -356,37 +397,22 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                     value={university}
                     onChange={e => setUniversity(e.target.value)}
                   />
-                  <div className={styles.twoCol}>
-                    <div className={styles.twoColWide}>
-                      <label className={styles.label}>Program *</label>
-                      <input
-                        type="text"
-                        className={styles.fieldMb0}
-                        placeholder="MSc CS"
-                        value={program}
-                        onChange={e => setProgram(e.target.value)}
-                      />
-                    </div>
-                    <div className={styles.twoColItem}>
-                      <label className={styles.label}>Year *</label>
-                      <div className={styles.selectWrap}>
-                        <select
-                          className={styles.select}
-                          value={startYear}
-                          onChange={e => setStartYear(e.target.value)}
-                          style={{ color: startYear ? 'var(--text)' : 'var(--placeholder)' }}
-                        >
-                          <option value="">Year…</option>
-                          <option>2026</option>
-                          <option>2025</option>
-                          <option>2024</option>
-                          <option>2023</option>
-                          <option>2022</option>
-                        </select>
-                        <span className={styles.selectArrowBottom}><IChevDown /></span>
-                      </div>
-                    </div>
-                  </div>
+                  <label className={styles.label}>Program *</label>
+                  <input
+                    type="text"
+                    className={styles.field}
+                    placeholder="e.g. M.Sc. Computer Science"
+                    value={program}
+                    onChange={e => setProgram(e.target.value)}
+                  />
+                  <label className={styles.label}>Expected graduation year *</label>
+                  <CustomPicker
+                    value={startYear}
+                    onChange={setStartYear}
+                    placeholder="Select year…"
+                    title="Graduation year"
+                    options={['2024','2025','2026','2027','2028','2029','2030']}
+                  />
                 </div>
               )}
 

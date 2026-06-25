@@ -262,13 +262,28 @@
 /* ── Password wrapper ────────────────────────────────────────── */
 .pwWrap {
   position: relative;
-  margin-bottom: 4px;
+  margin-bottom: 14px;
 }
 
 .pwField {
-  composes: fieldMb0;
-  padding-right: 46px;
+  width: 100%;
+  height: 50px;
+  padding: 0 46px 0 14px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  box-sizing: border-box;
+  display: block;
+  margin: 0;
 }
+.pwField:focus { border-color: var(--brand); background: #fff; box-shadow: var(--focus-ring); }
+.pwField::placeholder { color: var(--placeholder); }
 
 .pwToggle {
   position: absolute;
@@ -311,34 +326,119 @@
 .twoColItem { flex: 1; }
 .twoColWide { flex: 1.4; }
 
-/* ── Select ──────────────────────────────────────────────────── */
-.selectWrap { position: relative; }
-
-.select {
-  composes: fieldMb0;
-  appearance: none;
-  -webkit-appearance: none;
+/* ── Custom picker ───────────────────────────────────────────── */
+.pickerBtn {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   cursor: pointer;
-  padding: 0 30px 0 12px;
+  text-align: left;
+  margin-bottom: 14px;
+}
+.pickerBtn:focus { border-color: var(--brand); background: #fff; box-shadow: var(--focus-ring); }
+
+.pickerBtnOpen {
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: var(--focus-ring);
 }
 
-.selectArrow {
-  position: absolute;
-  right: 11px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--brand);
+.pickerPlaceholder { color: var(--placeholder); font-weight: 600; }
+.pickerValue { color: var(--text); }
+.pickerChevron { color: var(--brand); display: flex; flex-shrink: 0; transition: transform 0.18s; }
+.pickerChevronOpen { transform: rotate(180deg); }
+
+/* Sheet overlay */
+.pickerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 10, 40, 0.45);
+  z-index: 100;
   display: flex;
+  align-items: flex-end;
 }
 
-.selectArrowBottom {
-  position: absolute;
-  right: 11px;
-  bottom: 16px;
-  pointer-events: none;
-  color: var(--brand);
+.pickerSheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom, 20px);
+  max-height: 65vh;
   display: flex;
+  flex-direction: column;
+}
+
+.pickerSheetHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.pickerSheetTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--text);
+  margin: 0;
+}
+
+.pickerSheetClose {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--tint);
+  color: var(--brand);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.pickerList {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 12px 12px;
+}
+
+.pickerOption {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 10px;
+  border: none;
+  background: none;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 0.12s;
+}
+.pickerOption:hover { background: var(--tint); }
+
+.pickerOptionActive {
+  color: var(--brand);
+  background: var(--tint);
 }
 
 /* ── Role buttons ────────────────────────────────────────────── */

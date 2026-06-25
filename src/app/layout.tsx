@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   title: "UniStay — Find Student Housing in Germany",
   description:
     "UniStay makes it easy to search and find student flats for rent across Germany. Browse cities, filter by budget, and move in with confidence.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -29,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${bricolage.variable} ${manrope.variable}`}>
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

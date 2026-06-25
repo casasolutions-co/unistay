@@ -1,0 +1,36 @@
+.tabBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid #eee9f6;
+  padding: 9px 14px env(safe-area-inset-bottom, 16px);
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  padding: 4px 0;
+  transition: color 0.14s;
+  font-family: var(--font-ui);
+}
+
+.label {
+  font-size: 10.5px;
+}
+
+/* Only show on mobile */
+@media (min-width: 769px) {
+  .tabBar { display: none; }
+}

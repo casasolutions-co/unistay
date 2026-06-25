@@ -1,32 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './HeroSection.module.css';
 import MobileHeroSection from './MobileHeroSection';
+import { useCitySearch } from '@/lib/useCitySearch';
 
-/* ── Data ──────────────────────────────────────────────────────── */
-const RECENT = [
-  { name: 'Neumarkt in der Oberpfalz', sub: 'Germany' },
-  { name: 'Düsseldorf', sub: 'Germany' },
-  { name: 'Berlin', sub: 'Germany' },
-];
-const CITIES = [
-  { name: 'Berlin', sub: 'Germany' },
-  { name: 'Munich', sub: 'Germany' },
-  { name: 'Hamburg', sub: 'Germany' },
-  { name: 'Frankfurt', sub: 'Germany' },
-  { name: 'Cologne', sub: 'Germany' },
-  { name: 'Stuttgart', sub: 'Germany' },
-];
-const UNIS = [
-  { name: 'Aix-Marseille Université', sub: 'Marseille, France' },
-  { name: 'Ludwig-Maximilians-Universität München', sub: 'Garching bei München, Germany' },
-  { name: 'University of Seville', sub: 'Seville, Spain' },
-  { name: 'Sapienza Università di Roma', sub: 'Rome, Italy' },
-  { name: 'University of Amsterdam', sub: 'Amsterdam, Netherlands' },
-];
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
-const POPULAR_CITIES = ['Berlin', 'Munich', 'Hamburg', 'Frankfurt', 'Cologne', 'Stuttgart'];
+const POPULAR_CITIES = ['Berlin', 'Munich', 'Hamburg', 'Frankfurt am Main', 'Köln', 'Stuttgart'];
 const AVATAR_SHIFTS = ['0px', '-9px', '-9px', '-9px', '-9px'];
 
 /* ── Icon components ────────────────────────────────────────────── */
@@ -93,20 +74,32 @@ function fmtDate(s: string): string {
 
 /* ── Main Component ─────────────────────────────────────────────── */
 export default function HeroSection() {
+  const router = useRouter();
   const [open, setOpen] = useState<'where' | 'type' | 'budget' | 'when' | null>(null);
-  const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
   const [type, setType] = useState('Any type');
   const [minVal, setMinVal] = useState(0);
   const [maxVal, setMaxVal] = useState(3000);
   const [moveIn, setMoveIn] = useState('2026-06-23');
   const [moveOut, setMoveOut] = useState('2026-07-01');
+  const { query, setQuery, groups, selectCity } = useCitySearch();
 
   const toggle = useCallback((name: 'where' | 'type' | 'budget' | 'when') => {
     setOpen(prev => prev === name ? null : name);
   }, []);
 
-  const closeAll = useCallback(() => setOpen(null), []);
+  const handleSearch = useCallback(() => {
+    setOpen(null);
+    const params = new URLSearchParams();
+    const city = location.trim() || query.trim();
+    if (city) params.set('city', city);
+    if (type !== 'Any type') params.set('type', type);
+    if (minVal > 0) params.set('minPrice', String(minVal));
+    if (maxVal < 3000) params.set('maxPrice', String(maxVal));
+    if (moveIn) params.set('moveIn', moveIn);
+    if (moveOut) params.set('moveOut', moveOut);
+    router.push(`/search?${params.toString()}`);
+  }, [router, location, query, type, minVal, maxVal, moveIn, moveOut]);
 
   // close on outside click
   const barRef = useRef<HTMLDivElement>(null);
@@ -120,17 +113,6 @@ export default function HeroSection() {
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
 
-  /* WHERE dropdown data */
-  const q = query.trim().toLowerCase();
-  const hasQuery = q.length > 0;
-  const match = (it: { name: string; sub: string }) =>
-    !hasQuery || (it.name + ' ' + it.sub).toLowerCase().includes(q);
-  const groups: { title: string; items: { name: string; sub: string; kind: 'recent' | 'city' | 'uni' }[] }[] = [];
-  if (!hasQuery) groups.push({ title: 'Your recent searches', items: RECENT.map(it => ({ ...it, kind: 'recent' as const })) });
-  const filteredCities = CITIES.filter(match);
-  if (filteredCities.length) groups.push({ title: 'Popular cities', items: filteredCities.map(it => ({ ...it, kind: 'city' as const })) });
-  const filteredUnis = UNIS.filter(match);
-  if (filteredUnis.length) groups.push({ title: 'Popular universities', items: filteredUnis.map(it => ({ ...it, kind: 'uni' as const })) });
 
   /* BUDGET */
   const lo = Math.min(minVal, maxVal);
@@ -185,6 +167,7 @@ export default function HeroSection() {
                     placeholder="Search city or university…"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
                     className={styles.inlineInput}
                     autoFocus
                   />
@@ -229,7 +212,10 @@ export default function HeroSection() {
                           key={item.name}
                           type="button"
                           className={styles.dropdownRow}
-                          onClick={() => { setLocation(item.name); setQuery(''); setOpen(null); }}
+                          onClick={() => {
+                            selectCity(item.name, item.sub, item.kind);
+                            setLocation(item.name); setQuery(''); setOpen(null);
+                          }}
                         >
                           <span
                             className={styles.iconTile}
@@ -431,7 +417,7 @@ export default function HeroSection() {
             id="search-submit"
             type="button"
             className={styles.searchBtn}
-            onClick={closeAll}
+            onClick={handleSearch}
           >
             <IconSearch color="#fff" size={18} />
             Search
@@ -446,7 +432,7 @@ export default function HeroSection() {
               key={city}
               type="button"
               className={styles.chip}
-              onClick={() => { setLocation(city); setOpen(null); }}
+              onClick={() => { selectCity(city, 'Germany', 'city'); setLocation(city); setOpen(null); }}
             >
               {city}
             </button>

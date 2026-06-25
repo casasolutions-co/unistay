@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, use, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { PROPERTIES, Property, PropertyPhoto } from '../../data/properties';
+import AppNav from '../../components/AppNav';
 import styles from './page.module.css';
 import ApartmentDetailsMobile from './ApartmentDetailsMobile';
 
@@ -62,13 +64,6 @@ const IShield = () => (
   </svg>
 );
 
-const IBrandLogo = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 11.2 12 4l9 7.2" />
-    <path d="M5.5 9.8V20h13V9.8" />
-    <path d="M10 20v-5h4v5" />
-  </svg>
-);
 
 const ISearch = () => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -135,6 +130,8 @@ export default function DetailsPage({ params }: PageProps) {
   const [msgModal, setMsgModal] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [msgSent, setMsgSent] = useState(false);
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError, setMsgError] = useState('');
   const [booked, setBooked] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -175,15 +172,39 @@ export default function DetailsPage({ params }: PageProps) {
     setTimeout(() => setBooked(false), 3000);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim()) return;
-    setMsgSent(true);
-    setTimeout(() => {
-      setMsgModal(false);
-      setMessageText('');
-      setMsgSent(false);
-    }, 2000);
+    if (!messageText.trim() || msgSending) return;
+    if (!authUser) { setMsgError('Sign in to message the host.'); return; }
+
+    setMsgSending(true);
+    setMsgError('');
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_id: id, message: messageText.trim() }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let error = 'Failed to send. Try again.';
+        try { error = JSON.parse(text).error ?? error; } catch { /* non-JSON body */ }
+        setMsgError(error);
+        return;
+      }
+      setMsgSent(true);
+      setTimeout(() => {
+        setMsgModal(false);
+        setMessageText('');
+        setMsgSent(false);
+      }, 2000);
+    } catch (err) {
+      console.error('[sendMessage]', err);
+      setMsgError('Network error. Try again.');
+    } finally {
+      setMsgSending(false);
+    }
   };
 
   return (
@@ -210,35 +231,21 @@ export default function DetailsPage({ params }: PageProps) {
       )}
 
       {/* ── NAV ── */}
-      <nav className={styles.nav}>
-        <Link href="/search" className={styles.brand}>
-          <div className={styles.brandIcon}><IBrandLogo /></div>
-          <span className={styles.wordmark}>UniStay</span>
-        </Link>
-
-        <div className={styles.navSearchWrap}>
-          <span className={styles.navSearchIcon}><ISearch /></span>
-          <input
-            type="text"
-            className={styles.navSearchInput}
-            placeholder="Search city or university…"
-            defaultValue={property.city}
-            onClick={() => router.push('/search')}
-            readOnly
-          />
-        </div>
-
-        <div className={styles.navRight}>
-          <Link href="/search" className={styles.navExplore}>Explore</Link>
-          <button type="button" className={styles.navListBtn} onClick={() => router.push('/list')}>
-            <IPlus /> List your place
-          </button>
-          <button type="button" className={styles.bellBtn}>
-            <IBell /><span className={styles.bellDot} />
-          </button>
-          <span className={styles.avatar}>{initials(authUser)}</span>
-        </div>
-      </nav>
+      <AppNav
+        centerSlot={
+          <div className={styles.navSearchWrap}>
+            <span className={styles.navSearchIcon}><ISearch /></span>
+            <input
+              type="text"
+              className={styles.navSearchInput}
+              placeholder="Search city or university…"
+              defaultValue={property.city}
+              onClick={() => router.push('/search')}
+              readOnly
+            />
+          </div>
+        }
+      />
 
       {/* ── MAIN CONTENT ── */}
       <div className={styles.mainContainer}>
@@ -661,8 +668,11 @@ export default function DetailsPage({ params }: PageProps) {
                   />
                 </div>
                 
-                <button type="submit" className={styles.modalSubmitBtn}>
-                  Send Message
+                {msgError && (
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#c2557a', margin: '0 0 10px', textAlign: 'center' }}>{msgError}</p>
+                )}
+                <button type="submit" className={styles.modalSubmitBtn} disabled={msgSending}>
+                  {msgSending ? 'Sending…' : 'Send Message'}
                 </button>
               </form>
             )}

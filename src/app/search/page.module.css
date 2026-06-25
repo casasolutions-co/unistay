@@ -43,9 +43,7 @@
 /* ── Nav search ──────────────────────────────────────────────── */
 .navSearchWrap {
   position: relative;
-  flex: 1;
-  max-width: 520px;
-  margin: 0 8px;
+  width: 100%;
 }
 
 .navSearchInner {
@@ -200,7 +198,7 @@
   flex: none;
 }
 
-.navExplore {
+.navExplore { /* used for top-level nav text links */
   font-weight: 600;
   font-size: 14.5px;
   color: var(--text-body);
@@ -901,7 +899,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 16px 12px;
+  padding: 18px 16px 8px;
 }
 
 .mobileSearchField {
@@ -988,7 +986,7 @@
   align-items: center;
   gap: 8px;
   overflow-x: auto;
-  padding: 0 16px 12px;
+  padding: 4px 16px 10px;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -1088,7 +1086,7 @@
 
 /* ── Results area ── */
 .mobileResults {
-  padding-top: 152px;
+  padding-top: 132px;
   padding-bottom: 0;
   min-height: 100vh;
   min-height: 100dvh;
@@ -1271,7 +1269,7 @@
 /* ── Map overlay ── */
 .mobileMapOverlay {
   position: fixed;
-  top: 152px;
+  top: 132px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1327,6 +1325,7 @@
   left: 50%;
   bottom: 84px;
   transform: translateX(-50%);
+  z-index: 1000;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1544,6 +1543,30 @@
   font-size: 10.5px;
   font-family: var(--font-ui);
 }
+
+.loginLink {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--brand);
+  transition: background 0.15s, color 0.15s;
+}
+.loginLink:hover { background: var(--brand); color: #fff; }
+
+.registerLink {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  transition: opacity 0.15s;
+}
+.registerLink:hover { opacity: 0.88; }
 
 .mobileTabBadge {
   position: absolute;

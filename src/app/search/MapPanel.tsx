@@ -76,10 +76,28 @@ function FitBoundsOnCity({ cityKey, pins }: { cityKey: string; pins: MapProperty
 }
 
 export default function MapPanel({ properties }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [hovered, setHovered] = useState<MapProperty | null>(null);
+  // react-leaflet v5 bug: MapContainer never clears its internal mapInstanceRef on cleanup,
+  // so after React Strict Mode's simulated unmount the remounted instance skips map creation
+  // and hands a destroyed map (no panes) to children. Bumping the key forces a fresh instance.
+  const [mapKey, setMapKey] = useState(0);
+  const cleanedUpRef = useRef(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (cleanedUpRef.current) {
+      setMapKey(k => k + 1);
+      cleanedUpRef.current = false;
+    }
+    return () => { cleanedUpRef.current = true; };
+  }, []);
 
   const onEnter = useCallback((p: MapProperty) => setHovered(p), []);
   const onLeave = useCallback(() => setHovered(null), []);
+
+  if (!mounted) return null;
 
   // One pin per unique coordinate — show cheapest listing at each location
   const pinMap: Record<string, MapProperty> = {};
@@ -94,6 +112,7 @@ export default function MapPanel({ properties }: Props) {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <MapContainer
+        key={mapKey}
         center={[48.137, 11.582]}
         zoom={12}
         style={{ width: '100%', height: '100%' }}

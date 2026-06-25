@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import styles from './page.module.css';
 
@@ -164,10 +165,7 @@ export default function ListYourPlace() {
       {/* NAV */}
       <nav className={styles.nav}>
         <Link href="/" className={styles.navBrand}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 11.2 12 4l9 7.2" /><path d="M5.5 9.8V20h13V9.8" /><path d="M10 20v-5h4v5" />
-          </svg>
-          <span className={styles.navWordmark}>UniStay</span>
+          <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 44, width: 'auto' }} priority />
         </Link>
         <div className={styles.navRight}>
           <span className={styles.navDraft}>Draft saved automatically</span>
