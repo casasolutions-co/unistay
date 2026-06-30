@@ -167,13 +167,14 @@ export default function ListMobile() {
   // Form state
   const [ptype, setPtype] = useState<PType>('studio');
   const [title, setTitle] = useState('');
-  const [street, setStreet] = useState('');
+  const [streetName, setStreetName] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
   const [city, setCity] = useState('');
   const [postcode, setPostcode] = useState('');
   const [bedrooms, setBedrooms] = useState(1);
   const [bathrooms, setBathrooms] = useState(1);
-  const [size, setSize] = useState(30);
-  const [floor, setFloor] = useState(1);
+  const [roomSize, setRoomSize] = useState(15);
+  const [aptSize, setAptSize] = useState(50);
   const [suitableFor, setSuitableFor] = useState(1);
   const [amenities, setAmenities] = useState<Record<string, boolean>>({});
   const [desc, setDesc] = useState('');
@@ -216,7 +217,7 @@ export default function ListMobile() {
 
   const reqs = [
     !!title.trim() && titleOk,
-    !!(street.trim() && city.trim() && postcode.trim()),
+    !!(streetName.trim() && city.trim() && postcode.trim()),
     amenCount >= 1,
     descOk,
     !!rent.trim() && availOk,
@@ -227,7 +228,7 @@ export default function ListMobile() {
 
   const checklist = [
     { done: !!title.trim() && titleOk, label: 'Title (12–60 characters)' },
-    { done: !!(street.trim() && city.trim() && postcode.trim()), label: 'Full address' },
+    { done: !!(streetName.trim() && city.trim() && postcode.trim()), label: 'Full address' },
     { done: amenCount >= 1, label: 'At least 1 amenity selected' },
     { done: descOk, label: 'Description (60+ characters)' },
     { done: !!rent.trim() && availOk, label: 'Rent & availability' },
@@ -292,8 +293,8 @@ export default function ListMobile() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           listingId: listingIdRef.current,
-          ptype, title, street, city, postcode,
-          bedrooms, bathrooms, size, floor,
+          ptype, title, streetName, houseNumber, city, postcode,
+          bedrooms, bathrooms, roomSize, aptSize,
           amenities, desc, mates, numMates, mateGender, prefGender,
           rent, utilities, deposit, availFrom, availTo, openEnded, minPeriod, maxPeriod,
           photos: uploadedPhotos.map((p, i) => ({ r2Key: p.r2Key, position: i, isCover: i === 0 })),
@@ -392,14 +393,18 @@ export default function ListMobile() {
               </div>
 
               <label className={styles.lab} style={{ marginTop: 16 }}>Address <span className={styles.req}>*</span></label>
-              <div style={{ position: 'relative', marginBottom: 10 }}>
-                <span className={styles.fieldIcon}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" />
-                  </svg>
-                </span>
-                <input type="text" placeholder="Street & house number" value={street} onChange={e => setStreet(e.target.value)}
-                  className={styles.field} style={{ padding: '0 14px 0 38px' }} />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <span className={styles.fieldIcon}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" />
+                    </svg>
+                  </span>
+                  <input type="text" placeholder="Street name" value={streetName} onChange={e => setStreetName(e.target.value)}
+                    className={styles.field} style={{ padding: '0 14px 0 38px' }} />
+                </div>
+                <input type="text" placeholder="No." value={houseNumber} onChange={e => setHouseNumber(e.target.value)}
+                  className={styles.field} style={{ padding: '0 12px', width: 72, flex: 'none' }} />
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <CityPicker value={city} onChange={setCity} />
@@ -418,8 +423,8 @@ export default function ListMobile() {
                 {[
                   { label: 'Bedrooms', val: bedrooms, unit: '', dec: () => setBedrooms(v => Math.max(0, v - 1)), inc: () => setBedrooms(v => v + 1) },
                   { label: 'Bathrooms', val: bathrooms, unit: '', dec: () => setBathrooms(v => Math.max(1, v - 1)), inc: () => setBathrooms(v => v + 1) },
-                  { label: 'Size', val: size, unit: ' m²', dec: () => setSize(v => Math.max(10, v - 1)), inc: () => setSize(v => v + 1) },
-                  { label: 'Floor', val: floor, unit: '', dec: () => setFloor(v => Math.max(0, v - 1)), inc: () => setFloor(v => v + 1) },
+                  { label: 'Room size', val: roomSize, unit: ' m²', dec: () => setRoomSize(v => Math.max(5, v - 1)), inc: () => setRoomSize(v => v + 1) },
+                  { label: 'Apt. size', val: aptSize, unit: ' m²', dec: () => setAptSize(v => Math.max(10, v - 1)), inc: () => setAptSize(v => v + 1) },
                   { label: 'Suitable for', val: suitableFor, unit: ' ppl', dec: () => setSuitableFor(v => Math.max(1, v - 1)), inc: () => setSuitableFor(v => v + 1) },
                 ].map(({ label, val, unit, dec, inc }) => (
                   <div key={label}>

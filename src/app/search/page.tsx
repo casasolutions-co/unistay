@@ -163,7 +163,7 @@ function SearchPageInner() {
 
   const mapProps: MapProperty[] = filtered.map(p => ({
     id: p.id, title: p.title, address: p.address, price: p.price,
-    featured: p.featured, lat: p.lat, lng: p.lng,
+    featured: p.featured, badge: p.badge, lat: p.lat, lng: p.lng,
     now: p.now, avail: p.avail,
   }));
 

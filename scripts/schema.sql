@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS listings (
   bedrooms       INTEGER,
   bathrooms      INTEGER,
   size_sqm       INTEGER,
-  floor          INTEGER,
+  room_size_sqm  INTEGER DEFAULT 0,
   cold_rent      INTEGER,
   utilities      INTEGER,
   deposit        INTEGER,
@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS listings (
   mate_notes     TEXT,
   status         TEXT DEFAULT 'draft',
   rejection_reason TEXT,
+  lat            REAL DEFAULT 0,
+  lng            REAL DEFAULT 0,
   created_at     INTEGER,
   updated_at     INTEGER
 );

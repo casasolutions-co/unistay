@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Property } from '../../data/properties';
+
+const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'HOST'; source?: string; externalLink?: string | null; [key: string]: any };
@@ -170,14 +173,13 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
           <div className={styles.section}>
             <h2 className={styles.sectionH2}>Where you&apos;ll be</h2>
             <p className={styles.sectionSub}>{p.city} · Germany</p>
-            <div className={styles.mapPlaceholder}>
-              <div className={styles.mapBg} />
-              <div className={styles.mapWater} />
-              <div className={styles.mapPin}>
-                <span className={styles.mapPinInner}>
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V20h13V9.8"/></svg>
-                </span>
-              </div>
+            <div className={styles.mapPlaceholder} style={{ overflow: 'hidden' }}>
+              <ListingMap
+                lat={p.lat ?? 0}
+                lng={p.lng ?? 0}
+                address={p.address}
+                badge={p.badge as 'CASA' | 'PARTNER' | 'HOST'}
+              />
             </div>
             {p.nearby?.length > 0 && (
               <div className={styles.nearbyList}>

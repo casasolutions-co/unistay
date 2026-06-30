@@ -171,13 +171,14 @@ export default function ListYourPlace() {
 
   const [ptype, setPtype] = useState<PType>('studio');
   const [title, setTitle] = useState('');
-  const [street, setStreet] = useState('');
+  const [streetName, setStreetName] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
   const [city, setCity] = useState('');
   const [postcode, setPostcode] = useState('');
   const [bedrooms, setBedrooms] = useState(1);
   const [bathrooms, setBathrooms] = useState(1);
-  const [size, setSize] = useState(30);
-  const [floor, setFloor] = useState(1);
+  const [roomSize, setRoomSize] = useState(15);
+  const [aptSize, setAptSize] = useState(50);
   const [suitableFor, setSuitableFor] = useState(1);
   const [amenities, setAmenities] = useState<Record<string, boolean>>({});
   const [desc, setDesc] = useState('');
@@ -228,7 +229,7 @@ export default function ListYourPlace() {
 
   const reqs = [
     !!title.trim() && titleOk,
-    !!(street.trim() && city.trim() && postcode.trim()),
+    !!(streetName.trim() && city.trim() && postcode.trim()),
     amenCount >= 1,
     descOk,
     !!rent.trim() && availOk,
@@ -239,7 +240,7 @@ export default function ListYourPlace() {
 
   const checklist = [
     { done: !!title.trim() && titleOk, label: 'Title (12–60 characters)' },
-    { done: !!(street.trim() && city.trim() && postcode.trim()), label: 'Full address' },
+    { done: !!(streetName.trim() && city.trim() && postcode.trim()), label: 'Full address' },
     { done: amenCount >= 1, label: 'At least 1 amenity selected' },
     { done: descOk, label: 'Description (60+ characters)' },
     { done: !!rent.trim() && availOk, label: 'Rent & availability' },
@@ -328,8 +329,8 @@ export default function ListYourPlace() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           listingId: listingIdRef.current,
-          ptype, title, street, city, postcode,
-          bedrooms, bathrooms, size, floor,
+          ptype, title, streetName, houseNumber, city, postcode,
+          bedrooms, bathrooms, roomSize, aptSize,
           amenities,
           desc, mates, numMates, mateGender, prefGender,
           rent, utilities, deposit,
@@ -440,14 +441,18 @@ export default function ListYourPlace() {
             </div>
 
             <label className={styles.usLab}>Address <span style={{ color: '#e0457b' }}>*</span></label>
-            <div style={{ position: 'relative', marginBottom: 14 }}>
-              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#b0aabf' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx={12} cy={10} r={3} />
-                </svg>
-              </span>
-              <input type="text" placeholder="Street & house number" value={street} onChange={e => setStreet(e.target.value)}
-                className={styles.usField} style={{ padding: '0 14px 0 42px' }} />
+            <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#b0aabf' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx={12} cy={10} r={3} />
+                  </svg>
+                </span>
+                <input type="text" placeholder="Street name" value={streetName} onChange={e => setStreetName(e.target.value)}
+                  className={styles.usField} style={{ padding: '0 14px 0 42px' }} />
+              </div>
+              <input type="text" placeholder="No." value={houseNumber} onChange={e => setHouseNumber(e.target.value)}
+                className={styles.usField} style={{ padding: '0 14px', width: 80, flex: 'none' }} />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <CityPicker value={city} onChange={setCity} />
@@ -467,8 +472,8 @@ export default function ListYourPlace() {
               {[
                 { label: 'Bedrooms', val: bedrooms, dec: () => setBedrooms(v => Math.max(0, v - 1)), inc: () => setBedrooms(v => v + 1) },
                 { label: 'Bathrooms', val: bathrooms, dec: () => setBathrooms(v => Math.max(1, v - 1)), inc: () => setBathrooms(v => v + 1) },
-                { label: 'Size', val: `${size} m²`, dec: () => setSize(v => Math.max(10, v - 1)), inc: () => setSize(v => v + 1) },
-                { label: 'Floor', val: floor, dec: () => setFloor(v => Math.max(0, v - 1)), inc: () => setFloor(v => v + 1) },
+                { label: 'Room size', val: `${roomSize} m²`, dec: () => setRoomSize(v => Math.max(5, v - 1)), inc: () => setRoomSize(v => v + 1) },
+                { label: 'Apt. size', val: `${aptSize} m²`, dec: () => setAptSize(v => Math.max(10, v - 1)), inc: () => setAptSize(v => v + 1) },
                 { label: 'Suitable for', val: `${suitableFor} ppl`, dec: () => setSuitableFor(v => Math.max(1, v - 1)), inc: () => setSuitableFor(v => v + 1) },
               ].map(({ label, val, dec, inc }) => (
                 <div key={label} style={{ flex: 1 }}>
@@ -768,7 +773,7 @@ export default function ListYourPlace() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a94a8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx={12} cy={10} r={3} />
                 </svg>
-                {city.trim() ? (street.trim() ? `${street}, ${city}` : city) : 'City, neighbourhood'}
+                {city.trim() ? (streetName.trim() ? `${streetName}${houseNumber.trim() ? ' ' + houseNumber : ''}, ${city}` : city) : 'City, neighbourhood'}
               </p>
 
               <div className={styles.previewStats}>
@@ -782,7 +787,7 @@ export default function ListYourPlace() {
                 </div>
                 <div className={styles.previewStat}>
                   <Icon paths={['M3 3h18v18H3z', 'M3 9h18M9 3v18']} size={16} stroke="#6d28d9" sw={1.9} />
-                  {size} m²
+                  {aptSize} m²
                 </div>
               </div>
 

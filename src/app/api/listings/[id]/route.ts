@@ -5,6 +5,7 @@ import { PROPERTIES } from '@/app/data/properties'
 import { ICON_PATHS } from '@/app/data/properties'
 import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
+import { cityCoords } from '@/lib/city-coords'
 
 const CITIES_DIR = path.join(process.cwd(), 'public', 'partner-cities')
 
@@ -77,13 +78,14 @@ export async function GET(
     const [row] = await d1Query<{
       id: string; ptype: string; title: string;
       street: string; city: string; postcode: string;
-      bedrooms: number; bathrooms: number; size_sqm: number; floor: number;
+      bedrooms: number; bathrooms: number; size_sqm: number; room_size_sqm: number;
       cold_rent: number; utilities: number; deposit: number;
       avail_from: string | null; avail_to: string | null; open_ended: number;
       description: string;
       mate_count: number; mate_gender: string | null; pref_gender: string | null; mate_notes: string | null;
       status: string;
       landlord_id: string;
+      lat: number; lng: number;
     }>('SELECT * FROM listings WHERE id = ?', [id])
 
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -107,9 +109,9 @@ export async function GET(
       address: `${row.street}, ${row.city}`,
       city: row.city,
       area: row.size_sqm,
+      roomSize: row.room_size_sqm || null,
       beds: row.bedrooms === 1 ? '1 bed' : `${row.bedrooms} beds`,
       bathrooms: String(row.bathrooms),
-      floor: String(row.floor),
       price: warm,
       coldRent: row.cold_rent,
       utilities: row.utilities,
@@ -120,8 +122,8 @@ export async function GET(
       now: availFrom <= today,
       incl: false,
       featured: false,
-      lat: 0,
-      lng: 0,
+      lat: (row.lat && row.lat !== 0) ? row.lat : (cityCoords(row.city)?.[0] ?? 0),
+      lng: (row.lng && row.lng !== 0) ? row.lng : (cityCoords(row.city)?.[1] ?? 0),
       description: row.description,
       photos: photoRows.map((p, i) => ({ r2_key: p.r2_key, label: `photo ${i + 1}`, url: getSignedUrl(p.r2_key) })),
       amenities: amenityRows.map(a => ({ label: a.amenity, icon: ICON_PATHS.wifi })),

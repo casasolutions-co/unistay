@@ -5,6 +5,8 @@ import type { UnifiedListing } from '@/lib/listings/types'
 import { adminAuth } from '@/lib/firebase-admin'
 import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
+import { cityCoords } from '@/lib/city-coords'
+import { geocodeAddress } from '@/lib/geocode'
 
 const LIMIT = 20
 
@@ -68,6 +70,7 @@ export async function GET(req: NextRequest) {
       SELECT l.id, l.ptype, l.title, l.street, l.city, l.postcode,
              l.bedrooms, l.size_sqm, l.cold_rent, l.utilities,
              l.avail_from, l.open_ended, l.created_at,
+             l.lat, l.lng,
              lp.r2_key as cover_r2_key
       FROM listings l
       LEFT JOIN listing_photos lp ON l.id = lp.listing_id AND lp.is_cover = 1
@@ -84,31 +87,37 @@ export async function GET(req: NextRequest) {
         cold_rent: number; utilities: number;
         avail_from: string | null; open_ended: number;
         created_at: number; cover_r2_key: string | null;
+        lat: number; lng: number;
       }>(sql, params)
 
       const today = new Date().toISOString().slice(0, 10)
-      hostListings = rows.map(r => ({
-        id: r.id,
-        source: 'host' as const,
-        badge: 'HOST' as const,
-        title: r.title,
-        address: `${r.street}, ${r.city}`,
-        city: r.city,
-        area: r.size_sqm,
-        beds: r.bedrooms === 1 ? '1 bed' : `${r.bedrooms} beds`,
-        price: r.cold_rent + r.utilities,
-        type: r.ptype,
-        avail: !r.avail_from || r.avail_from <= today ? 'Available now' : `From ${r.avail_from}`,
-        availFrom: r.avail_from,
-        now: !r.avail_from || r.avail_from <= today,
-        incl: false,
-        featured: false,
-        lat: 0,
-        lng: 0,
-        coverPhoto: r.cover_r2_key ? getSignedUrl(r.cover_r2_key) : null,
-        externalLink: null,
-        rank: 70,
-      }))
+      hostListings = rows.map(r => {
+        const storedLat = r.lat ?? 0;
+        const storedLng = r.lng ?? 0;
+        const fallback = cityCoords(r.city);
+        return {
+          id: r.id,
+          source: 'host' as const,
+          badge: 'HOST' as const,
+          title: r.title,
+          address: `${r.street}, ${r.city}`,
+          city: r.city,
+          area: r.size_sqm,
+          beds: r.bedrooms === 1 ? '1 bed' : `${r.bedrooms} beds`,
+          price: r.cold_rent + r.utilities,
+          type: r.ptype,
+          avail: !r.avail_from || r.avail_from <= today ? 'Available now' : `From ${r.avail_from}`,
+          availFrom: r.avail_from,
+          now: !r.avail_from || r.avail_from <= today,
+          incl: false,
+          featured: false,
+          lat: storedLat !== 0 ? storedLat : (fallback?.[0] ?? 0),
+          lng: storedLng !== 0 ? storedLng : (fallback?.[1] ?? 0),
+          coverPhoto: r.cover_r2_key ? getSignedUrl(r.cover_r2_key) : null,
+          externalLink: null,
+          rank: 70,
+        };
+      })
     } catch (err) {
       console.error('[GET /api/listings] D1 host query failed:', err)
     }
@@ -183,8 +192,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     listingId: clientListingId,
-    ptype, title, street, city, postcode,
-    bedrooms, bathrooms, size, floor,
+    ptype, title, streetName, houseNumber, city, postcode,
+    bedrooms, bathrooms, roomSize, aptSize,
     amenities,
     desc, mates, numMates, mateGender, prefGender,
     rent, utilities, deposit,
@@ -193,8 +202,11 @@ export async function POST(req: NextRequest) {
     photos,
   } = body;
 
+  // Combine for storage and display: "Musterstraße 12a"
+  const street = [streetName?.trim(), houseNumber?.trim()].filter(Boolean).join(' ');
+
   if (!title?.trim()) return NextResponse.json({ error: 'title required' }, { status: 400 });
-  if (!street?.trim() || !city?.trim() || !postcode?.trim())
+  if (!streetName?.trim() || !city?.trim() || !postcode?.trim())
     return NextResponse.json({ error: 'full address required' }, { status: 400 });
   if (!rent?.trim()) return NextResponse.json({ error: 'rent required' }, { status: 400 });
 
@@ -208,7 +220,7 @@ export async function POST(req: NextRequest) {
       `INSERT INTO listings (
         id, landlord_id, ptype, title,
         street, city, postcode,
-        bedrooms, bathrooms, size_sqm, floor,
+        bedrooms, bathrooms, size_sqm, room_size_sqm,
         cold_rent, utilities, deposit,
         avail_from, avail_to, open_ended,
         min_period, max_period,
@@ -219,7 +231,7 @@ export async function POST(req: NextRequest) {
       [
         listingId, uid, ptype ?? 'studio', title.trim(),
         street.trim(), city.trim(), postcode.trim(),
-        bedrooms ?? 1, bathrooms ?? 1, size ?? 30, floor ?? 1,
+        bedrooms ?? 1, bathrooms ?? 1, aptSize ?? 50, roomSize ?? 15,
         parseInt(rent) || 0, parseInt(utilities) || 0, parseInt(deposit) || 0,
         availFrom || null, availTo || null, openEnded ? 1 : 0,
         minPeriod ? parseInt(minPeriod) : null, maxPeriod ? parseInt(maxPeriod) : null,
@@ -256,6 +268,16 @@ export async function POST(req: NextRequest) {
         ]
       );
     }
+
+    // Geocode the address and store coordinates (fire-and-forget — don't block the response)
+    geocodeAddress(streetName.trim(), houseNumber?.trim() ?? '', city.trim(), postcode.trim()).then(coords => {
+      if (coords) {
+        d1Query(
+          'UPDATE listings SET lat = ?, lng = ? WHERE id = ?',
+          [coords.lat, coords.lng, listingId]
+        ).catch(err => console.error('[geocode] D1 update failed:', err));
+      }
+    }).catch(err => console.error('[geocode] failed:', err));
 
     return NextResponse.json({ listing_id: listingId });
   } catch (err) {
