@@ -60,6 +60,15 @@ html, body {
 a { color: inherit; text-decoration: none; }
 input::placeholder { color: var(--placeholder); }
 
+/* ─── Mobile gate ────────────────────────────────────────────── */
+.mobile-gate   { display: none; }
+.desktop-shell { display: flex;  }
+
+@media (max-width: 767px) {
+  .mobile-gate   { display: flex; }
+  .desktop-shell { display: none; }
+}
+
 /* ─── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: #e0dbec; border-radius: 999px; border: 2px solid var(--page); }
