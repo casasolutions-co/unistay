@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import ListMobile from './ListMobile';
 import styles from './page.module.css';
+
+type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
 
 type PType = 'studio' | 'apartment' | 'room' | 'house';
 
@@ -41,6 +47,101 @@ function Icon({ paths, size = 24, stroke = 'currentColor', sw = 1.9 }: { paths: 
   );
 }
 
+const CITY_POPULAR = ['Berlin', 'München', 'Hamburg', 'Frankfurt am Main', 'Köln', 'Stuttgart', 'Düsseldorf', 'Nürnberg'];
+
+function normaliseCityName(s: string): string {
+  return s
+    .replace(/\bi\.d\.\s*/g, 'in der ').replace(/\ba\.d\.\s*/g, 'an der ')
+    .replace(/\bi\.\s*/g, 'im ').replace(/\bv\.\s*/g, 'vor ').replace(/\bb\.\s*/g, 'bei ')
+    .replace(/\bNbg\./g, 'Nürnberg').replace(/\bOPf\./g, 'Oberpfalz')
+    .replace(/\bThür\./g, 'Thüringen').replace(/\bSachs\./g, 'Sachsen')
+    .replace(/\bObb\./g, 'Oberbayern').replace(/\bWestf\./g, 'Westfalen')
+    .replace(/[-()]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+type CityEntry = { name: string; search: string };
+let cityCache: CityEntry[] | null = null;
+let cityFetch: Promise<void> | null = null;
+
+function CityPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [query, setQuery]     = useState(value);
+  const [open, setOpen]       = useState(false);
+  const [cities, setCities]   = useState<CityEntry[]>(cityCache ?? []);
+  const wrapRef               = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (cityCache) { setCities(cityCache); return; }
+    if (!cityFetch) {
+      cityFetch = fetch('/api/cities')
+        .then(r => r.json())
+        .then((d: { name: string }[]) => {
+          cityCache = d.map(c => ({ name: c.name, search: normaliseCityName(c.name) }));
+        })
+        .catch(() => { cityFetch = null; });
+    }
+    cityFetch.then(() => { if (cityCache) setCities(cityCache); });
+  }, []);
+
+  // Sync display when parent resets
+  useEffect(() => { if (!value) setQuery(''); }, [value]);
+
+  const q = normaliseCityName(query.trim());
+  const suggestions = q.length > 0
+    ? cities.filter(c => c.search.startsWith(q)).slice(0, 8)
+    : CITY_POPULAR.map(name => ({ name, search: name.toLowerCase() }));
+
+  function select(name: string) {
+    setQuery(name);
+    onChange(name);
+    setOpen(false);
+  }
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', flex: 1 }}>
+      <input
+        type="text"
+        placeholder="City"
+        value={query}
+        autoComplete="off"
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        className={styles.usField}
+        style={{ padding: '0 14px', width: '100%', boxSizing: 'border-box' }}
+      />
+      {open && suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, background: '#fff', border: '1.5px solid #e6e2ef', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,.12)', overflow: 'hidden' }}>
+          {!q && (
+            <div style={{ padding: '8px 14px 3px', fontSize: 10.5, fontWeight: 700, color: '#b0aabf', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              Popular cities
+            </div>
+          )}
+          {suggestions.map(c => (
+            <button key={c.name} type="button"
+              onMouseDown={e => { e.preventDefault(); select(c.name); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: query === c.name ? '#f3effe' : 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: query === c.name ? '#6d28d9' : '#1c1530', textAlign: 'left', fontFamily: 'inherit', transition: 'background .1s' }}
+              onMouseEnter={e => { if (query !== c.name) e.currentTarget.style.background = '#f8f6ff'; }}
+              onMouseLeave={e => { if (query !== c.name) e.currentTarget.style.background = 'none'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={query === c.name ? '#6d28d9' : '#9a94a8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function hintFor(s: string, lo: number) {
   if (!s.length) return `Minimum ${lo} characters`;
   if (s.length < lo) return `${lo - s.length} more characters needed`;
@@ -55,6 +156,19 @@ function fmtDate(iso: string) {
 const OK = '#1f9d6b', WARN = '#c2557a', NEUTRAL = '#b3adbf';
 
 export default function ListYourPlace() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState('');
+
+  // Stable listing ID generated once — used as R2 key prefix before publish
+  const listingIdRef = useRef(crypto.randomUUID());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, setUser);
+  }, []);
+
   const [ptype, setPtype] = useState<PType>('studio');
   const [title, setTitle] = useState('');
   const [street, setStreet] = useState('');
@@ -79,14 +193,15 @@ export default function ListYourPlace() {
   const [openEnded, setOpenEnded] = useState(false);
   const [minPeriod, setMinPeriod] = useState('');
   const [maxPeriod, setMaxPeriod] = useState('');
-  const [photoCount, setPhotoCount] = useState(0);
+  const [photos, setPhotos] = useState<Photo[]>([]);
 
   // Derived
   const titleOk = title.length >= 12 && title.length <= 60;
   const descOk = desc.length >= 60 && desc.length <= 600;
   const selectedAmen = AMEN_DEFS.filter(([k]) => amenities[k]);
   const amenCount = selectedAmen.length;
-  const photosOk = photoCount >= 3;
+  const uploadedPhotos = photos.filter(p => !p.uploading && !p.error);
+  const photosOk = uploadedPhotos.length >= 3;
   const warm = (parseInt(rent) || 0) + (parseInt(utilities) || 0);
   const depositNum = parseInt(deposit) || 0;
   const depositHint = depositNum && warm
@@ -125,6 +240,7 @@ export default function ListYourPlace() {
   const checklist = [
     { done: !!title.trim() && titleOk, label: 'Title (12–60 characters)' },
     { done: !!(street.trim() && city.trim() && postcode.trim()), label: 'Full address' },
+    { done: amenCount >= 1, label: 'At least 1 amenity selected' },
     { done: descOk, label: 'Description (60+ characters)' },
     { done: !!rent.trim() && availOk, label: 'Rent & availability' },
     { done: photosOk, label: 'At least 3 photos' },
@@ -138,6 +254,102 @@ export default function ListYourPlace() {
     { id: 'any', label: 'No preference' }, { id: 'female', label: 'Female' },
     { id: 'male', label: 'Male' }, { id: 'diverse', label: 'Diverse-friendly' },
   ];
+
+  async function uploadFiles(files: FileList) {
+    const fileArray = Array.from(files);
+    const startIdx = photos.length;
+
+    // Step 1: add previews to state immediately — no async needed
+    setPhotos(prev => [
+      ...prev,
+      ...fileArray.map(f => ({ r2Key: '', previewUrl: URL.createObjectURL(f), uploading: true })),
+    ]);
+
+    // Step 2: upload each file to R2
+    if (!user) {
+      setPhotos(prev => prev.map((p, j) =>
+        j >= startIdx ? { ...p, uploading: false, error: 'Sign in to upload photos' } : p
+      ));
+      return;
+    }
+
+    let token: string;
+    try {
+      token = await user.getIdToken();
+    } catch {
+      setPhotos(prev => prev.map((p, j) =>
+        j >= startIdx ? { ...p, uploading: false, error: 'Auth error — please sign in again' } : p
+      ));
+      return;
+    }
+
+    await Promise.all(
+      fileArray.map(async (file, i) => {
+        const idx = startIdx + i;
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('listingId', listingIdRef.current);
+        try {
+          const res = await fetch('/api/listings/photos', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd,
+          });
+          const data = await res.json() as { r2Key?: string; error?: string };
+          if (!res.ok) throw new Error(data.error ?? 'Upload failed');
+          setPhotos(prev => prev.map((p, j) =>
+            j === idx ? { ...p, r2Key: data.r2Key!, uploading: false } : p
+          ));
+        } catch (err) {
+          setPhotos(prev => prev.map((p, j) =>
+            j === idx ? { ...p, uploading: false, error: err instanceof Error ? err.message : 'Upload failed' } : p
+          ));
+        }
+      })
+    );
+  }
+
+  function removePhoto(idx: number) {
+    setPhotos(prev => {
+      URL.revokeObjectURL(prev[idx].previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
+  async function handlePublish() {
+    if (!canPublish || publishing) return;
+    if (!user) { setPublishError('You must be signed in to publish.'); return; }
+    setPublishing(true);
+    setPublishError('');
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          listingId: listingIdRef.current,
+          ptype, title, street, city, postcode,
+          bedrooms, bathrooms, size, floor,
+          amenities,
+          desc, mates, numMates, mateGender, prefGender,
+          rent, utilities, deposit,
+          availFrom, availTo, openEnded,
+          minPeriod, maxPeriod,
+          photos: uploadedPhotos.map((p, i) => ({
+            r2Key: p.r2Key,
+            position: i,
+            isCover: i === 0,
+          })),
+        }),
+      });
+      const data = await res.json() as { listing_id?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Unknown error');
+      router.push(`/search/${data.listing_id}`);
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Failed to publish. Please try again.');
+      setPublishing(false);
+    }
+  }
 
   const ptypeLabel = PTYPE_DEFS.find(t => t.id === ptype)?.label ?? 'Studio';
   const amenPreview = selectedAmen.slice(0, 5).map(([, label]) => label);
@@ -160,6 +372,11 @@ export default function ListYourPlace() {
   });
 
   return (
+    <>
+      <div className={styles.mobileOnly}>
+        <ListMobile />
+      </div>
+      <div className={styles.desktopOnly}>
     <div className={styles.page}>
 
       {/* NAV */}
@@ -233,8 +450,7 @@ export default function ListYourPlace() {
                 className={styles.usField} style={{ padding: '0 14px 0 42px' }} />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <input type="text" placeholder="City" value={city} onChange={e => setCity(e.target.value)}
-                className={styles.usField} style={{ padding: '0 14px', flex: 1 }} />
+              <CityPicker value={city} onChange={setCity} />
               <input type="text" placeholder="Postcode" value={postcode} onChange={e => setPostcode(e.target.value)}
                 className={styles.usField} style={{ padding: '0 14px', flex: 0.55 }} />
             </div>
@@ -445,23 +661,69 @@ export default function ListYourPlace() {
               <h2 className={styles.sectionTitle}>Photos</h2>
             </div>
             <p style={{ fontSize: 13.5, fontWeight: 600, color: photosOk ? OK : WARN, margin: '0 0 18px 41px' }}>
-              {photosOk ? `${photoCount} photos added · drag to reorder` : `Add at least 3 photos — ${photoCount}/3 so far. First photo is the cover.`}
+              {photosOk
+                ? `${uploadedPhotos.length} photos added · first photo is the cover`
+                : `Add at least 3 photos — ${uploadedPhotos.length}/3 so far. First photo is the cover.`}
             </p>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic"
+              multiple
+              style={{ display: 'none' }}
+              onChange={e => { if (e.target.files?.length) { uploadFiles(e.target.files); e.target.value = ''; } }}
+            />
+
             <div className={styles.photosGrid}>
-              <button type="button" onClick={() => setPhotoCount(v => Math.min(8, v + 1))}
-                className={styles.addPhotoBtn} style={{ borderColor: photosOk ? '#cfc8dd' : WARN }}>
+              {/* Add photo button — disabled while any upload is in flight */}
+              <button
+                type="button"
+                disabled={photos.some(p => p.uploading) || photos.length >= 8}
+                onClick={() => fileInputRef.current?.click()}
+                className={styles.addPhotoBtn}
+                style={{ borderColor: photosOk ? '#cfc8dd' : WARN, opacity: photos.length >= 8 ? 0.4 : 1 }}
+              >
                 <Icon paths={['M12 5v14M5 12h14']} size={24} sw={2} />
-                <span style={{ fontSize: 11, fontWeight: 700 }}>Add photo</span>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>
+                  {photos.some(p => p.uploading) ? 'Uploading…' : 'Add photo'}
+                </span>
               </button>
-              {Array.from({ length: photoCount }, (_, i) => (
-                <div key={i} className={styles.photoThumb}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x={3} y={5} width={18} height={14} rx={2} />
-                    <circle cx={9} cy={10} r={1.6} />
-                    <path d="m21 17-5-5L5 19" />
-                  </svg>
-                  {i === 0 && <span className={styles.photoCoverBadge}>COVER</span>}
-                  <button type="button" onClick={() => setPhotoCount(v => Math.max(0, v - 1))} className={styles.photoRemoveBtn}>
+
+              {photos.map((photo, i) => (
+                <div key={i} className={styles.photoThumb} style={{ opacity: photo.uploading ? 0.5 : 1 }}>
+                  {/* Real preview */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.previewUrl}
+                    alt={`Photo ${i + 1}`}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+
+                  {/* Uploading spinner overlay */}
+                  {photo.uploading && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(20,14,32,.45)' }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83">
+                          <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur=".8s" repeatCount="indefinite" />
+                        </path>
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Error badge */}
+                  {photo.error && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(194,85,122,.9)', padding: '4px 6px', fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+                      Failed — tap × to remove
+                    </div>
+                  )}
+
+                  {i === 0 && !photo.uploading && !photo.error && (
+                    <span className={styles.photoCoverBadge}>COVER</span>
+                  )}
+
+                  <button type="button" onClick={() => removePhoto(i)} className={styles.photoRemoveBtn}>
                     <Icon paths={['M18 6 6 18M6 6l12 12']} size={13} sw={2.6} />
                   </button>
                 </div>
@@ -476,7 +738,14 @@ export default function ListYourPlace() {
 
           <div className={styles.previewCard}>
             <div className={styles.previewCover}>
-              {photoCount === 0 ? (
+              {uploadedPhotos[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={uploadedPhotos[0].previewUrl}
+                  alt="Cover"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : photos.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.5)' }}>
                   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <rect x={3} y={5} width={18} height={14} rx={2} />
@@ -486,7 +755,7 @@ export default function ListYourPlace() {
                   <div style={{ fontSize: 11, marginTop: 6 }}>Add photos to see the cover</div>
                 </div>
               ) : (
-                <span style={{ color: 'rgba(255,255,255,.4)', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>[ cover photo ]</span>
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.5)', fontSize: 11 }}>Uploading…</div>
               )}
               <span className={styles.previewTypeBadge}>{ptypeLabel}</span>
             </div>
@@ -557,11 +826,14 @@ export default function ListYourPlace() {
                 </div>
               ))}
             </div>
-            <button type="button" disabled={!canPublish} className={styles.publishBtn}>
-              Publish listing
-              <Icon paths={['M5 12h14M13 6l6 6-6 6']} size={18} sw={2.4} />
+            <button type="button" disabled={!canPublish || publishing} onClick={handlePublish} className={styles.publishBtn}>
+              {publishing ? 'Publishing…' : 'Publish listing'}
+              {!publishing && <Icon paths={['M5 12h14M13 6l6 6-6 6']} size={18} sw={2.4} />}
             </button>
-            <p style={{ textAlign: 'center', fontSize: 12, color: '#9a94a8', margin: '12px 0 0' }}>
+            {publishError && (
+              <p style={{ textAlign: 'center', fontSize: 12, color: '#c2557a', margin: '10px 0 0', fontWeight: 600 }}>{publishError}</p>
+            )}
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#9a94a8', margin: '10px 0 0' }}>
               {canPublish ? 'Everything looks ready to go live.' : 'Complete the checklist above to publish.'}
             </p>
           </div>
@@ -569,5 +841,7 @@ export default function ListYourPlace() {
 
       </div>
     </div>
+      </div>
+    </>
   );
 }

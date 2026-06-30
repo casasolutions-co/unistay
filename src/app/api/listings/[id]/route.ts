@@ -3,6 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import { PROPERTIES } from '@/app/data/properties'
 import { ICON_PATHS } from '@/app/data/properties'
+import { d1Query } from '@/lib/d1'
+import { getSignedUrl } from '@/lib/r2'
 
 const CITIES_DIR = path.join(process.cwd(), 'public', 'partner-cities')
 
@@ -62,13 +64,82 @@ function mapPartnerDetail(l: any) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
 
-  // CASA listing
+  // D1 listing (published via List Your Place)
+  if (UUID_RE.test(id)) {
+    const [row] = await d1Query<{
+      id: string; ptype: string; title: string;
+      street: string; city: string; postcode: string;
+      bedrooms: number; bathrooms: number; size_sqm: number; floor: number;
+      cold_rent: number; utilities: number; deposit: number;
+      avail_from: string | null; avail_to: string | null; open_ended: number;
+      description: string;
+      mate_count: number; mate_gender: string | null; pref_gender: string | null; mate_notes: string | null;
+      status: string;
+      landlord_id: string;
+    }>('SELECT * FROM listings WHERE id = ?', [id])
+
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const amenityRows = await d1Query<{ amenity: string }>(
+      'SELECT amenity FROM listing_amenities WHERE listing_id = ?', [id]
+    )
+    const photoRows = await d1Query<{ r2_key: string; position: number; is_cover: number }>(
+      'SELECT r2_key, position, is_cover FROM listing_photos WHERE listing_id = ? ORDER BY position ASC', [id]
+    )
+
+    const warm = row.cold_rent + row.utilities
+    const today = new Date().toISOString().slice(0, 10)
+    const availFrom = row.avail_from ?? today
+
+    const listing = {
+      id: row.id,
+      source: 'casa',
+      badge: 'CASA',
+      title: row.title,
+      address: `${row.street}, ${row.city}`,
+      city: row.city,
+      area: row.size_sqm,
+      beds: row.bedrooms === 1 ? '1 bed' : `${row.bedrooms} beds`,
+      bathrooms: String(row.bathrooms),
+      floor: String(row.floor),
+      price: warm,
+      coldRent: row.cold_rent,
+      utilities: row.utilities,
+      deposit: row.deposit,
+      serviceFee: 0,
+      type: row.ptype,
+      avail: availFrom <= today ? 'Available now' : `From ${availFrom}`,
+      now: availFrom <= today,
+      incl: false,
+      featured: false,
+      lat: 0,
+      lng: 0,
+      description: row.description,
+      photos: photoRows.map((p, i) => ({ r2_key: p.r2_key, label: `photo ${i + 1}`, url: getSignedUrl(p.r2_key) })),
+      amenities: amenityRows.map(a => ({ label: a.amenity, icon: ICON_PATHS.wifi })),
+      nearby: [],
+      hostName: 'Private landlord',
+      hostType: 'Private',
+      hostReplies: '—',
+      hostListings: '1',
+      rating: 0,
+      reviewsCount: 0,
+      landlord_id: row.landlord_id,
+      status: row.status,
+    }
+
+    return NextResponse.json({ listing })
+  }
+
+  // CASA static listing
   if (!id.startsWith('partner-')) {
     const p = PROPERTIES.find(prop => prop.id === id)
     if (!p) return NextResponse.json({ error: 'Not found' }, { status: 404 })

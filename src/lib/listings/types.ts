@@ -1,7 +1,7 @@
 export interface UnifiedListing {
   id: string
-  source: 'casa' | 'partner'
-  badge: 'CASA' | 'PARTNER'
+  source: 'casa' | 'partner' | 'host'
+  badge: 'CASA' | 'PARTNER' | 'HOST'
   title: string
   address: string
   city: string

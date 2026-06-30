@@ -96,7 +96,7 @@ interface PageProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyListing = Property & { source?: string; [key: string]: any };
+type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'HOST'; source?: string; [key: string]: any };
 
 export default function DetailsPage({ params }: PageProps) {
   const { id } = use(params);
@@ -279,8 +279,8 @@ export default function DetailsPage({ params }: PageProps) {
               ? { backgroundImage: `url(${property.photos[0].url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
               : { background: `repeating-linear-gradient(135deg, ${property.photos?.[0]?.a ?? '#e9e3f5'} 0 18px, ${property.photos?.[0]?.b ?? '#f1ecfa'} 18px 36px)` }}
           >
-            <span className={styles.badge} style={{ background: property.badge === 'PARTNER' ? '#1c1530' : 'var(--brand)' }}>
-              {property.badge}
+            <span className={styles.badge} style={{ background: property.badge === 'PARTNER' ? '#1c1530' : property.badge === 'HOST' ? '#0d7a5f' : 'var(--brand)' }}>
+              {property.badge === 'HOST' ? 'Private' : property.badge}
             </span>
             {!property.photos?.[0]?.url && <span className={styles.photoLabel}>{property.photos?.[0]?.label}</span>}
           </div>

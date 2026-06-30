@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Property } from '../../data/properties';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyListing = Property & { source?: string; externalLink?: string | null; [key: string]: any };
+type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'HOST'; source?: string; externalLink?: string | null; [key: string]: any };
 import styles from './ApartmentDetailsMobile.module.css';
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
@@ -102,7 +102,9 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
           {/* ── Title block ── */}
           <div className={styles.titleBlock}>
             <div className={styles.badgeRow}>
-              <span className={styles.badgeCasa}>{p.badge}</span>
+              <span className={styles.badgeCasa} style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}>
+                {p.badge === 'HOST' ? 'Private' : p.badge}
+              </span>
               {p.now && (
                 <span className={styles.badgeAvail}>
                   <span className={styles.availDot} />

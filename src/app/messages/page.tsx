@@ -77,6 +77,11 @@ const IMsg = () => (
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 );
+const IBack = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 12H5M12 5l-7 7 7 7" />
+  </svg>
+);
 
 /* ── Types ───────────────────────────────────────────────────────── */
 interface InboxThread {
@@ -472,7 +477,7 @@ export default function MessagesPage() {
       <AppNav />
 
       {/* Workspace */}
-      <div className={styles.workspace}>
+      <div className={`${styles.workspace}${activeId ? ` ${styles.mobileShowChat}` : ''}`}>
 
         {/* ── Left: thread list ── */}
         <div className={styles.threadPanel}>
@@ -568,6 +573,9 @@ export default function MessagesPage() {
             <>
               {/* header */}
               <div className={styles.chatHeader}>
+                <button className={styles.mobileBackBtn} onClick={() => setActiveId(null)} aria-label="Back">
+                  <IBack />
+                </button>
                 <div className={styles.chatHeaderAvatar}>
                   <div className={styles.chatAvatar} style={{ background: avatarGradient(activeThread.other_id ?? activeThread.inquiry_id) }}>
                     {initial(activeThread.other_name, activeThread.other_id ?? activeThread.inquiry_id)}
@@ -660,6 +668,25 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className={styles.mobileNav}>
+        {[
+          { label: 'Explore', href: '/', icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> },
+          { label: 'Saved', href: '/saved', icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg> },
+          { label: 'Messages', href: '/messages', active: true, icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
+          { label: 'Profile', href: '/profile', icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg> },
+        ].map((item) => (
+          <a
+            key={item.label}
+            href={item.href}
+            className={`${styles.mobileNavItem}${item.active ? ` ${styles.mobileNavItemActive}` : ''}`}
+          >
+            {item.icon}
+            {item.label}
+          </a>
+        ))}
+      </nav>
     </div>
   );
 }

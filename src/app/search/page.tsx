@@ -24,7 +24,7 @@ const PH_HUES = [
 ];
 
 const TYPES    = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
-const SOURCES  = [{ k: 'all', l: 'All listings' }, { k: 'CASA', l: 'Casa only' }, { k: 'PARTNER', l: 'Partner only' }];
+const SOURCES  = [{ k: 'all', l: 'All listings' }, { k: 'CASA', l: 'Casa only' }, { k: 'PARTNER', l: 'Partner only' }, { k: 'HOST', l: 'Private landlords' }];
 const SORTS    = [{ k: 'featured', l: 'Featured first' }, { k: 'price_asc', l: 'Price: low to high' }, { k: 'price_desc', l: 'Price: high to low' }, { k: 'area_desc', l: 'Largest first' }];
 const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', min: 0, max: 500 }, { label: '≤ €800', min: 0, max: 800 }, { label: '≤ €1,200', min: 0, max: 1200 }, { label: '≤ €2,000', min: 0, max: 2000 }];
 const DURATION = [{ label: 'This month', mi: '2026-06-23', mo: '2026-07-23' }, { label: 'Next semester', mi: '2026-10-01', mo: '2027-03-31' }, { label: 'Full year', mi: '2026-10-01', mo: '2027-09-30' }];
@@ -95,8 +95,8 @@ function SearchPageInner() {
   const [filterSort,   setFilterSort]   = useState('featured');
   const [minVal,       setMinVal]       = useState(() => Number(searchParams.get('minPrice') ?? 0));
   const [maxVal,       setMaxVal]       = useState(() => Number(searchParams.get('maxPrice') ?? 3000));
-  const [moveIn,       setMoveIn]       = useState(() => searchParams.get('moveIn') ?? '2026-06-23');
-  const [moveOut,      setMoveOut]      = useState(() => searchParams.get('moveOut') ?? '2026-07-01');
+  const [moveIn,       setMoveIn]       = useState(() => searchParams.get('moveIn') ?? '');
+  const [moveOut,      setMoveOut]      = useState(() => searchParams.get('moveOut') ?? '');
 
   /* ── Derived filter values ── */
   const lo            = Math.min(minVal, maxVal);
@@ -131,8 +131,9 @@ function SearchPageInner() {
   }, [query, filterType, filterSource, minVal, maxVal, moveIn]);
 
   useEffect(() => {
-    if (!query.trim()) return;
-    const params = new URLSearchParams({ city: query.trim(), page: String(page) });
+    // Always fetch — HOST listings don't require a city. Partner/CASA skip themselves server-side when city is empty.
+    const params = new URLSearchParams({ page: String(page) });
+    if (query.trim())            params.set('city', query.trim());
     if (minVal > 0)              params.set('minPrice', String(lo));
     if (maxVal < 3000)           params.set('maxPrice', String(hi));
     if (typeSet)                 params.set('type', filterType);
@@ -171,7 +172,7 @@ function SearchPageInner() {
 
   const resetFilters = () => {
     setFilterType('Any type'); setFilterSource('all');
-    setMinVal(0); setMaxVal(3000); setQuery(''); setOpen(null);
+    setMinVal(0); setMaxVal(3000); setMoveIn(''); setMoveOut(''); setQuery(''); setOpen(null);
   };
 
   return (
@@ -326,8 +327,8 @@ function SearchPageInner() {
                       <div className={styles.mobileCardImg}
                         style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}>
                         <span className={styles.mobileCardBadge}
-                          style={{ background: p.badge === 'PARTNER' ? '#1c1530' : '#6d28d9' }}>
-                          {p.badge}
+                          style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}>
+                          {p.badge === 'HOST' ? 'Private' : p.badge}
                         </span>
                         {!p.coverPhoto && <span className={styles.mobileCardImgLabel}>[ photo ]</span>}
                       </div>
@@ -739,9 +740,9 @@ function SearchPageInner() {
                       >
                         <span
                           className={styles.cardBadge}
-                          style={{ background: p.badge === 'PARTNER' ? '#1c1530' : '#6d28d9' }}
+                          style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}
                         >
-                          {p.badge}
+                          {p.badge === 'HOST' ? 'Private' : p.badge}
                         </span>
                         {!p.coverPhoto && <span className={styles.cardImgLabel}>[ photo ]</span>}
                       </div>

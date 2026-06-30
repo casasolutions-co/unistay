@@ -144,7 +144,7 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
     return (
       <div className={styles.screen}>
         <div className={styles.header}>
-          <h1 className={styles.headerTitle}>Settings</h1>
+          <h1 className={styles.headerTitle}>Profile</h1>
         </div>
         <div className={styles.signedOutBody}>
           <span className={styles.signedOutIcon}>
@@ -168,14 +168,14 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
     <div className={styles.screen}>
       {/* Header */}
       <div className={styles.header}>
-        <h1 className={styles.headerTitle}>Settings</h1>
+        <h1 className={styles.headerTitle}>Profile</h1>
       </div>
 
       {/* Scrollable body */}
       <div className={styles.body}>
 
         {/* Account summary */}
-        <Link href="/profile" className={styles.accountCard}>
+        <Link href="/profile/edit" className={styles.accountCard}>
           <span className={styles.accountAvatar}>{userInitials}</span>
           <div className={styles.accountInfo}>
             <p className={styles.accountName}>{userName}</p>
