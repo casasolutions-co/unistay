@@ -146,9 +146,6 @@ export default function LoginPage() {
             {/* Left image */}
             <div className={styles.imagePanel}>
               <div className={styles.imageBg} />
-              <span className={styles.imagePhotoLabel}>
-                [ photo — student flat interior ]
-              </span>
               <div className={styles.imageContent}>
                 <div className={styles.imageRule} />
                 <h2 className={styles.imageHeadline}>

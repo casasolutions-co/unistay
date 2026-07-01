@@ -16,7 +16,7 @@
   inset: 0;
   background:
     linear-gradient(180deg, rgba(20, 14, 32, 0.55) 0%, rgba(20, 14, 32, 0.35) 40%, rgba(20, 14, 32, 0.85) 100%),
-    repeating-linear-gradient(135deg, #2a2336 0 20px, #312942 20px 40px);
+    url('/images/modern-house-lake.jpg') no-repeat center/cover;
 }
 
 /* ── Nav (overlaid on hero) ──────────────────────────────────── */

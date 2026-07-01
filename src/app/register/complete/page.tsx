@@ -65,7 +65,6 @@ export default function CompleteProfile() {
       <div className={styles.split}>
         <div className={styles.imagePanel}>
           <div className={styles.imageBg} />
-          <span className={styles.imagePhotoLabel}>[ photo — student flat interior ]</span>
           <div className={styles.imageContent}>
             <div className={styles.imageRule} />
             <h2 className={styles.imageHeadline}>Your profile, your story.</h2>

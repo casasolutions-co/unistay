@@ -165,8 +165,12 @@ export default function RegisterPage() {
       <div className={styles.split}>
         {/* Left image */}
         <div className={styles.imagePanel}>
-          <div className={styles.imageBg} />
-          <span className={styles.imagePhotoLabel}>[ photo — student flat interior ]</span>
+          <div
+            className={styles.imageBg}
+            style={{
+              backgroundImage: `linear-gradient(180deg, rgba(20,14,32,.25) 0%, rgba(20,14,32,.1) 45%, rgba(20,14,32,.75) 100%), url('/images/${step === 1 ? 'living-room' : 'bedroom'}.jpg')`,
+            }}
+          />
           <div className={styles.imageContent}>
             <div className={styles.imageRule} />
             <h2 className={styles.imageHeadline}>{copy.title}</h2>

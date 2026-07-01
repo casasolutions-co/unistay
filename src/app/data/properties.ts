@@ -71,14 +71,14 @@ export const ICON_PATHS = {
 };
 
 const DEFAULT_PHOTOS: PropertyPhoto[] = [
-  { a: '#e9e3f5', b: '#f1ecfa', label: 'living room — wide shot' },
-  { a: '#e3ecf2', b: '#edf3f7', label: 'kitchen' },
-  { a: '#f0e8e2', b: '#f7f1ec', label: 'bedroom' },
-  { a: '#e6eee8', b: '#f0f5f1', label: 'bathroom' },
-  { a: '#ece4f0', b: '#f4eef7', label: 'courtyard' },
-  { a: '#e3e8f2', b: '#eef1f7', label: 'second bedroom' },
-  { a: '#f2ece3', b: '#f7f3ec', label: 'hallway' },
-  { a: '#e8e3f0', b: '#f2eef7', label: 'building facade' },
+  { url: '/images/living-room.jpg', label: 'living room — wide shot' },
+  { url: '/images/kitchen.jpg', label: 'kitchen' },
+  { url: '/images/bedroom.jpg', label: 'bedroom' },
+  { url: '/images/bedroom-2.jpg', label: 'bathroom' },
+  { url: '/images/hero.jpg', label: 'courtyard' },
+  { url: '/images/bedroom-2.jpg', label: 'second bedroom' },
+  { url: '/images/login.jpg', label: 'hallway' },
+  { url: '/images/hero.jpg', label: 'building facade' },
 ];
 
 const DEFAULT_AMENITIES: PropertyAmenity[] = [

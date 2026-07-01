@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
           featured: p.featured,
           lat: p.lat,
           lng: p.lng,
-          coverPhoto: null,
+          coverPhoto: p.photos?.[0]?.url ?? null,
           externalLink: null,
           rank: p.featured ? 100 : 80,
         }))

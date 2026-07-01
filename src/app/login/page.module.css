@@ -84,8 +84,8 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(20,14,32,.25) 0%, rgba(20,14,32,.1) 45%, rgba(20,14,32,.8) 100%),
-    repeating-linear-gradient(135deg, #2a2336 0 22px, #312942 22px 44px);
+    linear-gradient(180deg, rgba(20, 14, 32, 0.25) 0%, rgba(20, 14, 32, 0.1) 45%, rgba(20, 14, 32, 0.75) 100%),
+    url('/images/modern-minimalist.jpg') no-repeat center/cover;
 }
 
 .imagePhotoLabel {
