@@ -39,6 +39,7 @@ export interface Listing {
   deposit?: number | null
   amenities?: string[]
   photoKeys?: string[]
+  source?: 'private' | 'casa'
 }
 
 export interface Message {

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getListing, getUser, getMessagesByListing } from '@/lib/data'
-import { approveListing, rejectListing, archiveListing, restoreListing } from '@/lib/actions'
+import { approveListing, rejectListing, archiveListing, restoreListing, deleteCasaListing } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
 import PhotoGallery from '@/components/ui/PhotoGallery'
@@ -15,16 +15,19 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const listing = await getListing(id)
   if (!listing) notFound()
 
+  const isCasa = listing.source === 'casa'
+
   const [host, listingMessages] = await Promise.all([
-    getUser(listing.hostId),
+    isCasa ? Promise.resolve(null) : getUser(listing.hostId),
     getMessagesByListing(listing.title),
   ])
 
-  const st      = listingStatus(listing.status)
-  const approve = approveListing.bind(null, id)
-  const reject  = rejectListing.bind(null, id)
-  const archive = archiveListing.bind(null, id)
-  const restore = restoreListing.bind(null, id, listing.status === 'archived')
+  const st       = listingStatus(listing.status)
+  const approve  = approveListing.bind(null, id)
+  const reject   = rejectListing.bind(null, id)
+  const archive  = archiveListing.bind(null, id)
+  const restore  = restoreListing.bind(null, id, listing.status === 'archived')
+  const removeCasa = deleteCasaListing.bind(null, id)
 
   return (
     <>
@@ -46,6 +49,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             <div style={{ fontSize: 13, fontWeight: 600, color: '#9a94a8', marginTop: 4 }}>
               {listing.location} · {listing.price} · hosted by{' '}
               {host ? <Link href={`/users/${host.id}`} style={{ color: '#6d28d9', fontWeight: 700, textDecoration: 'none' }}>{listing.host}</Link> : listing.host}
+              {isCasa && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 800, letterSpacing: '.04em', color: '#6d28d9', background: '#f3effe', padding: '2px 8px', borderRadius: 999 }}>CASA</span>}
             </div>
             {(listing.status === 'rejected' || listing.status === 'archived') && listing.rejectionReason && (
               <div style={{ fontSize: 12.5, fontWeight: 600, color: '#b91c1c', marginTop: 8, background: '#fdecec', borderRadius: 8, padding: '7px 11px' }}>
@@ -62,7 +66,13 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             >
               View live ↗
             </a>
-            <ListingRowActions status={listing.status} approve={approve} reject={reject} archive={archive} restore={restore} size="md" />
+            {isCasa
+              ? (
+                <form action={removeCasa}>
+                  <button type="submit" className="us-btn-ghost" style={{ height: 38, padding: '0 16px', fontSize: 13 }}>Delete listing</button>
+                </form>
+              )
+              : <ListingRowActions status={listing.status} approve={approve} reject={reject} archive={archive} restore={restore} size="md" />}
           </div>
         </div>
 

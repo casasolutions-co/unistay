@@ -1,5 +1,5 @@
 import 'server-only'
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
 function env(name: string): string {
   const v = process.env[name]
@@ -33,4 +33,10 @@ export async function getPhoto(key: string): Promise<{ body: Uint8Array; content
   } catch {
     return null
   }
+}
+
+export async function putPhoto(key: string, body: Buffer, contentType: string): Promise<void> {
+  await r2Client().send(
+    new PutObjectCommand({ Bucket: env('R2_BUCKET_NAME'), Key: key, Body: body, ContentType: contentType })
+  )
 }

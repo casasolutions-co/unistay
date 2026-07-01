@@ -2,6 +2,8 @@ import Sidebar from '@/components/layout/Sidebar'
 import { getDashboardCounts } from '@/lib/data'
 import { getAdminSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const counts = await getDashboardCounts()
   const session = await getAdminSession()

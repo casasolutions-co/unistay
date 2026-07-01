@@ -34,6 +34,7 @@ interface ListingRow {
   size_sqm: number | null
   utilities: number | null
   deposit: number | null
+  source?: string | null
 }
 
 interface MessageRow {
@@ -113,6 +114,7 @@ function mapListing(r: ListingRow, amenities?: string[], photoKeys?: string[]): 
     deposit: r.deposit,
     amenities,
     photoKeys,
+    source: r.source === 'casa' ? 'casa' : 'private',
   }
 }
 
@@ -249,23 +251,44 @@ export async function getListings(opts: { filter?: string; q?: string } = {}): P
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   const rows = await d1All<ListingRow>(
-    `SELECT l.*, lu.name as host FROM listings l JOIN users lu ON lu.id = l.landlord_id ${where} ORDER BY l.created_at DESC`,
+    `SELECT l.*, lu.name as host FROM listings l LEFT JOIN users lu ON lu.id = l.landlord_id ${where} ORDER BY l.created_at DESC`,
     params
   )
-  return rows.map(r => mapListing(r))
+  return rows.map(r => mapListing(r.host ? r : { ...r, host: 'UniStay CASA' }))
+}
+
+export async function getCasaListings(opts: { q?: string } = {}): Promise<Listing[]> {
+  const clauses: string[] = [`l.source = 'casa'`]
+  const params: (string | number)[] = []
+  if (opts.q) {
+    clauses.push(`LOWER(l.title) LIKE ?`)
+    params.push(`%${opts.q.toLowerCase()}%`)
+  }
+  const rows = await d1All<ListingRow>(
+    `SELECT l.* FROM listings l WHERE ${clauses.join(' AND ')} ORDER BY l.created_at DESC`,
+    params
+  )
+  return rows.map(r => mapListing({ ...r, host: 'UniStay CASA' }))
+}
+
+export async function _deleteCasaListing(id: string) {
+  await d1Run(`DELETE FROM listing_photos WHERE listing_id = ?`, [id])
+  await d1Run(`DELETE FROM listing_amenities WHERE listing_id = ?`, [id])
+  await d1Run(`DELETE FROM listings WHERE id = ? AND source = 'casa'`, [id])
 }
 
 export async function getListing(id: string): Promise<Listing | null> {
   const [row, amenityRows, photoRows] = await Promise.all([
     d1First<ListingRow>(
-      `SELECT l.*, lu.name as host FROM listings l JOIN users lu ON lu.id = l.landlord_id WHERE l.id = ?`,
+      `SELECT l.*, lu.name as host FROM listings l LEFT JOIN users lu ON lu.id = l.landlord_id WHERE l.id = ?`,
       [id]
     ),
     d1All<{ amenity: string }>(`SELECT amenity FROM listing_amenities WHERE listing_id = ?`, [id]),
     d1All<{ r2_key: string }>(`SELECT r2_key FROM listing_photos WHERE listing_id = ? ORDER BY position`, [id]),
   ])
   if (!row) return null
-  return mapListing(row, amenityRows.map(a => a.amenity), photoRows.map(p => p.r2_key))
+  const withHost = row.host ? row : { ...row, host: 'UniStay CASA' }
+  return mapListing(withHost, amenityRows.map(a => a.amenity), photoRows.map(p => p.r2_key))
 }
 
 export async function getMessages(opts: { filter?: string } = {}): Promise<Message[]> {
@@ -509,4 +532,84 @@ export async function _writeAudit(adminEmail: string, action: string, targetType
     `INSERT INTO admin_audit_log (id, admin_id, action, target_type, target_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [crypto.randomUUID(), adminEmail, action, targetType, targetId, note ?? null, nowSeconds()]
   )
+}
+
+// ─── CASA listings (admin-curated, published straight away, source = 'casa') ──
+
+export interface CasaListingInput {
+  ptype: string
+  title: string
+  street: string
+  city: string
+  postcode: string
+  bedrooms: number
+  bathrooms: number
+  aptSize: number
+  roomSize: number
+  rent: number
+  utilities: number
+  deposit: number
+  availFrom: string | null
+  availTo: string | null
+  openEnded: boolean
+  minPeriod: number | null
+  maxPeriod: number | null
+  desc: string
+  mateCount: number
+  mateGender: string | null
+  prefGender: string | null
+  mateNotes: string | null
+  amenities: string[]
+  photos: { r2Key: string; position: number; isCover: boolean }[]
+  id?: string
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function createCasaListing(input: CasaListingInput): Promise<string> {
+  const id = input.id && UUID_RE.test(input.id) ? input.id : crypto.randomUUID()
+  const now = nowSeconds()
+
+  // Idempotent against retries — same client-generated listingId (e.g. after a
+  // transient error on a previous attempt) must not insert a duplicate row.
+  const existing = await d1First<{ id: string }>(`SELECT id FROM listings WHERE id = ?`, [id])
+  if (existing) return id
+
+  await d1Run(
+    `INSERT INTO listings (
+      id, landlord_id, ptype, title,
+      street, city, postcode,
+      bedrooms, bathrooms, size_sqm, room_size_sqm,
+      cold_rent, utilities, deposit,
+      avail_from, avail_to, open_ended,
+      min_period, max_period,
+      description,
+      mate_count, mate_gender, pref_gender, mate_notes,
+      status, source, created_at, updated_at
+    ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 'casa', ?, ?)`,
+    [
+      id, input.ptype, input.title,
+      input.street, input.city, input.postcode,
+      input.bedrooms, input.bathrooms, input.aptSize, input.roomSize,
+      input.rent, input.utilities, input.deposit,
+      input.availFrom, input.availTo, input.openEnded ? 1 : 0,
+      input.minPeriod, input.maxPeriod,
+      input.desc,
+      input.mateCount, input.mateGender, input.prefGender, input.mateNotes,
+      now, now,
+    ]
+  )
+
+  for (const amenity of input.amenities) {
+    await d1Run(`INSERT OR IGNORE INTO listing_amenities (listing_id, amenity) VALUES (?, ?)`, [id, amenity])
+  }
+
+  for (const photo of input.photos) {
+    await d1Run(
+      `INSERT INTO listing_photos (id, listing_id, r2_key, position, is_cover) VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), id, photo.r2Key, photo.position, photo.isCover ? 1 : 0]
+    )
+  }
+
+  return id
 }

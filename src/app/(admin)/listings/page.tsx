@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { getListings } from '@/lib/data'
-import { approveListing, rejectListing, archiveListing, restoreListing } from '@/lib/actions'
+import { getListings, getCasaListings } from '@/lib/data'
+import { approveListing, rejectListing, archiveListing, restoreListing, deleteCasaListing } from '@/lib/actions'
 import StatusBadge from '@/components/ui/StatusBadge'
 import FilterPills from '@/components/ui/FilterPills'
 import SearchInput from '@/components/ui/SearchInput'
@@ -14,6 +14,7 @@ const FILTER_PILLS = [
   { label: 'Published', value: 'published',       href: '/listings?filter=published' },
   { label: 'Rejected',  value: 'rejected',        href: '/listings?filter=rejected' },
   { label: 'Archived',  value: 'archived',        href: '/listings?filter=archived' },
+  { label: 'CASA',      value: 'casa',            href: '/listings?filter=casa' },
 ]
 
 export default async function ListingsPage({
@@ -22,7 +23,8 @@ export default async function ListingsPage({
   searchParams: Promise<{ filter?: string; q?: string }>
 }) {
   const { filter = 'all', q = '' } = await searchParams
-  const listings = await getListings({ filter, q })
+  const isCasa = filter === 'casa'
+  const listings = isCasa ? await getCasaListings({ q }) : await getListings({ filter, q })
 
   return (
     <>
@@ -31,9 +33,14 @@ export default async function ListingsPage({
           <h1 style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 800, fontSize: 27, letterSpacing: '-.02em', margin: '0 0 4px' }}>Listings</h1>
           <p style={{ fontSize: 14, fontWeight: 600, color: '#6b6675', margin: 0 }}>Approve new listings before they go live, or remove ones that break the rules.</p>
         </div>
-        <Suspense>
-          <SearchInput placeholder="Search title or host…" defaultValue={q} />
-        </Suspense>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Suspense>
+            <SearchInput placeholder="Search title or host…" defaultValue={q} />
+          </Suspense>
+          <Link href="/listings/new" className="us-btn" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            + List Apartment
+          </Link>
+        </div>
       </div>
 
       <FilterPills pills={FILTER_PILLS} current={filter} />
@@ -54,6 +61,7 @@ export default async function ListingsPage({
               const reject  = rejectListing.bind(null, l.id)
               const archive = archiveListing.bind(null, l.id)
               const restore = restoreListing.bind(null, l.id, l.status === 'archived')
+              const removeCasa = deleteCasaListing.bind(null, l.id)
               return (
                 <tr key={l.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
                   <td style={{ padding: '13px 20px' }}>
@@ -71,7 +79,13 @@ export default async function ListingsPage({
                   <td style={{ padding: '13px 16px' }}><StatusBadge label={st.label} bg={st.bg} color={st.color} /></td>
                   <td style={{ padding: '13px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
-                      <ListingRowActions status={l.status} approve={approve} reject={reject} archive={archive} restore={restore} />
+                      {l.source === 'casa'
+                        ? (
+                          <form action={removeCasa}>
+                            <button type="submit" className="us-btn-ghost" style={{ height: 34, padding: '0 14px', fontSize: 12.5 }}>Delete</button>
+                          </form>
+                        )
+                        : <ListingRowActions status={l.status} approve={approve} reject={reject} archive={archive} restore={restore} />}
                     </div>
                   </td>
                 </tr>

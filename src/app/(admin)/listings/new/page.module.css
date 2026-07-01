@@ -1,0 +1,485 @@
+/* ─── Page shell ─────────────────────────────────────────────── */
+.page {
+  font-family: var(--font-ui);
+  color: var(--text);
+}
+
+/* ─── Progress bar ───────────────────────────────────────────── */
+.progressBar {
+  position: sticky;
+  top: 0;
+  z-index: 19;
+  background: var(--white);
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.progressTrack {
+  flex: 1;
+  max-width: 640px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--divider);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7c3aed, #6d28d9);
+  transition: width 0.3s;
+}
+
+.progressPct {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--brand);
+}
+
+/* ─── Two-column body ────────────────────────────────────────── */
+.body {
+  display: flex;
+  align-items: flex-start;
+  gap: 40px;
+}
+
+.formCol {
+  flex: 1.4;
+  min-width: 0;
+  max-width: 660px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.previewCol {
+  flex: 1;
+  min-width: 0;
+  position: sticky;
+  top: 90px;
+}
+
+/* ─── Section card ───────────────────────────────────────────── */
+.section {
+  background: var(--white);
+  border: 1px solid var(--divider);
+  border-radius: 20px;
+  padding: 28px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 22px;
+}
+
+.sectionNum {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--tint);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text);
+}
+
+/* ─── Field label ────────────────────────────────────────────── */
+.usLab {
+  display: block;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  margin-bottom: 8px;
+}
+
+/* ─── Field (input / select / textarea) ─────────────────────── */
+.usField {
+  width: 100%;
+  height: 52px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.usField:focus {
+  border-color: var(--brand);
+  background: var(--white);
+  box-shadow: var(--focus-ring);
+}
+
+.usFieldTextarea {
+  height: auto;
+  padding: 13px 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.usFieldSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+/* ─── Property type grid ─────────────────────────────────────── */
+.ptypeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.ptypeBtn {
+  height: 84px;
+  border-radius: 13px;
+  border: 1.5px solid;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.14s;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: none;
+}
+
+/* ─── Counters ───────────────────────────────────────────────── */
+.countersRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.counterBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  border-radius: 13px;
+  padding: 0 8px;
+}
+
+.counterBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: none;
+  background: var(--white);
+  box-shadow: 0 1px 2px rgba(34, 18, 68, 0.08);
+  cursor: pointer;
+  color: var(--brand);
+  font-size: 19px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.counterVal {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* ─── Amenities ──────────────────────────────────────────────── */
+.amenitiesRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 26px;
+}
+
+.amenBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1.5px solid;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 700;
+  transition: all 0.14s;
+  background: none;
+}
+
+/* ─── Housemates box ─────────────────────────────────────────── */
+.houseBox {
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--page);
+  border: 1px dashed #e0dbeb;
+}
+
+.houseBoxHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+/* ─── Pricing ────────────────────────────────────────────────── */
+.priceRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.warmRentBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 13px;
+  background: var(--tint);
+}
+
+.availRow {
+  display: flex;
+  gap: 12px;
+}
+
+/* ─── Photos ─────────────────────────────────────────────────── */
+.photosGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.addPhotoBtn {
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 2px dashed;
+  background: var(--page);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--brand);
+  transition: all 0.14s;
+}
+
+.addPhotoBtn:hover {
+  border-color: var(--brand);
+  background: var(--tint);
+}
+
+.photoThumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: repeating-linear-gradient(135deg, #ece8f5 0 10px, #f3eff9 10px 20px);
+  display: grid;
+  place-items: center;
+  color: #b0aabf;
+}
+
+.photoCoverBadge {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.photoRemoveBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(28, 21, 48, 0.7);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+/* ─── Live preview ───────────────────────────────────────────── */
+.previewLabel {
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin: 0 0 14px;
+}
+
+.previewCard {
+  background: var(--white);
+  border: 1px solid var(--divider);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px -22px rgba(34, 18, 68, 0.3);
+}
+
+.previewCover {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: repeating-linear-gradient(135deg, #2a2336 0 18px, #312942 18px 36px);
+  display: grid;
+  place-items: center;
+}
+
+.previewTypeBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 11px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.previewBody {
+  padding: 20px;
+}
+
+.previewStats {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 14px 0;
+  border-top: 1px solid #f1eef7;
+  border-bottom: 1px solid #f1eef7;
+}
+
+.previewStat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.previewAmenChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.previewAmenChip {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a5568;
+  background: #f6f4fb;
+  border: 1px solid #eee9f6;
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+
+.previewMatesBox {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--tint);
+  border-radius: 12px;
+}
+
+/* ─── Checklist + publish ────────────────────────────────────── */
+.checklistCard {
+  margin-top: 20px;
+  background: var(--white);
+  border: 1px solid var(--divider);
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.checklistItems {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkDot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid;
+}
+
+.publishBtn {
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  box-shadow: 0 10px 22px -6px rgba(109, 40, 217, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: filter 0.15s;
+}
+
+.publishBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.publishBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
   _setUserStatus, _setListingStatus, _setDocStatus, _redactMessage,
-  _setReportStatus, _setAppSetting, _writeAudit,
+  _setReportStatus, _setAppSetting, _writeAudit, _deleteCasaListing,
 } from './data'
 import { deleteAdminSession, getAdminSession } from './session'
 
@@ -83,6 +83,16 @@ export async function archiveListing(id: string, reason: string) {
   const email = await adminEmail()
   await _setListingStatus(id, 'archived', reason)
   await _writeAudit(email, 'listing.archive', 'listing', id, reason)
+  revalidatePath('/listings')
+  revalidatePath('/')
+}
+
+export async function deleteCasaListing(id: string) {
+  const email = await adminEmail()
+  await _deleteCasaListing(id)
+  try {
+    await _writeAudit(email, 'listing.casa_delete', 'listing', id)
+  } catch { /* best-effort — see /api/casa-listings for why this can fail */ }
   revalidatePath('/listings')
   revalidatePath('/')
 }
