@@ -10,6 +10,7 @@ import type { UnifiedListing } from '@/lib/listings/types';
 import AppNav from '../components/AppNav';
 import MobileTabBar from '../components/MobileTabBar';
 import { useCitySearch } from '@/lib/useCitySearch';
+import DatePickerPanel from '../components/DatePickerPanel';
 
 const MapPanel = dynamic(() => import('./MapPanel'), { ssr: false });
 
@@ -27,7 +28,6 @@ const TYPES    = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment
 const SOURCES  = [{ k: 'all', l: 'All listings' }, { k: 'CASA', l: 'Casa only' }, { k: 'PARTNER', l: 'Partner only' }, { k: 'HOST', l: 'Private landlords' }];
 const SORTS    = [{ k: 'featured', l: 'Featured first' }, { k: 'price_asc', l: 'Price: low to high' }, { k: 'price_desc', l: 'Price: high to low' }, { k: 'area_desc', l: 'Largest first' }];
 const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', min: 0, max: 500 }, { label: '≤ €800', min: 0, max: 800 }, { label: '≤ €1,200', min: 0, max: 1200 }, { label: '≤ €2,000', min: 0, max: 2000 }];
-const DURATION = [{ label: 'This month', mi: '2026-06-23', mo: '2026-07-23' }, { label: 'Next semester', mi: '2026-10-01', mo: '2027-03-31' }, { label: 'Full year', mi: '2026-10-01', mo: '2027-09-30' }];
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -97,6 +97,13 @@ function SearchPageInner() {
   const [maxVal,       setMaxVal]       = useState(() => Number(searchParams.get('maxPrice') ?? 3000));
   const [moveIn,       setMoveIn]       = useState(() => searchParams.get('moveIn') ?? '');
   const [moveOut,      setMoveOut]      = useState(() => searchParams.get('moveOut') ?? '');
+  const [whenLabel,    setWhenLabel]    = useState(() => {
+    const mi = searchParams.get('moveIn') ?? '';
+    const mo = searchParams.get('moveOut') ?? '';
+    if (!mi) return '';
+    const fmt = (s: string) => { const p = s.split('-'); return parseInt(p[2], 10) + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1], 10) - 1]; };
+    return mi && mo ? fmt(mi) + ' – ' + fmt(mo) : mi ? 'From ' + fmt(mi) : '';
+  });
 
   /* ── Derived filter values ── */
   const lo            = Math.min(minVal, maxVal);
@@ -106,7 +113,7 @@ function SearchPageInner() {
   const priceSet      = !budgetDefault;
   const sourceSet     = filterSource !== 'all';
   const sortSet       = filterSort   !== 'featured';
-  const hasWhen       = !!(moveIn && moveOut);
+  const hasWhen       = !!whenLabel;
   const fillLeft      = (lo / 3000 * 100).toFixed(2) + '%';
   const fillRight     = (100 - hi / 3000 * 100).toFixed(2) + '%';
 
@@ -594,29 +601,17 @@ function SearchPageInner() {
           <div className={styles.pillWrap}>
             <button type="button" className={styles.pillDark} onClick={() => toggle('when')}>
               <ICal />
-              {hasWhen ? `${fmtDate(moveIn)} – ${fmtDate(moveOut)}` : 'Add dates'}
+              {whenLabel || 'Add dates'}
               <IChevW open={isOpen('when')} />
             </button>
             {isOpen('when') && (
-              <div className={styles.whenPanel}>
-                <div className={styles.dateRow}>
-                  <div className={styles.dateCol}>
-                    <label className={styles.dateLabel}>Move-in</label>
-                    <input type="date" className={styles.dateInput} value={moveIn} onChange={e => setMoveIn(e.target.value)} />
-                  </div>
-                  <div className={styles.dateCol}>
-                    <label className={styles.dateLabel}>Move-out</label>
-                    <input type="date" className={styles.dateInput} value={moveOut} onChange={e => setMoveOut(e.target.value)} />
-                  </div>
-                </div>
-                <div className={styles.presets}>
-                  {DURATION.map(d => (
-                    <button key={d.label} type="button" className={styles.preset}
-                      onClick={() => { setMoveIn(d.mi); setMoveOut(d.mo); }}>
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
+              <div className={styles.whenPanel} style={{ width: 700, padding: '22px 24px 24px' }}>
+                <DatePickerPanel
+                  initialMoveIn={moveIn}
+                  initialMoveOut={moveOut}
+                  onApply={(mi, mo, label) => { setMoveIn(mi); setMoveOut(mo); setWhenLabel(label); toggle('when'); }}
+                  onClear={() => { setMoveIn(''); setMoveOut(''); setWhenLabel(''); }}
+                />
               </div>
             )}
           </div>

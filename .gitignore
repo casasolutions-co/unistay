@@ -43,3 +43,6 @@ next-env.d.ts
 # local helper/reference files
 /helper_files
 src/lib/CASASolutions.json
+
+# admin app (lives on the admin branch only)
+/admin

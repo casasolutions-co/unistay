@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import styles from './HeroSection.module.css';
 import MobileHeroSection from './MobileHeroSection';
 import { useCitySearch } from '@/lib/useCitySearch';
+import DatePickerPanel from './DatePickerPanel';
 
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
 const POPULAR_CITIES = ['Berlin', 'Munich', 'Hamburg', 'Frankfurt am Main', 'Köln', 'Stuttgart'];
@@ -80,8 +81,9 @@ export default function HeroSection() {
   const [type, setType] = useState('Any type');
   const [minVal, setMinVal] = useState(0);
   const [maxVal, setMaxVal] = useState(3000);
-  const [moveIn, setMoveIn] = useState('2026-06-23');
-  const [moveOut, setMoveOut] = useState('2026-07-01');
+  const [moveIn, setMoveIn] = useState('');
+  const [moveOut, setMoveOut] = useState('');
+  const [whenLabel, setWhenLabel] = useState('');
   const { query, setQuery, groups, selectCity } = useCitySearch();
 
   const toggle = useCallback((name: 'where' | 'type' | 'budget' | 'when') => {
@@ -123,8 +125,8 @@ export default function HeroSection() {
   const fillRight = (100 - hi / 3000 * 100).toFixed(2) + '%';
 
   /* WHEN */
-  const hasWhen = moveIn && moveOut;
-  const whenText = hasWhen ? fmtDate(moveIn) + ' – ' + fmtDate(moveOut) : 'Add dates';
+  const hasWhen = !!whenLabel;
+  const whenText = whenLabel || 'Add dates';
 
   return (
     <>
@@ -363,7 +365,10 @@ export default function HeroSection() {
             >
               <div className={styles.segmentLabel}>When</div>
               <div className={styles.segmentValueRow}>
-                <span style={{ color: hasWhen ? 'var(--text)' : 'var(--placeholder)', fontSize: 15, fontWeight: 600 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={hasWhen ? '#6d28d9' : '#b0aabf'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18" /><path d="M8 3v4M16 3v4" />
+                </svg>
+                <span style={{ color: hasWhen ? 'var(--text)' : 'var(--placeholder)', fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {whenText}
                 </span>
                 <IconChevron rotated={open === 'when'} />
@@ -371,43 +376,13 @@ export default function HeroSection() {
             </button>
 
             {open === 'when' && (
-              <div className={styles.dropdown} style={{ width: 360, right: 0, left: 'auto', padding: 20 }}>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                  <div style={{ flex: 1 }}>
-                    <label className={styles.dateLabel}>Move-in</label>
-                    <input
-                      type="date"
-                      value={moveIn}
-                      onChange={e => setMoveIn(e.target.value)}
-                      className={styles.dateInput}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label className={styles.dateLabel}>Move-out</label>
-                    <input
-                      type="date"
-                      value={moveOut}
-                      onChange={e => setMoveOut(e.target.value)}
-                      className={styles.dateInput}
-                    />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  {[
-                    { label: 'This month', mi: '2026-06-23', mo: '2026-07-23' },
-                    { label: 'Next semester', mi: '2026-10-01', mo: '2027-03-31' },
-                    { label: 'Full year', mi: '2026-10-01', mo: '2027-09-30' },
-                  ].map(d => (
-                    <button
-                      key={d.label}
-                      type="button"
-                      className={styles.chip}
-                      onClick={() => { setMoveIn(d.mi); setMoveOut(d.mo); }}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
+              <div className={styles.dropdown} style={{ width: 700, right: 0, left: 'auto', padding: '22px 24px 24px' }}>
+                <DatePickerPanel
+                  initialMoveIn={moveIn}
+                  initialMoveOut={moveOut}
+                  onApply={(mi, mo, label) => { setMoveIn(mi); setMoveOut(mo); setWhenLabel(label); setOpen(null); }}
+                  onClear={() => { setMoveIn(''); setMoveOut(''); setWhenLabel(''); }}
+                />
               </div>
             )}
           </div>
