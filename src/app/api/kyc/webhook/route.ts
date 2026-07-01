@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { d1Query } from '@/lib/d1';
 
+function shortenFloats(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(shortenFloats);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, shortenFloats(v)])
+    );
+  }
+  if (typeof value === 'number' && !Number.isInteger(value) && value % 1 === 0) {
+    return Math.trunc(value);
+  }
+  return value;
+}
+
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(',')}]`;
@@ -20,7 +33,7 @@ function verifySignatureV2(body: unknown, signatureHeader: string, timestampHead
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - parseInt(timestampHeader, 10)) > 300) return false;
 
-  const canonical = canonicalJson(body);
+  const canonical = canonicalJson(shortenFloats(body));
   const expected = crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex');
 
   const a = Buffer.from(expected, 'utf8');
@@ -52,10 +65,11 @@ export async function POST(req: NextRequest) {
   // For now: just log so we can inspect real payload shape end-to-end.
   console.log('[didit webhook]', JSON.stringify(payload, null, 2));
 
-  const { session_id, webhook_type, decision, vendor_data } = payload as {
+  const { session_id, webhook_type, status: diditStatus, decision, vendor_data } = payload as {
     session_id: string;
     webhook_type: string;
-    decision?: { status?: string; id_verification?: { full_name?: string } };
+    status?: string;
+    decision?: Record<string, unknown>;
     vendor_data?: string;
   };
 
@@ -69,8 +83,8 @@ export async function POST(req: NextRequest) {
   }
 
   let status = 'pending';
-  if (decision?.status === 'Approved') status = 'verified';
-  else if (decision?.status === 'Declined') status = 'rejected';
+  if (diditStatus === 'Approved') status = 'verified';
+  else if (diditStatus === 'Declined') status = 'rejected';
 
   await d1Query(
     `UPDATE users SET verification_status = ?, didit_decision_json = ?, decision_processed_at = ?, updated_at = ? WHERE id = ?`,

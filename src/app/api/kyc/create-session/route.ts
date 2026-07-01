@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const res = await fetch('https://verification.didit.me/v2/session/', {
+  const res = await fetch('https://verification.didit.me/v3/session/', {
     method: 'POST',
     headers: {
-      'X-Api-Key': process.env.DIDIT_API_KEY!,
+      'x-api-key': process.env.DIDIT_API_KEY!,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
