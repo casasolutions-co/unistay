@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
 
   if (!res.ok) {
     const text = await res.text();
+    console.error('[kyc/create-session] Didit rejected the request', { status: res.status, body: text });
     return NextResponse.json({ error: 'Didit session creation failed', details: text }, { status: 502 });
   }
 

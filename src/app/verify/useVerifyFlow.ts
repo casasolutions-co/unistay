@@ -58,8 +58,11 @@ export function useVerifyFlow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
       });
-      const data = await res.json() as { url?: string; error?: string };
-      if (!res.ok || !data.url) throw new Error(data.error ?? 'Failed to start verification');
+      const data = await res.json() as { url?: string; error?: string; details?: string };
+      if (!res.ok || !data.url) {
+        const reason = data.details ? `${data.error}: ${data.details}` : data.error;
+        throw new Error(reason ?? 'Failed to start verification');
+      }
       window.location.href = data.url;
     } catch (err) {
       setRedirectError(err instanceof Error ? err.message : 'Something went wrong — please try again.');
