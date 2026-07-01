@@ -33,4 +33,22 @@
 /* Only show on mobile */
 @media (min-width: 769px) {
   .tabBar { display: none; }
+  .fab { display: none; }
+}
+
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(64px + env(safe-area-inset-bottom, 16px) + 12px);
+  z-index: 51;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  color: #fff;
+  box-shadow: 0 10px 22px -6px rgba(109, 40, 217, 0.55);
+  text-decoration: none;
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import styles from './page.module.css';
@@ -9,8 +8,12 @@ import type { MapProperty } from './MapPanel';
 import type { UnifiedListing } from '@/lib/listings/types';
 import AppNav from '../components/AppNav';
 import MobileTabBar from '../components/MobileTabBar';
+import PropertyCard from '../components/PropertyCard';
 import { useCitySearch } from '@/lib/useCitySearch';
+import { useSavedListings } from '@/lib/useSavedListings';
+import { useWhenPicker } from '@/lib/useWhenPicker';
 import DatePickerPanel from '../components/DatePickerPanel';
+import MobileWhenFields from '../components/MobileWhenFields';
 
 const MapPanel = dynamic(() => import('./MapPanel'), { ssr: false });
 
@@ -37,13 +40,6 @@ type OpenPanel = 'search' | 'when' | 'price' | 'type' | 'source' | 'sort' | null
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
 
-function fmtDate(s: string) {
-  if (!s) return '';
-  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const p = s.split('-');
-  return parseInt(p[2], 10) + ' ' + M[parseInt(p[1], 10) - 1];
-}
-
 
 /* ═══════════════════════════════════════════════════════════════
    ICONS
@@ -54,7 +50,6 @@ const IFilters = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="non
 const IChevSm = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
 const IMapIcon = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>;
 const IListIcon = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h13M3 12h11M3 18h7"/></svg>;
-const IHeart = ({ saved }: { saved: boolean }) => <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? '#6d28d9' : 'none'} stroke={saved ? '#6d28d9' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>;
 const IChev   = ({ open }: { open: boolean }) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="m6 9 6 6 6-6"/></svg>;
 const IChevW  = ({ open }: { open: boolean }) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white"   strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="m6 9 6 6 6-6"/></svg>;
 const ICheck  = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>;
@@ -65,8 +60,6 @@ const IClock  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none
 const IPin    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>;
 const IBell   = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
 const IPlus   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
-const IArea   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b0aabf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 3 3 21M9 3H3v6M21 15v6h-6"/></svg>;
-const IBed    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b0aabf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 11h20M2 11V6a2 2 0 0 1 2-2h6v7M22 11v6M2 17h20M4 20v-3M20 20v-3"/></svg>;
 
 /* ═══════════════════════════════════════════════════════════════
    PAGE
@@ -87,7 +80,7 @@ function SearchPageInner() {
   /* ── Mobile state ── */
   const [mobileSheet,     setMobileSheet]     = useState<'filters' | 'sort' | null>(null);
   const [mobileMapOpen,   setMobileMapOpen]   = useState(false);
-  const [mobileSaved,     setMobileSaved]     = useState<Record<string, boolean>>({});
+  const { isSaved, toggle: toggleSaved }      = useSavedListings();
 
   /* ── Filter state ── */
   const [filterType,   setFilterType]   = useState(() => searchParams.get('type') ?? 'Any type');
@@ -104,6 +97,15 @@ function SearchPageInner() {
     const fmt = (s: string) => { const p = s.split('-'); return parseInt(p[2], 10) + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1], 10) - 1]; };
     return mi && mo ? fmt(mi) + ' – ' + fmt(mo) : mi ? 'From ' + fmt(mi) : '';
   });
+
+  /* Mobile "When" filter — tabs (by date / by month / flexible), synced into the
+     shared moveIn/moveOut/whenLabel above so it drives the same fetch + desktop UI. */
+  const mobileWhen = useWhenPicker(moveIn, moveOut);
+  useEffect(() => {
+    setMoveIn(mobileWhen.resolvedMoveIn);
+    setMoveOut(mobileWhen.resolvedMoveOut);
+    setWhenLabel(mobileWhen.triggerMuted ? '' : mobileWhen.triggerText);
+  }, [mobileWhen.resolvedMoveIn, mobileWhen.resolvedMoveOut, mobileWhen.triggerText, mobileWhen.triggerMuted]);
 
   /* ── Derived filter values ── */
   const lo            = Math.min(minVal, maxVal);
@@ -180,6 +182,7 @@ function SearchPageInner() {
   const resetFilters = () => {
     setFilterType('Any type'); setFilterSource('all');
     setMinVal(0); setMaxVal(3000); setMoveIn(''); setMoveOut(''); setQuery(''); setOpen(null);
+    mobileWhen.clear();
   };
 
   return (
@@ -232,7 +235,7 @@ function SearchPageInner() {
             <button type="button"
               className={hasWhen ? styles.chipActive : styles.chip}
               onClick={() => setMobileSheet('filters')}>
-              {hasWhen ? `${fmtDate(moveIn)} – ${fmtDate(moveOut)}` : 'When'}
+              {hasWhen ? whenLabel : 'When'}
               <span className={styles.chipChev}><IChevSm /></span>
             </button>
             <button type="button"
@@ -325,47 +328,15 @@ function SearchPageInner() {
             </div>
           ) : filtered.length > 0 ? (
             <div className={styles.mobileCards}>
-              {filtered.map((p, i) => {
-                const hue = PH_HUES[i % PH_HUES.length];
-                const saved = mobileSaved[p.id] || false;
-                return (
-                  <div key={p.id} className={styles.mobileCard}>
-                    <Link href={`/search/${p.id}`} className={styles.mobileCardLink}>
-                      <div className={styles.mobileCardImg}
-                        style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}>
-                        <span className={styles.mobileCardBadge}
-                          style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}>
-                          {p.badge === 'HOST' ? 'Private' : p.badge}
-                        </span>
-                        {!p.coverPhoto && <span className={styles.mobileCardImgLabel}>[ photo ]</span>}
-                      </div>
-                      <div className={styles.mobileCardBody}>
-                        <h3 className={styles.mobileCardTitle}>{p.title}</h3>
-                        <p className={styles.mobileCardAddress}>{p.address}</p>
-                        <div className={styles.mobileCardMeta}>
-                          <span className={styles.cardMetaItem}><IArea /> {p.area} m²</span>
-                          <span className={styles.cardMetaItem}><IBed /> {p.beds}</span>
-                        </div>
-                        <div className={styles.mobileCardFooter}>
-                          <div>
-                            <span className={styles.cardPrice}>€{fmtN(p.price)}</span>
-                            <span className={styles.cardPriceUnit}> /month</span>
-                            {p.incl && <div className={styles.cardIncl}>incl. utilities</div>}
-                          </div>
-                          <span className={styles.cardAvail} style={{ color: p.now ? '#1f8a5b' : '#9a94a8' }}>
-                            <span className={styles.cardAvailDot} style={{ background: p.now ? '#27ae73' : '#cfc8dd' }} />
-                            {p.avail}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                    <button type="button" className={styles.mobileSaveBtn}
-                      onClick={() => setMobileSaved(s => ({ ...s, [p.id]: !s[p.id] }))}>
-                      <IHeart saved={saved} />
-                    </button>
-                  </div>
-                );
-              })}
+              {filtered.map((p, i) => (
+                <PropertyCard
+                  key={p.id}
+                  listing={p}
+                  hue={PH_HUES[i % PH_HUES.length]}
+                  saved={isSaved(p.id)}
+                  onToggleSave={toggleSaved}
+                />
+              ))}
             </div>
           ) : (
             <div className={styles.mobileNoResults}>
@@ -449,15 +420,8 @@ function SearchPageInner() {
               {/* dates */}
               <div className={styles.mobileSheetSection}>
                 <span className={styles.mobileSheetLabel}>When</span>
-                <div className={styles.dateRow} style={{ marginTop: 12 }}>
-                  <div className={styles.dateCol}>
-                    <label className={styles.dateLabel}>Move-in</label>
-                    <input type="date" className={styles.dateInput} value={moveIn} onChange={e => setMoveIn(e.target.value)} />
-                  </div>
-                  <div className={styles.dateCol}>
-                    <label className={styles.dateLabel}>Move-out</label>
-                    <input type="date" className={styles.dateInput} value={moveOut} onChange={e => setMoveOut(e.target.value)} />
-                  </div>
+                <div style={{ marginTop: 12 }}>
+                  <MobileWhenFields c={mobileWhen} />
                 </div>
               </div>
               {/* type */}
@@ -724,49 +688,15 @@ function SearchPageInner() {
 
             {filtered.length > 0 ? (
               <div className={styles.cardsGrid}>
-                {filtered.map((p, i) => {
-                  const hue = PH_HUES[i % PH_HUES.length];
-                  return (
-                    <Link href={`/search/${p.id}`} key={p.id} className={styles.card} style={{ textDecoration: 'none', color: 'inherit' }}>
-                      {/* Image */}
-                      <div
-                        className={styles.cardImg}
-                        style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}
-                      >
-                        <span
-                          className={styles.cardBadge}
-                          style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}
-                        >
-                          {p.badge === 'HOST' ? 'Private' : p.badge}
-                        </span>
-                        {!p.coverPhoto && <span className={styles.cardImgLabel}>[ photo ]</span>}
-                      </div>
-
-                      {/* Body */}
-                      <div className={styles.cardBody}>
-                        <h3 className={styles.cardTitle}>{p.title}</h3>
-                        <p className={styles.cardAddress}>{p.address}</p>
-
-                        <div className={styles.cardMeta}>
-                          <span className={styles.cardMetaItem}><IArea /> {p.area} m²</span>
-                          <span className={styles.cardMetaItem}><IBed /> {p.beds}</span>
-                        </div>
-
-                        <div className={styles.cardFooter}>
-                          <div>
-                            <span className={styles.cardPrice}>€{fmtN(p.price)}</span>
-                            <span className={styles.cardPriceUnit}> /month</span>
-                            {p.incl && <div className={styles.cardIncl}>incl. utilities</div>}
-                          </div>
-                          <span className={styles.cardAvail} style={{ color: p.now ? '#1f8a5b' : '#9a94a8' }}>
-                            <span className={styles.cardAvailDot} style={{ background: p.now ? '#27ae73' : '#cfc8dd' }} />
-                            {p.avail}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
+                {filtered.map((p, i) => (
+                  <PropertyCard
+                    key={p.id}
+                    listing={p}
+                    hue={PH_HUES[i % PH_HUES.length]}
+                    saved={isSaved(p.id)}
+                    onToggleSave={toggleSaved}
+                  />
+                ))}
               </div>
             ) : (
               <div className={styles.noResults}>

@@ -1,0 +1,162 @@
+.card {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #efecf5;
+  box-shadow: 0 1px 3px rgba(34, 18, 68, .05);
+  transition: transform .16s, box-shadow .16s;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px -16px rgba(34, 18, 68, .32);
+}
+
+.cardLink {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.cardImg {
+  position: relative;
+  height: 196px;
+  display: grid;
+  place-items: center;
+}
+
+.cardBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: #fff;
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+
+.cardImgLabel {
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+  color: rgba(28, 21, 48, .5);
+  background: rgba(255, 255, 255, .75);
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.cardBody {
+  padding: 15px 16px 16px;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardAddress {
+  margin: 0 0 13px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.cardMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a3d6b;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-top: 1px solid #f3f1f8;
+  padding-top: 13px;
+}
+
+.cardPrice {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  color: var(--text);
+}
+
+.cardPriceUnit {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.cardIncl {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b0aabf;
+  margin-top: 1px;
+}
+
+.cardAvail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cardAvailDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.saveBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(34, 18, 68, 0.18);
+  transition: transform .14s;
+  color: #9a94a8;
+}
+
+.saveBtn:hover {
+  transform: scale(1.08);
+}
+
+@media (max-width: 767px) {
+  .cardImg { height: 188px; }
+  .cardTitle { font-size: 17px; }
+  .saveBtn { top: 10px; right: 10px; width: 38px; height: 38px; }
+}

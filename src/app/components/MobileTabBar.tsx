@@ -22,7 +22,7 @@ const TABS: Tab[] = [
   {
     key: 'saved',
     label: 'Saved',
-    href: '#',
+    href: '/saved',
     icon: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z',
   },
   {
@@ -45,23 +45,30 @@ interface MobileTabBarProps {
 
 export default function MobileTabBar({ active }: MobileTabBarProps) {
   return (
-    <div className={styles.tabBar}>
-      {TABS.map((t) => {
-        const isActive = t.key === active;
-        return (
-          <Link
-            key={t.key}
-            href={t.href}
-            className={styles.tab}
-            style={{ color: isActive ? '#6d28d9' : '#b0aabf' }}
-          >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-              <path d={t.icon} />
-            </svg>
-            <span className={styles.label} style={{ fontWeight: isActive ? 700 : 600 }}>{t.label}</span>
-          </Link>
-        );
-      })}
-    </div>
+    <>
+      <Link href="/list" className={styles.fab} aria-label="List your place">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </Link>
+      <div className={styles.tabBar}>
+        {TABS.map((t) => {
+          const isActive = t.key === active;
+          return (
+            <Link
+              key={t.key}
+              href={t.href}
+              className={styles.tab}
+              style={{ color: isActive ? '#6d28d9' : '#b0aabf' }}
+            >
+              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d={t.icon} />
+              </svg>
+              <span className={styles.label} style={{ fontWeight: isActive ? 700 : 600 }}>{t.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </>
   );
 }

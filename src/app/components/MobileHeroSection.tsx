@@ -5,44 +5,12 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import styles from './MobileHeroSection.module.css';
 import { useCitySearch } from '@/lib/useCitySearch';
+import { useWhenPicker } from '@/lib/useWhenPicker';
 import MobileTabBar from './MobileTabBar';
+import MobileWhenFields from './MobileWhenFields';
 
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
 const MAX_RENT_OPTS = ['Any budget', '€500', '€800', '€1,200', '€2,000'];
-
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const FLEX_OPTS = [
-  { key: 'exact', label: 'Exact dates' },
-  { key: '1week', label: '± 1 week' },
-  { key: '2weeks', label: '± 2 weeks' },
-] as const;
-
-function pad(n: number) { return n < 10 ? '0' + n : '' + n; }
-function todayStr() {
-  const t = new Date();
-  return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate());
-}
-function currentMonthKey() {
-  const t = new Date();
-  return t.getFullYear() + '-' + pad(t.getMonth() + 1);
-}
-function fmtNice(ds: string) {
-  if (!ds) return '';
-  const p = ds.split('-');
-  return parseInt(p[2], 10) + ' ' + ABBR[parseInt(p[1], 10) - 1] + ' ' + p[0];
-}
-function monthOptionsList() {
-  const t = new Date();
-  const opts: { value: string; label: string }[] = [];
-  for (let i = 0; i < 15; i++) {
-    let m = t.getMonth() + i;
-    const y = t.getFullYear() + Math.floor(m / 12);
-    m = ((m % 12) + 12) % 12;
-    opts.push({ value: y + '-' + pad(m + 1), label: MONTH_NAMES[m] + ' ' + y });
-  }
-  return opts;
-}
 
 /* ── Icons ──────────────────────────────────────────────────── */
 function IconSearch() {
@@ -104,13 +72,7 @@ export default function MobileHeroSection() {
   const [navOpen, setNavOpen] = useState(false);
 
   const [openWhen, setOpenWhen] = useState(false);
-  const [mode, setMode] = useState<'date' | 'month'>('date');
-  const [moveIn, setMoveIn] = useState('');
-  const [moveOut, setMoveOut] = useState('');
-  const [noEndDate, setNoEndDate] = useState(false);
-  const [flex, setFlex] = useState<'exact' | '1week' | '2weeks'>('exact');
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
-  const [stayMonths, setStayMonths] = useState(3);
+  const when = useWhenPicker();
 
   const cardRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
@@ -134,31 +96,6 @@ export default function MobileHeroSection() {
     setLocation(name);
     setQuery('');
     setOpenWhere(false);
-  }
-
-  const monthOptions = monthOptionsList();
-  const selMonth = monthOptions.find(m => m.value === selectedMonth);
-  const hasMoveIn = !!moveIn;
-  const hasMoveOut = !!moveOut && !noEndDate;
-
-  const dateValueText = !hasMoveIn ? 'Add dates'
-    : noEndDate ? 'From ' + fmtNice(moveIn) + ' · No end date'
-    : hasMoveOut ? fmtNice(moveIn) + ' – ' + fmtNice(moveOut)
-    : fmtNice(moveIn) + ' · Add move-out';
-  const monthValueText = selMonth ? selMonth.label + ' · ' + stayMonths + (stayMonths === 1 ? ' month' : ' months') : 'Choose a month';
-
-  const whenTriggerText = mode === 'date' ? dateValueText : monthValueText;
-  const whenTriggerMuted = mode === 'date' ? !hasMoveIn : !selMonth;
-
-  function handleMoveInChange(v: string) {
-    setMoveIn(v);
-    if (moveOut && moveOut < v) setMoveOut('');
-  }
-
-  function handleClearWhen() {
-    setMoveIn(''); setMoveOut(''); setNoEndDate(false);
-    setFlex('exact'); setSelectedMonth(currentMonthKey());
-    setStayMonths(3);
   }
 
   return (
@@ -366,8 +303,8 @@ export default function MobileHeroSection() {
                 <rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18" /><path d="M8 3v4M16 3v4" />
               </svg>
             </span>
-            <span className={styles.whenTriggerText} style={{ color: whenTriggerMuted ? 'var(--placeholder)' : 'var(--text)' }}>
-              {whenTriggerText}
+            <span className={styles.whenTriggerText} style={{ color: when.triggerMuted ? 'var(--placeholder)' : 'var(--text)' }}>
+              {when.triggerText}
             </span>
             <IconChevron />
           </button>
@@ -382,8 +319,8 @@ export default function MobileHeroSection() {
             if (location) params.set('city', location);
             if (type !== 'Any type') params.set('type', type);
             if (maxRent !== 'Any budget') params.set('maxRent', maxRent);
-            if (moveIn) params.set('moveIn', moveIn);
-            if (moveOut) params.set('moveOut', moveOut);
+            if (when.resolvedMoveIn) params.set('moveIn', when.resolvedMoveIn);
+            if (when.resolvedMoveOut) params.set('moveOut', when.resolvedMoveOut);
             router.push(`/search?${params.toString()}`);
           }}
         >
@@ -414,138 +351,11 @@ export default function MobileHeroSection() {
           </button>
         </div>
 
-        <div className={styles.sheetTabs}>
-          {(['date', 'month'] as const).map(tab => {
-            const active = tab === mode;
-            const labels = { date: 'By date', month: 'By month' };
-            return (
-              <button
-                key={tab}
-                type="button"
-                className={styles.sheetTab}
-                style={{
-                  background: active ? 'linear-gradient(180deg, #7c3aed, #6d28d9)' : 'transparent',
-                  color: active ? '#fff' : '#4a3d6b',
-                  boxShadow: active ? '0 6px 14px -4px rgba(109,40,217,.45)' : 'none',
-                }}
-                onClick={() => setMode(tab)}
-              >
-                {labels[tab]}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className={styles.sheetBody}>
-          {mode === 'date' && (
-            <>
-              <div style={{ marginBottom: 14 }}>
-                <label className={styles.fieldLabel}>Move-in</label>
-                <input
-                  type="date"
-                  value={moveIn}
-                  min={todayStr()}
-                  onChange={e => handleMoveInChange(e.target.value)}
-                  className={styles.dateInput}
-                />
-              </div>
-
-              <button
-                type="button"
-                className={styles.noEndToggle}
-                style={{
-                  borderColor: noEndDate ? '#6d28d9' : 'var(--border)',
-                  background: noEndDate ? '#f3effe' : '#fff',
-                }}
-                onClick={() => setNoEndDate(p => { const next = !p; if (next) setMoveOut(''); return next; })}
-              >
-                <span
-                  className={styles.noEndCheckbox}
-                  style={{
-                    borderColor: noEndDate ? '#6d28d9' : '#d4cfe0',
-                    background: noEndDate ? '#6d28d9' : '#fff',
-                  }}
-                >
-                  {noEndDate && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  )}
-                </span>
-                <span className={styles.noEndLabel}>No end date yet — I&apos;ll figure out move-out later</span>
-              </button>
-
-              {!noEndDate && (
-                <div style={{ marginBottom: 14 }}>
-                  <label className={styles.fieldLabel}>Move-out</label>
-                  <input
-                    type="date"
-                    value={moveOut}
-                    min={moveIn || todayStr()}
-                    onChange={e => setMoveOut(e.target.value)}
-                    className={styles.dateInput}
-                  />
-                </div>
-              )}
-
-              <div className={styles.fieldLabel} style={{ marginBottom: 9 }}>Flexibility</div>
-              <div className={styles.chipRow}>
-                {FLEX_OPTS.map(f => {
-                  const active = flex === f.key;
-                  return (
-                    <button
-                      key={f.key}
-                      type="button"
-                      className={styles.flexChip}
-                      style={{
-                        color: active ? '#6d28d9' : '#4a3d6b',
-                        background: active ? '#f3effe' : '#fff',
-                        borderColor: active ? '#6d28d9' : 'var(--border)',
-                      }}
-                      onClick={() => setFlex(f.key)}
-                    >
-                      {f.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {mode === 'month' && (
-            <>
-              <label className={styles.fieldLabel}>Move-in month</label>
-              <div className={styles.monthSelectWrap}>
-                <select
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  className={styles.monthSelect}
-                >
-                  {monthOptions.map(mo => (
-                    <option key={mo.value} value={mo.value}>{mo.label}</option>
-                  ))}
-                </select>
-                <span className={styles.monthSelectChevron}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </div>
-
-              <div className={styles.fieldLabel} style={{ marginBottom: 10 }}>How long will you stay?</div>
-              <div className={styles.stayRow}>
-                <span className={styles.stayLabel}>{stayMonths === 1 ? 'Month' : 'Months'}</span>
-                <div className={styles.stayStepper}>
-                  <button type="button" className={styles.stepperBtn} onClick={() => setStayMonths(m => Math.max(1, m - 1))}>−</button>
-                  <div className={styles.stepperValue}>{stayMonths}</div>
-                  <button type="button" className={styles.stepperBtn} onClick={() => setStayMonths(m => Math.min(24, m + 1))}>+</button>
-                </div>
-              </div>
-            </>
-          )}
+        <div className={styles.sheetBodyWrap}>
+          <MobileWhenFields c={when} />
 
           <div className={styles.sheetFooter}>
-            <button type="button" className={styles.sheetClearBtn} onClick={handleClearWhen}>Clear</button>
+            <button type="button" className={styles.sheetClearBtn} onClick={when.clear}>Clear</button>
             <button type="button" className={styles.sheetApplyBtn} onClick={() => setOpenWhen(false)}>Apply</button>
           </div>
         </div>
