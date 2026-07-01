@@ -61,14 +61,13 @@ interface Props {
 }
 
 export default function DatePickerPanel({ initialMoveIn = '', initialMoveOut = '', onApply, onClear }: Props) {
-  const [mode, setMode] = useState<'date' | 'month' | 'flexible'>('date');
+  const [mode, setMode] = useState<'date' | 'month'>('date');
   const [monthOffset, setMonthOffset] = useState(0);
   const [moveIn, setMoveIn] = useState<string | null>(initialMoveIn || null);
   const [moveOut, setMoveOut] = useState<string | null>(initialMoveOut || null);
   const [flex, setFlex] = useState<'exact' | '1week' | '2weeks'>('exact');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
   const [stayMonths, setStayMonths] = useState(3);
-  const [flexWindow, setFlexWindow] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
 
   const today = todayStr();
@@ -108,17 +107,13 @@ export default function DatePickerPanel({ initialMoveIn = '', initialMoveOut = '
       const outDate = outY + '-' + pad(outM + 1) + '-01';
       const label = ABBR[m - 1] + ' ' + y + ' · ' + stayMonths + (stayMonths === 1 ? ' month' : ' months');
       onApply(inDate, outDate, label);
-    } else {
-      const FLEXWIN_LABELS: Record<string, string> = { '3m': 'Within 3 months', '6m': 'Within 6 months', anytime: "I'm flexible" };
-      const label = flexWindow ? FLEXWIN_LABELS[flexWindow] : "I'm flexible";
-      onApply('', '', label);
     }
   }
 
   function handleClear() {
     setMoveIn(null); setMoveOut(null);
     setFlex('exact'); setSelectedMonth(currentMonthKey());
-    setStayMonths(3); setFlexWindow(null);
+    setStayMonths(3);
     onClear();
   }
 
@@ -147,19 +142,13 @@ export default function DatePickerPanel({ initialMoveIn = '', initialMoveOut = '
     { key: '2weeks', label: '± 2 weeks' },
   ] as const;
 
-  const FLEXWIN_OPTS = [
-    { key: '3m', label: 'Within 3 months' },
-    { key: '6m', label: 'Within 6 months' },
-    { key: 'anytime', label: "I'm not sure yet" },
-  ] as const;
-
   return (
     <div style={{ fontFamily: "'Manrope', system-ui, sans-serif" }}>
       {/* Mode tabs */}
       <div style={{ display: 'flex', gap: 4, background: '#f3effe', borderRadius: 999, padding: 4, marginBottom: 6 }}>
-        {(['date', 'month', 'flexible'] as const).map(tab => {
+        {(['date', 'month'] as const).map(tab => {
           const active = tab === mode;
-          const labels = { date: 'By date', month: 'By month', flexible: 'Flexible' };
+          const labels = { date: 'By date', month: 'By month' };
           return (
             <button
               key={tab}
@@ -326,37 +315,6 @@ export default function DatePickerPanel({ initialMoveIn = '', initialMoveOut = '
               onClick={() => setStayMonths(m => Math.min(24, m + 1))}
               style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#ece8f6', color: '#4a3d6b', fontSize: 18, fontWeight: 700, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
             >+</button>
-          </div>
-        </div>
-      )}
-
-      {/* ── FLEXIBLE ── */}
-      {mode === 'flexible' && (
-        <div style={{ marginTop: 14, textAlign: 'center', padding: '14px 12px 6px' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f3effe', display: 'grid', placeItems: 'center', margin: '0 auto 14px' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18" /><path d="M8 3v4M16 3v4" />
-            </svg>
-          </div>
-          <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700, fontSize: 17, color: '#1c1530', marginBottom: 6 }}>Not sure about your dates yet?</div>
-          <div style={{ fontSize: 14, color: '#6b6675', maxWidth: 380, margin: '0 auto 18px', lineHeight: 1.5 }}>
-            No problem — tell us roughly when you&apos;re thinking, and we&apos;ll show places open to flexible stays.
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-            {FLEXWIN_OPTS.map(f => {
-              const active = flexWindow === f.key;
-              return (
-                <button key={f.key} type="button" onClick={() => setFlexWindow(f.key)} style={{
-                  fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
-                  color: active ? '#6d28d9' : '#4a3d6b',
-                  background: active ? '#f3effe' : '#fff',
-                  border: `1.5px solid ${active ? '#6d28d9' : '#e6e2ef'}`,
-                  padding: '7px 14px', borderRadius: 999, cursor: 'pointer', transition: 'all .14s',
-                }}>
-                  {f.label}
-                </button>
-              );
-            })}
           </div>
         </div>
       )}

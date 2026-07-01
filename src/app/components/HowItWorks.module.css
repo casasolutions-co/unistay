@@ -1,0 +1,257 @@
+.section {
+  background: var(--page);
+  padding: 100px 56px 88px;
+}
+
+.inner {
+  max-width: 1220px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.eyebrow {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin: 0 0 14px;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 46px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+}
+
+.subline {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 16px auto 0;
+  max-width: 480px;
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  margin-top: 64px;
+}
+
+.connector {
+  position: absolute;
+  top: 34px;
+  left: 12.5%;
+  right: 12.5%;
+  height: 0;
+  border-top: 2px dashed #e4defa;
+  z-index: 0;
+}
+
+.step {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.iconWrap {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 24px;
+}
+
+.iconCircle {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-top), var(--brand));
+  display: grid;
+  place-items: center;
+  color: #fff;
+  box-shadow: 0 14px 28px -12px rgba(109, 40, 217, 0.55),
+    0 0 0 6px rgba(109, 40, 217, 0.08);
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #f0ecfa;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--brand);
+}
+
+.stepTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--text);
+  margin: 0 0 9px;
+}
+
+.stepDesc {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.cta {
+  margin-top: 52px;
+  padding: 0 34px;
+  height: 54px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, var(--brand-top), var(--brand));
+  box-shadow: var(--shadow-button);
+  transition: filter 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+
+.cta:hover {
+  filter: brightness(1.06);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -8px rgba(109, 40, 217, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.cta:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 900px) and (min-width: 769px) {
+  .section {
+    padding: 64px 20px;
+  }
+  .heading {
+    font-size: 32px;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .connector {
+    display: none;
+  }
+}
+
+/* Mobile: vertical timeline, matching UniStay Hero Mobile mockup */
+@media (max-width: 768px) {
+  .section {
+    padding: 40px 22px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+  }
+  .heading {
+    font-size: 27px;
+  }
+  .subline {
+    font-size: 13.5px;
+    max-width: none;
+  }
+
+  .steps {
+    display: block;
+    margin-top: 30px;
+  }
+
+  .connector {
+    top: 6px;
+    bottom: 32px;
+    left: 25px;
+    right: auto;
+    width: 0;
+    height: auto;
+    border-top: none;
+    border-left: 2px dashed #e4defa;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+
+  .step:last-child {
+    margin-bottom: 0;
+  }
+
+  .iconWrap {
+    flex: none;
+    width: 52px;
+    height: 52px;
+    margin: 0;
+  }
+
+  .iconCircle {
+    width: 52px;
+    height: 52px;
+    box-shadow: 0 10px 20px -8px rgba(109, 40, 217, 0.5);
+  }
+
+  .iconCircle svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .badge {
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .stepText {
+    flex: 1;
+    min-width: 0;
+    padding-top: 5px;
+  }
+
+  .stepTitle {
+    font-size: 16px;
+    margin: 0 0 5px;
+  }
+
+  .stepDesc {
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .cta {
+    width: 100%;
+    margin-top: 28px;
+    height: 50px;
+    font-size: 15px;
+  }
+
+  .cta:hover {
+    transform: none;
+  }
+
+  .cta:active {
+    transform: translateY(1px);
+  }
+}

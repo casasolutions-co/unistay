@@ -8,7 +8,6 @@ import { useCitySearch } from '@/lib/useCitySearch';
 import DatePickerPanel from './DatePickerPanel';
 
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
-const POPULAR_CITIES = ['Berlin', 'Munich', 'Hamburg', 'Frankfurt am Main', 'Köln', 'Stuttgart'];
 const AVATAR_SHIFTS = ['0px', '-9px', '-9px', '-9px', '-9px'];
 
 /* ── Icon components ────────────────────────────────────────────── */
@@ -397,21 +396,6 @@ export default function HeroSection() {
             <IconSearch color="#fff" size={18} />
             Search
           </button>
-        </div>
-
-        {/* Popular city chips */}
-        <div className={styles.chipsRow}>
-          <span className={styles.chipsLabel}>Popular:</span>
-          {POPULAR_CITIES.map(city => (
-            <button
-              key={city}
-              type="button"
-              className={styles.chip}
-              onClick={() => { selectCity(city, 'Germany', 'city'); setLocation(city); setOpen(null); }}
-            >
-              {city}
-            </button>
-          ))}
         </div>
       </div>
     </section>

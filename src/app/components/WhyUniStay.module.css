@@ -1,0 +1,124 @@
+.section {
+  background: var(--dark);
+  padding: 100px 56px;
+  position: relative;
+  overflow: hidden;
+}
+
+.glow {
+  content: '';
+  position: absolute;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 500px;
+  background: radial-gradient(closest-side, rgba(124, 58, 237, 0.25), rgba(124, 58, 237, 0));
+  pointer-events: none;
+}
+
+.inner {
+  max-width: 1220px;
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+}
+
+.eyebrow {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #b79bf0;
+  margin: 0 0 14px;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 46px;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0;
+}
+
+.subline {
+  font-size: 17px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+  margin: 16px auto 0;
+  max-width: 560px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin-top: 60px;
+  text-align: left;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand-top), var(--brand));
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(124, 58, 237, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.iconTile {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--brand-top), var(--brand));
+  display: grid;
+  place-items: center;
+  color: #fff;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 20px -8px rgba(124, 58, 237, 0.6);
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  margin: 0 0 9px;
+}
+
+.cardDesc {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .section {
+    padding: 64px 20px;
+  }
+  .heading {
+    font-size: 32px;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

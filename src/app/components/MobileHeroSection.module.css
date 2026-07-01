@@ -472,6 +472,327 @@
   box-shadow: var(--focus-ring);
 }
 
+/* ── When trigger ─────────────────────────────────────────────── */
+.whenTrigger {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.whenTriggerIcon {
+  flex: none;
+  display: flex;
+  color: #b0aabf;
+}
+
+.whenTriggerText {
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* ── When: bottom sheet ──────────────────────────────────────── */
+.sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(20, 14, 32, 0.45);
+  transition: opacity 0.28s ease;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 210;
+  background: #fff;
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -12px 40px rgba(20, 14, 32, 0.3);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.sheetGrabberWrap {
+  flex: none;
+  padding: 10px 0 0;
+  display: flex;
+  justify-content: center;
+}
+
+.sheetGrabber {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.sheetHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px 6px;
+}
+
+.sheetTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.sheetClose {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--tint);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.sheetTabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  background: var(--tint);
+  border-radius: 999px;
+  padding: 4px;
+  margin: 10px 20px 0;
+}
+
+.sheetTab {
+  flex: 1;
+  border: none;
+  padding: 10px 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+
+.sheetBody {
+  padding: 18px 20px 22px;
+}
+
+.noEndToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.noEndCheckbox {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  display: grid;
+  place-items: center;
+}
+
+.noEndLabel {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flexChip {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all 0.14s;
+}
+
+.monthSelectWrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.monthSelect {
+  width: 100%;
+  height: 50px;
+  padding: 0 32px 0 14px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.monthSelect:focus {
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: var(--focus-ring);
+}
+
+.monthSelectChevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+}
+
+.stayRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stayLabel {
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stayStepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepperBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: var(--tint-hover);
+  color: #4a3d6b;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.stepperValue {
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.flexPanel {
+  text-align: center;
+  padding: 8px 4px 4px;
+}
+
+.flexIconWrap {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--tint);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+}
+
+.flexTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16.5px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.flexSub {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.sheetFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sheetClearBtn {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  padding: 12px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.sheetApplyBtn {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -6px rgba(109, 40, 217, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
 /* ── Search button ───────────────────────────────────────────── */
 .searchBtn {
   width: 100%;
