@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { previewUrlFor } from '@/lib/heicPreview';
 import styles from './ListMobile.module.css';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
@@ -251,7 +252,8 @@ export default function ListMobile() {
   async function uploadFiles(files: FileList) {
     const fileArray = Array.from(files);
     const startIdx = photos.length;
-    setPhotos(prev => [...prev, ...fileArray.map(f => ({ r2Key: '', previewUrl: URL.createObjectURL(f), uploading: true }))]);
+    const previewUrls = await Promise.all(fileArray.map(previewUrlFor));
+    setPhotos(prev => [...prev, ...previewUrls.map(previewUrl => ({ r2Key: '', previewUrl, uploading: true }))]);
     if (!user) {
       setPhotos(prev => prev.map((p, j) => j >= startIdx ? { ...p, uploading: false, error: 'Sign in to upload photos' } : p));
       return;

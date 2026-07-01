@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { previewUrlFor } from '@/lib/heicPreview';
 import ListMobile from './ListMobile';
 import styles from './page.module.css';
 
@@ -260,10 +261,12 @@ export default function ListYourPlace() {
     const fileArray = Array.from(files);
     const startIdx = photos.length;
 
-    // Step 1: add previews to state immediately — no async needed
+    // Step 1: add previews to state (HEIC files are converted to JPEG first so
+    // the thumbnail actually renders in non-Safari browsers)
+    const previewUrls = await Promise.all(fileArray.map(previewUrlFor));
     setPhotos(prev => [
       ...prev,
-      ...fileArray.map(f => ({ r2Key: '', previewUrl: URL.createObjectURL(f), uploading: true })),
+      ...previewUrls.map(previewUrl => ({ r2Key: '', previewUrl, uploading: true })),
     ]);
 
     // Step 2: upload each file to R2

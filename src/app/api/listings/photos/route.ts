@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import heicConvert from 'heic-convert';
 import { adminAuth } from '@/lib/firebase-admin';
 import { uploadToR2 } from '@/lib/r2';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const HEIC_TYPES = ['image/heic', 'image/heif'];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB per photo
 
 export async function POST(req: NextRequest) {
@@ -36,12 +38,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Photo must be under 10 MB' }, { status: 400 });
   }
 
-  const ext    = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-  const r2Key  = `listings/${listingId}/${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  let ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+  let contentType = file.type;
+  let buffer = Buffer.from(await file.arrayBuffer());
+
+  // Browsers can't render HEIC/HEIF natively — convert to JPEG so uploaded
+  // photos actually display once stored, instead of ever hitting R2 as HEIC.
+  if (HEIC_TYPES.includes(file.type)) {
+    try {
+      const jpegBuffer = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
+      buffer = Buffer.from(jpegBuffer);
+      contentType = 'image/jpeg';
+      ext = 'jpg';
+    } catch (err) {
+      console.error('[POST /api/listings/photos] HEIC conversion failed:', err);
+      return NextResponse.json({ error: 'Could not process this HEIC photo. Try converting it to JPEG first.' }, { status: 400 });
+    }
+  }
+
+  const r2Key = `listings/${listingId}/${crypto.randomUUID()}.${ext}`;
 
   try {
-    await uploadToR2(r2Key, buffer, file.type);
+    await uploadToR2(r2Key, buffer, contentType);
   } catch (err) {
     console.error('[POST /api/listings/photos]', err);
     return NextResponse.json({ error: 'Upload to storage failed. Please try again.' }, { status: 500 });
