@@ -1,19 +1,22 @@
 import { Suspense } from 'react'
 import { getUsers } from '@/lib/data'
-import { verifyUser, kickUser, restoreUser } from '@/lib/actions'
+import { verifyUser, rejectUser, banUser, unbanUser } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
 import FilterPills from '@/components/ui/FilterPills'
 import SearchInput from '@/components/ui/SearchInput'
 import ActionBtn from '@/components/ui/ActionBtn'
+import UserRowActions from './UserRowActions'
 import Link from 'next/link'
 import { userStatus } from '@/lib/utils'
 
 const FILTER_PILLS = [
   { label: 'All',        value: 'all',        href: '/users' },
   { label: 'Unverified', value: 'unverified',  href: '/users?filter=unverified' },
+  { label: 'Pending',    value: 'pending',     href: '/users?filter=pending' },
   { label: 'Verified',   value: 'verified',    href: '/users?filter=verified' },
-  { label: 'Kicked out', value: 'kicked',      href: '/users?filter=kicked' },
+  { label: 'Rejected',   value: 'rejected',    href: '/users?filter=rejected' },
+  { label: 'Banned',     value: 'banned',      href: '/users?filter=banned' },
 ]
 
 export default async function UsersPage({
@@ -50,9 +53,10 @@ export default async function UsersPage({
           <tbody>
             {users.map(u => {
               const st = userStatus(u.status)
-              const verify  = verifyUser.bind(null, u.id)
-              const kick    = kickUser.bind(null, u.id)
-              const restore = restoreUser.bind(null, u.id)
+              const verify = verifyUser.bind(null, u.id)
+              const reject = rejectUser.bind(null, u.id)
+              const ban    = banUser.bind(null, u.id)
+              const unban  = unbanUser.bind(null, u.id)
               return (
                 <tr key={u.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
                   <td style={{ padding: '13px 20px' }}>
@@ -75,9 +79,7 @@ export default async function UsersPage({
                   </td>
                   <td style={{ padding: '13px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
-                      {u.status === 'unverified' && <><ActionBtn action={verify} label="Verify" size="sm" /><ActionBtn action={kick} label="Kick" size="sm" variant="danger" /></>}
-                      {u.status === 'verified'   && <ActionBtn action={kick}    label="Kick out" size="sm" variant="danger" />}
-                      {u.status === 'kicked'     && <ActionBtn action={restore} label="Restore"  size="sm" variant="ghost" />}
+                      <UserRowActions status={u.status} verify={verify} reject={reject} ban={ban} unban={unban} size="sm" />
                     </div>
                   </td>
                 </tr>

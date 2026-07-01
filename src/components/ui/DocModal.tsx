@@ -2,18 +2,21 @@
 
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
+import { useState } from 'react'
 import type { Document } from '@/lib/types'
 import { docStatus } from '@/lib/utils'
 
 interface DocModalProps {
   document: Document
   onApprove: () => Promise<void>
-  onReject: () => Promise<void>
+  onReject: (reason: string) => Promise<void>
 }
 
 export default function DocModal({ document, onApprove, onReject }: DocModalProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [rejecting, setRejecting] = useState(false)
+  const [reason, setReason] = useState('')
   const ds = docStatus(document.status)
 
   function close() {
@@ -46,27 +49,59 @@ export default function DocModal({ document, onApprove, onReject }: DocModalProp
           </div>
         </div>
 
+        {document.status === 'rejected' && document.rejectionReason && (
+          <div style={{ margin: '0 24px 16px', fontSize: 12.5, fontWeight: 600, color: '#b91c1c', background: '#fdecec', borderRadius: 10, padding: '9px 12px' }}>
+            Reason: {document.rejectionReason}
+          </div>
+        )}
+
         {/* Footer */}
+        {document.status === 'pending' && rejecting && (
+          <div style={{ padding: '0 24px 14px' }}>
+            <textarea
+              autoFocus
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="Reason for rejection…"
+              rows={3}
+              style={{ width: '100%', resize: 'vertical', border: '1.5px solid #ece8f3', borderRadius: 10, padding: '10px 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#1c1530' }}
+            />
+          </div>
+        )}
         <div style={{ padding: '0 24px 22px', display: 'flex', gap: 10 }}>
           {document.status === 'pending' ? (
-            <>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => startTransition(async () => { await onApprove(); close() })}
-                style={{ flex: 1, height: 44, border: 'none', borderRadius: 12, background: 'linear-gradient(180deg,#7c3aed,#6d28d9)', color: '#fff', fontFamily: 'var(--font-bricolage)', fontSize: 14, fontWeight: 700, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.6 : 1 }}
-              >
-                {pending ? '…' : 'Approve'}
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => startTransition(async () => { await onReject(); close() })}
-                style={{ flex: 1, height: 44, border: '1.5px solid #f3c6c6', borderRadius: 12, background: '#fff', color: '#b91c1c', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.6 : 1 }}
-              >
-                {pending ? '…' : 'Reject'}
-              </button>
-            </>
+            rejecting ? (
+              <>
+                <button
+                  type="button"
+                  disabled={pending || !reason.trim()}
+                  onClick={() => startTransition(async () => { await onReject(reason.trim()); close() })}
+                  style={{ flex: 1, height: 44, border: 'none', borderRadius: 12, background: '#b91c1c', color: '#fff', fontFamily: 'var(--font-bricolage)', fontSize: 14, fontWeight: 700, cursor: pending || !reason.trim() ? 'default' : 'pointer', opacity: pending || !reason.trim() ? 0.6 : 1 }}
+                >
+                  {pending ? '…' : 'Confirm rejection'}
+                </button>
+                <button type="button" onClick={() => setRejecting(false)} style={{ flex: 1, height: 44, border: '1.5px solid #ece8f3', borderRadius: 12, background: '#fff', color: '#1c1530', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => startTransition(async () => { await onApprove(); close() })}
+                  style={{ flex: 1, height: 44, border: 'none', borderRadius: 12, background: 'linear-gradient(180deg,#7c3aed,#6d28d9)', color: '#fff', fontFamily: 'var(--font-bricolage)', fontSize: 14, fontWeight: 700, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.6 : 1 }}
+                >
+                  {pending ? '…' : 'Approve'}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setRejecting(true)}
+                  style={{ flex: 1, height: 44, border: '1.5px solid #f3c6c6', borderRadius: 12, background: '#fff', color: '#b91c1c', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.6 : 1 }}
+                >
+                  Reject
+                </button>
+              </>
+            )
           ) : (
             <button type="button" onClick={close} style={{ flex: 1, height: 44, border: '1.5px solid #ece8f3', borderRadius: 12, background: '#fff', color: '#1c1530', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Close</button>
           )}

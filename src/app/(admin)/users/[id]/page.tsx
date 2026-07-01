@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getUser, getDocsByUser, getListingsByHost, getMessagesByUser } from '@/lib/data'
-import { verifyUser, kickUser, restoreUser, approveDoc, rejectDoc } from '@/lib/actions'
+import { verifyUser, rejectUser, banUser, unbanUser, approveDoc, rejectDoc } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
-import ActionBtn from '@/components/ui/ActionBtn'
+import UserRowActions from '../UserRowActions'
+import DocRowActions from '../../documents/DocRowActions'
 import { userStatus, listingStatus, docStatus, thumbBg } from '@/lib/utils'
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,9 +19,10 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     getMessagesByUser(user.name),
   ])
   const st = userStatus(user.status)
-  const verify  = verifyUser.bind(null, id)
-  const kick    = kickUser.bind(null, id)
-  const restore = restoreUser.bind(null, id)
+  const verify = verifyUser.bind(null, id)
+  const reject = rejectUser.bind(null, id)
+  const ban    = banUser.bind(null, id)
+  const unban  = unbanUser.bind(null, id)
 
   const activity = [
     { label: 'Account created', time: user.joined, dot: '#6d28d9' },
@@ -46,11 +48,19 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             <StatusBadge label={st.label} bg={st.bg} color={st.color} />
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#9a94a8', marginTop: 4 }}>{user.email} · joined {user.joined}</div>
+          {user.status === 'rejected' && user.verificationNote && (
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: '#b91c1c', marginTop: 8, background: '#fdecec', borderRadius: 8, padding: '7px 11px' }}>
+              Rejection note: {user.verificationNote}
+            </div>
+          )}
+          {user.status === 'banned' && (
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: '#b91c1c', marginTop: 8, background: '#fdecec', borderRadius: 8, padding: '7px 11px' }}>
+              Ban reason: {user.banReason} · {user.banExpiresAt ? `expires ${user.banExpiresAt}` : 'permanent'}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, flex: 'none' }}>
-          {user.status === 'unverified' && <><ActionBtn action={verify} label="✓ Verify user" size="md" /><ActionBtn action={kick} label="Kick out" size="md" variant="danger" /></>}
-          {user.status === 'verified'   && <ActionBtn action={kick}    label="Kick out"      size="md" variant="danger" />}
-          {user.status === 'kicked'     && <ActionBtn action={restore} label="Restore access" size="md" variant="ghost" />}
+          <UserRowActions status={user.status} verify={verify} reject={reject} ban={ban} unban={unban} size="md" />
         </div>
       </div>
 
@@ -92,9 +102,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                   </div>
                   {doc.status === 'pending' && (
                     <div style={{ display: 'flex', gap: 8, padding: '8px 0 4px' }}>
-                      <ActionBtn action={approve} label="Approve" size="sm" />
-                      <ActionBtn action={reject}  label="Reject"  size="sm" variant="danger" />
+                      <DocRowActions approve={approve} reject={reject} />
                     </div>
+                  )}
+                  {doc.status === 'rejected' && doc.rejectionReason && (
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#b91c1c', padding: '6px 0 4px' }}>Reason: {doc.rejectionReason}</div>
                   )}
                 </div>
               )

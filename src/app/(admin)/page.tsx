@@ -21,7 +21,7 @@ export default async function DashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
         <StatCard href="/users" count={counts.users} label="Unverified users" iconColor="#6d28d9" iconBg="#f3effe" icon="users" hoverBorder="#ddd0f6" />
         <StatCard href="/listings" count={counts.listings} label="Listings pending approval" iconColor="#92660b" iconBg="#fff3d6" icon="listing" hoverBorder="#f5d68e" />
-        <StatCard href="/messages" count={counts.messages} label="Flagged conversations" iconColor="#b91c1c" iconBg="#fdecec" icon="message" hoverBorder="#f3c6c6" />
+        <StatCard href="/reports" count={counts.reports} label="Open reports" iconColor="#b91c1c" iconBg="#fdecec" icon="message" hoverBorder="#f3c6c6" />
         <StatCard href="/documents" count={counts.documents} label="Documents to review" iconColor="#0f766e" iconBg="#e6fbf6" icon="doc" hoverBorder="#99e6d8" />
       </div>
 

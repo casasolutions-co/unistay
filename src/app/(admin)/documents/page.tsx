@@ -4,6 +4,7 @@ import { approveDoc, rejectDoc } from '@/lib/actions'
 import StatusBadge from '@/components/ui/StatusBadge'
 import FilterPills from '@/components/ui/FilterPills'
 import DocModal from '@/components/ui/DocModal'
+import DocRowActions from './DocRowActions'
 import { docStatus } from '@/lib/utils'
 
 const FILTER_PILLS = [

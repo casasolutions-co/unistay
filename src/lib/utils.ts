@@ -31,18 +31,22 @@ export function thumbBg(index: number): string {
 
 export function userStatus(status: UserStatus) {
   const map: Record<UserStatus, { label: string; bg: string; color: string }> = {
-    unverified: { label: 'Unverified', bg: '#fff3d6', color: '#92660b' },
+    unverified: { label: 'Unverified', bg: '#f4f2f9', color: '#6b6675' },
+    pending:    { label: 'Pending review', bg: '#fff3d6', color: '#92660b' },
     verified:   { label: 'Verified',   bg: '#eafaf2', color: '#1f8a5b' },
-    kicked:     { label: 'Kicked out', bg: '#fdecec', color: '#b91c1c' },
+    rejected:   { label: 'Rejected',   bg: '#fdecec', color: '#b91c1c' },
+    banned:     { label: 'Banned',     bg: '#fdecec', color: '#b91c1c' },
   }
   return map[status]
 }
 
 export function listingStatus(status: ListingStatus) {
   const map: Record<ListingStatus, { label: string; bg: string; color: string }> = {
-    pending:  { label: 'Pending',  bg: '#fff3d6', color: '#92660b' },
-    approved: { label: 'Approved', bg: '#eafaf2', color: '#1f8a5b' },
-    removed:  { label: 'Removed',  bg: '#fdecec', color: '#b91c1c' },
+    draft:           { label: 'Draft',          bg: '#f4f2f9', color: '#6b6675' },
+    pending_review:  { label: 'Pending review', bg: '#fff3d6', color: '#92660b' },
+    published:       { label: 'Published',      bg: '#eafaf2', color: '#1f8a5b' },
+    rejected:        { label: 'Rejected',       bg: '#fdecec', color: '#b91c1c' },
+    archived:        { label: 'Archived',       bg: '#fdecec', color: '#b91c1c' },
   }
   return map[status]
 }
@@ -56,8 +60,18 @@ export function docStatus(status: DocStatus) {
   return map[status]
 }
 
-export function messageStatus(flagged: boolean) {
-  return flagged
-    ? { label: 'Flagged', bg: '#fdecec', color: '#b91c1c' }
-    : { label: 'Clear',   bg: '#f4f2f9', color: '#6b6675' }
+export function messageStatus(reported: boolean, deleted: boolean = false) {
+  if (deleted) return { label: 'Redacted', bg: '#f4f2f9', color: '#6b6675' }
+  return reported
+    ? { label: 'Reported', bg: '#fdecec', color: '#b91c1c' }
+    : { label: 'Clear',    bg: '#f4f2f9', color: '#6b6675' }
+}
+
+export function reportStatus(status: 'open' | 'resolved' | 'dismissed') {
+  const map = {
+    open:      { label: 'Open',      bg: '#fff3d6', color: '#92660b' },
+    resolved:  { label: 'Resolved',  bg: '#eafaf2', color: '#1f8a5b' },
+    dismissed: { label: 'Dismissed', bg: '#f4f2f9', color: '#6b6675' },
+  }
+  return map[status]
 }

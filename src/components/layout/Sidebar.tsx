@@ -1,7 +1,9 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { logout } from '@/lib/actions'
 
 const NAV = [
   {
@@ -60,13 +62,43 @@ const NAV = [
       </svg>
     ),
   },
+  {
+    href: '/reports',
+    label: 'Reports',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 9v4M12 17h.01" />
+        <path d="M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/audit-log',
+    label: 'Audit log',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" />
+      </svg>
+    ),
+  },
+  {
+    href: '/settings',
+    label: 'Settings',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+  },
 ]
 
 interface SidebarProps {
-  counts: { users: number; listings: number; messages: number; documents: number }
+  counts: { users: number; listings: number; messages: number; documents: number; reports: number }
+  email: string
 }
 
-export default function Sidebar({ counts }: SidebarProps) {
+export default function Sidebar({ counts, email }: SidebarProps) {
   const pathname = usePathname()
 
   function isActive(href: string) {
@@ -79,6 +111,7 @@ export default function Sidebar({ counts }: SidebarProps) {
     '/listings': counts.listings,
     '/messages': counts.messages,
     '/documents': counts.documents,
+    '/reports': counts.reports,
   }
 
   return (
@@ -91,18 +124,12 @@ export default function Sidebar({ counts }: SidebarProps) {
       flexDirection: 'column',
       padding: '20px 14px',
       height: '100vh',
+      overflowY: 'auto',
     }}>
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 8px 16px' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 11.2 12 4l9 7.2" />
-          <path d="M5.5 9.8V20h13V9.8" />
-          <path d="M10 20v-5h4v5" />
-        </svg>
-        <div>
-          <div style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 800, fontSize: 17, letterSpacing: '-.02em', color: '#1c1530' }}>UniStay</div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9a94a8', letterSpacing: '.02em', marginTop: -2 }}>ADMIN CONSOLE</div>
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '4px 8px 16px' }}>
+        <Image src="/unistay-logo.png" alt="UniStay" width={2049} height={1772} style={{ width: 124, height: 'auto', display: 'block' }} priority sizes="124px" />
+        <div style={{ fontSize: 11, fontWeight: 800, color: '#9a94a8', letterSpacing: '.06em' }}>ADMIN CONSOLE</div>
       </div>
 
       <div style={{ height: 1, background: '#f1eef7', margin: '4px 8px 12px' }} />
@@ -151,17 +178,35 @@ export default function Sidebar({ counts }: SidebarProps) {
       </nav>
 
       {/* Admin user */}
-      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 8px 4px', borderTop: '1px solid #f1eef7' }}>
-        <span style={{
-          width: 36, height: 36, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#312942,#1c1530)',
-          display: 'grid', placeItems: 'center',
-          fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 13, color: '#fff',
-          flex: 'none',
-        }}>A</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1530', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Admin user</div>
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: '#9a94a8' }}>Super admin</div>
+      <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid #f1eef7' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 4px' }}>
+          <span style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#312942,#1c1530)',
+            display: 'grid', placeItems: 'center',
+            fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 13, color: '#fff',
+            flex: 'none',
+          }}>A</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1530', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{email || 'Admin user'}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: '#9a94a8' }}>Super admin</div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              title="Log out"
+              style={{
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                color: '#9a94a8', display: 'grid', placeItems: 'center', padding: 6, borderRadius: 8,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
+            </button>
+          </form>
         </div>
       </div>
     </aside>

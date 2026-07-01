@@ -1,8 +1,10 @@
 import Sidebar from '@/components/layout/Sidebar'
 import { getDashboardCounts } from '@/lib/data'
+import { getAdminSession } from '@/lib/session'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const counts = await getDashboardCounts()
+  const session = await getAdminSession()
 
   return (
     <>
@@ -31,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* Desktop shell — hidden on small screens */}
       <div className="desktop-shell" style={{ height: '100vh', overflow: 'hidden' }}>
-        <Sidebar counts={counts} />
+        <Sidebar counts={counts} email={session?.email ?? ''} />
         <main
           className="us-scroll"
           style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '30px 38px 50px' }}

@@ -1,18 +1,19 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { getListings } from '@/lib/data'
-import { approveListing, rejectListing, removeListing, restoreListing } from '@/lib/actions'
+import { approveListing, rejectListing, archiveListing, restoreListing } from '@/lib/actions'
 import StatusBadge from '@/components/ui/StatusBadge'
 import FilterPills from '@/components/ui/FilterPills'
 import SearchInput from '@/components/ui/SearchInput'
-import ActionBtn from '@/components/ui/ActionBtn'
+import ListingRowActions from './ListingRowActions'
 import { listingStatus, thumbBg } from '@/lib/utils'
 
 const FILTER_PILLS = [
-  { label: 'All',      value: 'all',      href: '/listings' },
-  { label: 'Pending',  value: 'pending',  href: '/listings?filter=pending' },
-  { label: 'Approved', value: 'approved', href: '/listings?filter=approved' },
-  { label: 'Removed',  value: 'removed',  href: '/listings?filter=removed' },
+  { label: 'All',       value: 'all',             href: '/listings' },
+  { label: 'Pending',   value: 'pending_review',  href: '/listings?filter=pending_review' },
+  { label: 'Published', value: 'published',       href: '/listings?filter=published' },
+  { label: 'Rejected',  value: 'rejected',        href: '/listings?filter=rejected' },
+  { label: 'Archived',  value: 'archived',        href: '/listings?filter=archived' },
 ]
 
 export default async function ListingsPage({
@@ -51,8 +52,8 @@ export default async function ListingsPage({
               const st = listingStatus(l.status)
               const approve = approveListing.bind(null, l.id)
               const reject  = rejectListing.bind(null, l.id)
-              const remove  = removeListing.bind(null, l.id)
-              const restore = restoreListing.bind(null, l.id)
+              const archive = archiveListing.bind(null, l.id)
+              const restore = restoreListing.bind(null, l.id, l.status === 'archived')
               return (
                 <tr key={l.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
                   <td style={{ padding: '13px 20px' }}>
@@ -70,9 +71,7 @@ export default async function ListingsPage({
                   <td style={{ padding: '13px 16px' }}><StatusBadge label={st.label} bg={st.bg} color={st.color} /></td>
                   <td style={{ padding: '13px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
-                      {l.status === 'pending'  && <><ActionBtn action={approve} label="Approve" size="sm" /><ActionBtn action={reject} label="Reject" size="sm" variant="danger" /></>}
-                      {l.status === 'approved' && <ActionBtn action={remove}  label="Remove"  size="sm" variant="danger" />}
-                      {l.status === 'removed'  && <ActionBtn action={restore} label="Restore" size="sm" variant="ghost" />}
+                      <ListingRowActions status={l.status} approve={approve} reject={reject} archive={archive} restore={restore} />
                     </div>
                   </td>
                 </tr>

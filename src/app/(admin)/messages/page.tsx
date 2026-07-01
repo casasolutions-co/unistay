@@ -1,14 +1,14 @@
 import Link from 'next/link'
-import { getMessages, getMessage } from '@/lib/data'
-import { resolveMessage } from '@/lib/actions'
+import { getMessages, getMessage, getReportForMessage } from '@/lib/data'
+import { resolveReport, redactMessage } from '@/lib/actions'
 import StatusBadge from '@/components/ui/StatusBadge'
 import FilterPills from '@/components/ui/FilterPills'
 import MessageModal from '@/components/ui/MessageModal'
 import { messageStatus } from '@/lib/utils'
 
 const FILTER_PILLS = [
-  { label: 'All',     value: 'all',     href: '/messages' },
-  { label: 'Flagged', value: 'flagged', href: '/messages?filter=flagged' },
+  { label: 'All',      value: 'all',      href: '/messages' },
+  { label: 'Reported', value: 'reported', href: '/messages?filter=reported' },
 ]
 
 export default async function MessagesPage({
@@ -18,13 +18,17 @@ export default async function MessagesPage({
 }) {
   const { filter = 'all', modal } = await searchParams
   const messages = await getMessages({ filter })
+  const messagesWithStatus = await Promise.all(
+    messages.map(async m => ({ m, report: await getReportForMessage(m.id) }))
+  )
 
   const modalMessage = modal ? await getMessage(modal) : null
+  const modalReport = modalMessage ? await getReportForMessage(modalMessage.id) : null
 
   return (
     <>
       <h1 style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 800, fontSize: 27, letterSpacing: '-.02em', margin: '0 0 4px' }}>Messages</h1>
-      <p style={{ fontSize: 14, fontWeight: 600, color: '#6b6675', margin: '0 0 18px' }}>Every conversation across UniStay, with anything flagged for review.</p>
+      <p style={{ fontSize: 14, fontWeight: 600, color: '#6b6675', margin: '0 0 18px' }}>Messages are not proactively moderated — a conversation only surfaces here once it has been reported.</p>
 
       <FilterPills pills={FILTER_PILLS} current={filter} />
 
@@ -38,8 +42,8 @@ export default async function MessagesPage({
             </tr>
           </thead>
           <tbody>
-            {messages.map(m => {
-              const ms = messageStatus(m.flagged)
+            {messagesWithStatus.map(({ m, report }) => {
+              const ms = messageStatus(!!report, !!m.deletedAt)
               return (
                 <tr key={m.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
                   <td style={{ padding: '13px 20px' }}>
@@ -67,7 +71,9 @@ export default async function MessagesPage({
       {modalMessage && (
         <MessageModal
           message={modalMessage}
-          onResolve={resolveMessage.bind(null, modalMessage.id)}
+          report={modalReport}
+          onResolve={modalReport ? resolveReport.bind(null, modalReport.id) : undefined}
+          onRedact={redactMessage.bind(null, modalMessage.id)}
         />
       )}
     </>

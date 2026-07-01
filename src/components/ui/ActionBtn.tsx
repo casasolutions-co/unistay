@@ -40,3 +40,32 @@ export default function ActionBtn({ action, label, variant = 'primary', size = '
     </button>
   )
 }
+
+interface TriggerBtnProps {
+  onClick: () => void
+  label: string
+  variant?: 'primary' | 'danger' | 'ghost'
+  size?: 'sm' | 'md'
+}
+
+export function TriggerBtn({ onClick, label, variant = 'primary', size = 'sm' }: TriggerBtnProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        height: size === 'sm' ? 32 : 42,
+        padding: size === 'sm' ? '0 13px' : '0 18px',
+        borderRadius: size === 'sm' ? 9 : 11,
+        fontFamily: 'inherit',
+        fontSize: size === 'sm' ? 12.5 : 13.5,
+        fontWeight: 700,
+        cursor: 'pointer',
+        transition: 'opacity .15s',
+        ...variants[variant],
+      }}
+    >
+      {label}
+    </button>
+  )
+}

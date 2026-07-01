@@ -1,11 +1,14 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getListing, getUser, getMessagesByListing } from '@/lib/data'
-import { approveListing, rejectListing, removeListing, restoreListing } from '@/lib/actions'
+import { approveListing, rejectListing, archiveListing, restoreListing } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
-import ActionBtn from '@/components/ui/ActionBtn'
-import { listingStatus, messageStatus, thumbBg } from '@/lib/utils'
+import PhotoGallery from '@/components/ui/PhotoGallery'
+import ListingRowActions from '../ListingRowActions'
+import { listingStatus, messageStatus } from '@/lib/utils'
+
+const LIVE_SITE_BASE = 'https://app.casasolutions.co/search'
 
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,9 +23,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const st      = listingStatus(listing.status)
   const approve = approveListing.bind(null, id)
   const reject  = rejectListing.bind(null, id)
-  const remove  = removeListing.bind(null, id)
-  const restore = restoreListing.bind(null, id)
-  const bg      = thumbBg(listing.thumb)
+  const archive = archiveListing.bind(null, id)
+  const restore = restoreListing.bind(null, id, listing.status === 'archived')
 
   return (
     <>
@@ -35,7 +37,6 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       {/* Hero card */}
       <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden', marginBottom: 18 }}>
-        <div style={{ height: 150, background: bg }} />
         <div style={{ padding: '22px 26px', display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -46,13 +47,44 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               {listing.location} · {listing.price} · hosted by{' '}
               {host ? <Link href={`/users/${host.id}`} style={{ color: '#6d28d9', fontWeight: 700, textDecoration: 'none' }}>{listing.host}</Link> : listing.host}
             </div>
+            {(listing.status === 'rejected' || listing.status === 'archived') && listing.rejectionReason && (
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#b91c1c', marginTop: 8, background: '#fdecec', borderRadius: 8, padding: '7px 11px' }}>
+                Reason: {listing.rejectionReason}
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 10, flex: 'none' }}>
-            {listing.status === 'pending'  && <><ActionBtn action={approve} label="✓ Approve listing" size="md" /><ActionBtn action={reject} label="Reject" size="md" variant="danger" /></>}
-            {listing.status === 'approved' && <ActionBtn action={remove}  label="Remove listing"  size="md" variant="danger" />}
-            {listing.status === 'removed'  && <ActionBtn action={restore} label="Restore listing" size="md" variant="ghost" />}
+          <div style={{ display: 'flex', gap: 10, flex: 'none', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <a
+              href={`${LIVE_SITE_BASE}/${listing.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 999, border: '1.5px solid #e6e2ef', background: '#fff', fontSize: 13, fontWeight: 700, color: '#4a3d6b', textDecoration: 'none' }}
+            >
+              View live ↗
+            </a>
+            <ListingRowActions status={listing.status} approve={approve} reject={reject} archive={archive} restore={restore} size="md" />
           </div>
         </div>
+
+        {/* Photo gallery */}
+        <div style={{ padding: '0 26px 22px' }}>
+          <PhotoGallery photoKeys={listing.photoKeys ?? []} />
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 18 }}>
+        {[
+          ['Type', listing.ptype ?? '—'],
+          ['Bedrooms', listing.bedrooms ?? '—'],
+          ['Bathrooms', listing.bathrooms ?? '—'],
+          ['Size', listing.sizeSqm ? `${listing.sizeSqm} m²` : '—'],
+        ].map(([label, val]) => (
+          <div key={label} style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 14, padding: '14px 16px' }}>
+            <div style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 800, fontSize: 18, color: '#1c1530' }}>{val}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#9a94a8', marginTop: 4 }}>{label}</div>
+          </div>
+        ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 18, alignItems: 'start' }}>
@@ -63,6 +95,22 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 12 }}>ABOUT THIS LISTING</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, fontWeight: 600, color: '#4a4654' }}>
               {[['Location', listing.location], ['Price', listing.price], ['Submitted', listing.submitted]].map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#9a94a8' }}>{label}</span><span>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* What the tenant pays */}
+          <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 12 }}>WHAT THE TENANT PAYS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, fontWeight: 600, color: '#4a4654' }}>
+              {[
+                ['Cold rent', listing.coldRent != null ? `€${listing.coldRent}` : '—'],
+                ['Utilities', listing.utilities != null ? `€${listing.utilities}` : '—'],
+                ['Deposit', listing.deposit != null ? `€${listing.deposit}` : '—'],
+              ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#9a94a8' }}>{label}</span><span>{val}</span>
                 </div>
@@ -83,25 +131,33 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               </Link>
             </div>
           )}
-
-          {/* Photos mock */}
-          <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 14 }}>PHOTOS</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div style={{ height: 70, borderRadius: 10, background: bg }} />
-              <div style={{ height: 70, borderRadius: 10, background: bg, opacity: 0.7 }} />
-              <div style={{ height: 70, borderRadius: 10, background: bg, opacity: 0.5 }} />
-              <div style={{ height: 70, borderRadius: 10, border: '1.5px dashed #ddd0f6', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700, color: '#b0aabf' }}>+more</div>
-            </div>
-          </div>
         </div>
 
-        {/* Right column — messages */}
-        <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden' }}>
+        {/* Right column — description, amenities, messages */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 12 }}>ABOUT THIS PLACE</div>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: '#4a4654', margin: 0, whiteSpace: 'pre-wrap' }}>
+              {listing.description || 'No description provided.'}
+            </p>
+          </div>
+
+          {listing.amenities && listing.amenities.length > 0 && (
+            <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 12 }}>AMENITIES</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {listing.amenities.map(a => (
+                  <div key={a} style={{ fontSize: 13.5, fontWeight: 600, color: '#4a4654' }}>{a}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1eef7', fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 15 }}>Messages about this listing ({listingMessages.length})</div>
           {listingMessages.length === 0 && <div style={{ padding: 20, fontSize: 13, fontWeight: 600, color: '#b0aabf' }}>No messages about this listing.</div>}
           {listingMessages.map(m => {
-            const ms = messageStatus(m.flagged)
+            const ms = messageStatus(false, !!m.deletedAt)
             return (
               <Link key={m.id} href={`/messages?modal=${m.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #f5f2fa', textDecoration: 'none' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -112,6 +168,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               </Link>
             )
           })}
+          </div>
         </div>
       </div>
     </>
