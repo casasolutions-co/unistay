@@ -90,7 +90,11 @@ verification_docs (
   created_at INTEGER
 )
 
--- Listings
+-- Listings — this table only holds PRIVATE listings (landlord-submitted via "List Your Place").
+-- CASA (admin-curated) and PARTNER (HousingAnywhere) listings are NOT rows here — CASA lives in
+-- src/app/data/properties.ts as static data, PARTNER lives in public/partner-cities/*.json.
+-- Only PRIVATE listings go through the status/moderation lifecycle below; CASA and PARTNER have
+-- no `status` column at all and never enter the admin approval queue.
 listings (
   id TEXT PRIMARY KEY,
   landlord_id TEXT REFERENCES users(id),
@@ -98,7 +102,7 @@ listings (
   title TEXT,
   street TEXT, city TEXT, postcode TEXT,
   bedrooms INTEGER, bathrooms INTEGER,
-  size_sqm INTEGER, floor INTEGER,
+  size_sqm INTEGER, room_size_sqm INTEGER DEFAULT 0,
   cold_rent INTEGER, utilities INTEGER, deposit INTEGER,
   avail_from TEXT, avail_to TEXT, open_ended INTEGER,
   min_period INTEGER, max_period INTEGER,
@@ -106,7 +110,10 @@ listings (
   mate_count INTEGER, mate_gender TEXT, pref_gender TEXT, mate_notes TEXT,
   status TEXT DEFAULT 'draft',
   -- 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived'
+  -- New listings are created as 'pending_review' (src/app/api/listings/route.ts POST) —
+  -- they only become 'published' (and publicly searchable) after admin approval.
   rejection_reason TEXT,                    -- set by admin if status = 'rejected'
+  lat REAL DEFAULT 0, lng REAL DEFAULT 0,
   created_at INTEGER, updated_at INTEGER
 )
 
@@ -134,6 +141,26 @@ inquiries (
   message TEXT,
   status TEXT DEFAULT 'pending',            -- 'pending' | 'accepted' | 'rejected'
   created_at INTEGER
+)
+
+-- Chat messages within an inquiry thread
+messages (
+  id TEXT PRIMARY KEY,
+  inquiry_id TEXT NOT NULL REFERENCES inquiries(id),
+  sender_id TEXT NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  msg_type TEXT NOT NULL DEFAULT 'text',
+  metadata TEXT,
+  created_at INTEGER NOT NULL,
+  read_at INTEGER,
+  deleted_at INTEGER,                       -- soft-delete: set when an admin redacts a reported message
+  deleted_by TEXT REFERENCES users(id)
+)
+
+-- Per-user unread counter, kept in sync on every message insert/read
+user_inbox_counts (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  unread INTEGER DEFAULT 0
 )
 ```
 
@@ -170,6 +197,10 @@ The sync surface between Firebase and Cloudflare is intentionally tiny — only 
 
 ### Admin Panel Architecture
 
+**Full spec moved to [`ADMIN_PANEL_PLAN.md`](./ADMIN_PANEL_PLAN.md)** — that file is now the canonical source for admin controls, DB support per control, the schema diff, build order, and a live-DB readiness assessment. Keeping the admin table definitions in two places caused this section to drift out of sync (it was still showing `reports`/`admin_audit_log` without the columns added since, and still described listing moderation as a future "if you add it" feature that has since shipped). Don't duplicate admin schema details back into this file — update `ADMIN_PANEL_PLAN.md` instead.
+
+What stays true here, since it's identity architecture rather than admin-control detail:
+
 **Auth approach:** Firebase custom claims. When you promote a user to admin, you set `{ admin: true }` on their Firebase token server-side. Every API route checks this claim — no extra table needed, no separate login system.
 
 ```
@@ -183,50 +214,6 @@ const token = await admin.auth().verifyIdToken(jwt)
 if (!token.admin) return 403
 ```
 
-**What admin can do vs normal user:**
-
-| Operation | Landlord/Student | Admin |
-|---|---|---|
-| Read own listings | ✓ | ✓ all listings |
-| Publish own listing | ✓ | ✓ any listing |
-| Delete own account | ✓ | ✓ any user |
-| Approve/reject listings | ✗ | ✓ |
-| View all inquiries | ✗ | ✓ |
-| See analytics | ✗ | ✓ |
-
-**Extra D1 tables needed for admin:**
-
-```sql
--- Audit log — every admin action is recorded
-admin_audit_log (
-  id TEXT PRIMARY KEY,
-  admin_id TEXT REFERENCES users(id),
-  action TEXT,          -- 'listing.approve' | 'user.ban' | 'listing.remove' etc.
-  target_type TEXT,     -- 'listing' | 'user' | 'inquiry'
-  target_id TEXT,
-  note TEXT,
-  created_at INTEGER
-)
-
--- Flags / reports (users report bad listings)
-reports (
-  id TEXT PRIMARY KEY,
-  reporter_id TEXT REFERENCES users(id),
-  target_type TEXT,
-  target_id TEXT,
-  reason TEXT,
-  status TEXT DEFAULT 'open',  -- 'open' | 'resolved' | 'dismissed'
-  resolved_by TEXT REFERENCES users(id),
-  created_at INTEGER
-)
-```
-
-**Listing approval flow (if you add moderation later):**
-- New listing → status `'pending_review'` instead of straight to `'published'`
-- Admin sees queue of pending listings in the panel
-- Admin approves → status flips to `'published'`, landlord gets notified
-- Every status change writes a row to `admin_audit_log`
-
 **Admin panel route protection in Next.js:**
 - All `/admin/*` routes behind middleware that checks Firebase custom claim
 - Never expose admin routes to the client bundle — keep checks server-side only
@@ -238,12 +225,13 @@ Everything is already in D1 — admin just gets unscoped queries. Adding a secon
 
 ### TODO
 
-- [ ] Set up Firebase project → enable Email/Password + Google auth
-- [ ] Add Firebase Admin SDK to Next.js (server-side JWT verification)
-- [ ] Create Cloudflare D1 database, run schema migrations
-- [ ] Create Cloudflare R2 bucket for listing photos
-- [ ] Build `/api/auth/sync` route: verify Firebase JWT → upsert user in D1
-- [ ] Build signed upload URL endpoint for R2
-- [ ] Wire up the List Your Place form to POST to D1 via API route
-- [ ] Add retry logic (3x with backoff) on D1 writes at login
+- [x] Set up Firebase project → enable Email/Password + Google auth
+- [x] Add Firebase Admin SDK to Next.js (server-side JWT verification) — `src/lib/firebase-admin.ts`
+- [x] Create Cloudflare D1 database, run schema migrations — live and verified in sync with `scripts/schema.sql`
+- [x] Create Cloudflare R2 bucket for listing photos — `src/lib/r2.ts`
+- [x] Build `/api/auth/sync` route: verify Firebase JWT → upsert user in D1 — `src/app/api/auth/sync/route.ts`
+- [x] Build signed upload URL endpoint for R2
+- [x] Wire up the List Your Place form to POST to D1 via API route — `src/app/api/listings/route.ts`
+- [ ] Add retry logic (3x with backoff) on D1 writes at login — `auth/sync/route.ts` currently does a single upsert attempt, no retry
 - [ ] Set up D1 scheduled export for backups
+- [ ] Build the actual admin panel (routes/UI/API) — DB is ready per `ADMIN_PANEL_PLAN.md` §12, nothing under `/admin` exists yet; see that file's §11 build order

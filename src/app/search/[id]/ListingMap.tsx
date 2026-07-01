@@ -9,7 +9,7 @@ interface Props {
   lat: number;
   lng: number;
   address: string;
-  badge: 'CASA' | 'PARTNER' | 'HOST';
+  badge: 'CASA' | 'PARTNER' | 'PRIVATE';
 }
 
 const PIN_HTML = (color: string) => `<div style="
@@ -21,8 +21,8 @@ const PIN_HTML = (color: string) => `<div style="
   box-shadow: 0 3px 10px rgba(0,0,0,.25);
 "></div>`;
 
-function makePinIcon(badge: 'CASA' | 'PARTNER' | 'HOST') {
-  const color = badge === 'HOST' ? '#0d7a5f' : badge === 'PARTNER' ? '#1c1530' : '#6d28d9';
+function makePinIcon(badge: 'CASA' | 'PARTNER' | 'PRIVATE') {
+  const color = badge === 'PRIVATE' ? '#0d7a5f' : badge === 'PARTNER' ? '#1c1530' : '#6d28d9';
   return L.divIcon({
     html: PIN_HTML(color),
     className: '',

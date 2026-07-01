@@ -61,7 +61,6 @@ function mapPartnerDetail(l: any) {
     lng: parseFloat(l.location.coordinates.longitude),
     externalLink: l.originalLink ?? null,
     hostName: 'HousingAnywhere',
-    rating: l.rating ?? null,
   }
 }
 
@@ -85,8 +84,16 @@ export async function GET(
       mate_count: number; mate_gender: string | null; pref_gender: string | null; mate_notes: string | null;
       status: string;
       landlord_id: string;
+      landlord_name: string | null;
+      source: string | null;
       lat: number; lng: number;
-    }>('SELECT * FROM listings WHERE id = ?', [id])
+    }>(
+      `SELECT l.*, u.name AS landlord_name
+       FROM listings l
+       LEFT JOIN users u ON u.id = l.landlord_id
+       WHERE l.id = ?`,
+      [id]
+    )
 
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -101,10 +108,12 @@ export async function GET(
     const today = new Date().toISOString().slice(0, 10)
     const availFrom = row.avail_from ?? today
 
+    const isCasa = row.source === 'casa'
+
     const listing = {
       id: row.id,
-      source: 'casa',
-      badge: 'CASA',
+      source: isCasa ? 'casa' : 'private',
+      badge: isCasa ? 'CASA' : 'PRIVATE',
       title: row.title,
       address: `${row.street}, ${row.city}`,
       city: row.city,
@@ -128,12 +137,9 @@ export async function GET(
       photos: photoRows.map((p, i) => ({ r2_key: p.r2_key, label: `photo ${i + 1}`, url: getSignedUrl(p.r2_key) })),
       amenities: amenityRows.map(a => ({ label: a.amenity, icon: ICON_PATHS.wifi })),
       nearby: [],
-      hostName: 'Private landlord',
-      hostType: 'Private',
-      hostReplies: '—',
+      hostName: isCasa ? 'UniStay CASA' : (row.landlord_name ?? 'Private landlord'),
+      hostType: isCasa ? 'CASA' : 'Private',
       hostListings: '1',
-      rating: 0,
-      reviewsCount: 0,
       landlord_id: row.landlord_id,
       status: row.status,
     }

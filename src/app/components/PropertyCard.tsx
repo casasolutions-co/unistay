@@ -10,7 +10,7 @@ export interface PropertyCardListing {
   area: number;
   beds: string;
   price: number;
-  badge: 'CASA' | 'PARTNER' | 'HOST';
+  badge: 'CASA' | 'PARTNER' | 'PRIVATE';
   avail: string;
   now: boolean;
   incl: boolean;
@@ -57,8 +57,8 @@ export default function PropertyCard({ listing: p, hue = DEFAULT_HUE, saved, onT
           className={styles.cardImg}
           style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}
         >
-          <span className={styles.cardBadge} style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}>
-            {p.badge === 'HOST' ? 'Private' : p.badge}
+          <span className={styles.cardBadge} style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'PRIVATE' ? '#0d7a5f' : '#6d28d9' }}>
+            {p.badge}
           </span>
           {!p.coverPhoto && <span className={styles.cardImgLabel}>[ photo ]</span>}
         </div>

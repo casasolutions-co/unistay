@@ -28,7 +28,7 @@ const PH_HUES = [
 ];
 
 const TYPES    = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
-const SOURCES  = [{ k: 'all', l: 'All listings' }, { k: 'CASA', l: 'Casa only' }, { k: 'PARTNER', l: 'Partner only' }, { k: 'HOST', l: 'Private landlords' }];
+const SOURCES  = [{ k: 'all', l: 'All listings' }, { k: 'CASA', l: 'Casa only' }, { k: 'PARTNER', l: 'Partner only' }, { k: 'PRIVATE', l: 'Private landlords' }];
 const SORTS    = [{ k: 'featured', l: 'Featured first' }, { k: 'price_asc', l: 'Price: low to high' }, { k: 'price_desc', l: 'Price: high to low' }, { k: 'area_desc', l: 'Largest first' }];
 const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', min: 0, max: 500 }, { label: '≤ €800', min: 0, max: 800 }, { label: '≤ €1,200', min: 0, max: 1200 }, { label: '≤ €2,000', min: 0, max: 2000 }];
 

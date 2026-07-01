@@ -102,7 +102,9 @@ CREATE TABLE IF NOT EXISTS messages (
   msg_type   TEXT NOT NULL DEFAULT 'text',
   metadata   TEXT,
   created_at INTEGER NOT NULL,
-  read_at    INTEGER
+  read_at    INTEGER,
+  deleted_at INTEGER,
+  deleted_by TEXT REFERENCES users(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_inquiry ON messages(inquiry_id, created_at);
@@ -123,12 +125,21 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
 );
 
 CREATE TABLE IF NOT EXISTS reports (
-  id          TEXT PRIMARY KEY,
-  reporter_id TEXT REFERENCES users(id),
-  target_type TEXT,
-  target_id   TEXT,
-  reason      TEXT,
-  status      TEXT DEFAULT 'open',
-  resolved_by TEXT REFERENCES users(id),
-  created_at  INTEGER
+  id              TEXT PRIMARY KEY,
+  reporter_id     TEXT REFERENCES users(id),
+  target_type     TEXT,
+  target_id       TEXT,
+  reason          TEXT,
+  status          TEXT DEFAULT 'open',
+  resolved_by     TEXT REFERENCES users(id),
+  created_at      INTEGER,
+  resolved_at     INTEGER,
+  resolution_note TEXT
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,
+  updated_by  TEXT REFERENCES users(id),
+  updated_at  INTEGER
 );

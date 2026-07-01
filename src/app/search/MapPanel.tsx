@@ -12,7 +12,7 @@ export interface MapProperty {
   address: string;
   price: number;
   featured: boolean;
-  badge: 'CASA' | 'PARTNER' | 'HOST';
+  badge: 'CASA' | 'PARTNER' | 'PRIVATE';
   lat: number;
   lng: number;
   now: boolean;
@@ -27,10 +27,10 @@ function fmtN(n: number) {
   return n.toLocaleString('en-US');
 }
 
-function makePinIcon(price: number, featured: boolean, badge: 'CASA' | 'PARTNER' | 'HOST') {
+function makePinIcon(price: number, featured: boolean, badge: 'CASA' | 'PARTNER' | 'PRIVATE') {
   const label = `€${fmtN(price)}`;
-  const bg = badge === 'HOST' ? '#0d7a5f' : featured ? '#6d28d9' : '#fff';
-  const color = (badge === 'HOST' || featured) ? '#fff' : '#1c1530';
+  const bg = badge === 'PRIVATE' ? '#0d7a5f' : featured ? '#6d28d9' : '#fff';
+  const color = (badge === 'PRIVATE' || featured) ? '#fff' : '#1c1530';
   const html = `<div style="
     display: inline-block;
     font-family: system-ui, sans-serif;

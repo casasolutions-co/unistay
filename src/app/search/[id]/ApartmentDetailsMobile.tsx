@@ -8,7 +8,7 @@ import { Property } from '../../data/properties';
 const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'HOST'; source?: string; externalLink?: string | null; [key: string]: any };
+type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'PRIVATE'; source?: string; externalLink?: string | null; [key: string]: any };
 import styles from './ApartmentDetailsMobile.module.css';
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
@@ -105,8 +105,8 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
           {/* ── Title block ── */}
           <div className={styles.titleBlock}>
             <div className={styles.badgeRow}>
-              <span className={styles.badgeCasa} style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'HOST' ? '#0d7a5f' : '#6d28d9' }}>
-                {p.badge === 'HOST' ? 'Private' : p.badge}
+              <span className={styles.badgeCasa} style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'PRIVATE' ? '#0d7a5f' : '#6d28d9' }}>
+                {p.badge}
               </span>
               {p.now && (
                 <span className={styles.badgeAvail}>
@@ -119,10 +119,6 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
             <div className={styles.addressRow}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b0aabf" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
               {p.address}
-            </div>
-            <div className={styles.ratingRow}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="#f5a623" stroke="#f5a623" strokeWidth="1.5" strokeLinejoin="round"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-              {p.rating ?? '4.86'} <span className={styles.ratingCount}>· {p.reviewsCount ?? 32} reviews</span>
             </div>
           </div>
 
@@ -178,7 +174,7 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
                 lat={p.lat ?? 0}
                 lng={p.lng ?? 0}
                 address={p.address}
-                badge={p.badge as 'CASA' | 'PARTNER' | 'HOST'}
+                badge={p.badge as 'CASA' | 'PARTNER' | 'PRIVATE'}
               />
             </div>
             {p.nearby?.length > 0 && (
@@ -243,16 +239,16 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
           <div className={styles.hostSection}>
             <div className={styles.hostCard}>
               <div className={styles.hostTop}>
-                <div className={styles.hostAvatar}>C</div>
+                <div className={styles.hostAvatar}>{p.hostName?.charAt(0)}</div>
                 <div>
                   <div className={styles.hostNameRow}>
-                    <span className={styles.hostName}>Listed by Casa</span>
+                    <span className={styles.hostName}>{p.hostName}</span>
                     <span className={styles.hostVerified}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                       Verified
                     </span>
                   </div>
-                  <div className={styles.hostMeta}>Replies within an hour · 240+ listings</div>
+                  <div className={styles.hostMeta}>{p.hostListings} listing{p.hostListings === '1' ? '' : 's'}</div>
                 </div>
               </div>
               <button type="button" className={styles.messageBtn}>

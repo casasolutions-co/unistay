@@ -42,12 +42,6 @@ const ISave = ({ filled }: { filled: boolean }) => (
   </svg>
 );
 
-const IStar = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="#f5a623" stroke="#f5a623" strokeWidth="1.5" strokeLinejoin="round">
-    <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-  </svg>
-);
-
 const ICheck = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 6 9 17l-5-5" />
@@ -99,7 +93,7 @@ interface PageProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'HOST'; source?: string; [key: string]: any };
+type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'PRIVATE'; source?: string; [key: string]: any };
 
 export default function DetailsPage({ params }: PageProps) {
   const { id } = use(params);
@@ -282,8 +276,8 @@ export default function DetailsPage({ params }: PageProps) {
               ? { backgroundImage: `url(${property.photos[0].url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
               : { background: `repeating-linear-gradient(135deg, ${property.photos?.[0]?.a ?? '#e9e3f5'} 0 18px, ${property.photos?.[0]?.b ?? '#f1ecfa'} 18px 36px)` }}
           >
-            <span className={styles.badge} style={{ background: property.badge === 'PARTNER' ? '#1c1530' : property.badge === 'HOST' ? '#0d7a5f' : 'var(--brand)' }}>
-              {property.badge === 'HOST' ? 'Private' : property.badge}
+            <span className={styles.badge} style={{ background: property.badge === 'PARTNER' ? '#1c1530' : property.badge === 'PRIVATE' ? '#0d7a5f' : 'var(--brand)' }}>
+              {property.badge}
             </span>
             {!property.photos?.[0]?.url && <span className={styles.photoLabel}>{property.photos?.[0]?.label}</span>}
           </div>
@@ -343,9 +337,6 @@ export default function DetailsPage({ params }: PageProps) {
                     <circle cx="12" cy="10" r="3" />
                   </svg>
                   {property.address}
-                </span>
-                <span className={styles.stars}>
-                  <IStar /> {property.rating} <span className={styles.reviewsCount}>· {property.reviewsCount} reviews</span>
                 </span>
               </div>
             </div>
@@ -431,7 +422,7 @@ export default function DetailsPage({ params }: PageProps) {
                   lat={property.lat ?? 0}
                   lng={property.lng ?? 0}
                   address={property.address}
-                  badge={property.badge as 'CASA' | 'PARTNER' | 'HOST'}
+                  badge={property.badge as 'CASA' | 'PARTNER' | 'PRIVATE'}
                 />
               </div>
 
@@ -463,7 +454,7 @@ export default function DetailsPage({ params }: PageProps) {
                   </span>
                 </div>
                 <div className={styles.hostSubText}>
-                  {property.hostReplies} · {property.hostListings}
+                  {property.hostListings} listing{property.hostListings === '1' ? '' : 's'}
                 </div>
               </div>
             </div>
@@ -649,7 +640,7 @@ export default function DetailsPage({ params }: PageProps) {
                   <span className={styles.miniHostAvatar}>{property.hostName.charAt(0)}</span>
                   <div>
                     <div className={styles.miniHostName}>{property.hostName}</div>
-                    <div className={styles.miniHostSub}>{property.hostReplies}</div>
+                    {property.hostReplies && <div className={styles.miniHostSub}>{property.hostReplies}</div>}
                   </div>
                 </div>
                 

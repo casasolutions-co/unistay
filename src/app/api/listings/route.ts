@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const maxPrice  = sp.has('maxPrice')  ? parseInt(sp.get('maxPrice')!)  : undefined
   const type      = sp.get('type')      ?? undefined
   const moveIn    = sp.get('moveIn')    ?? undefined
-  const source    = sp.get('source')    ?? 'all'   // 'all' | 'CASA' | 'PARTNER' | 'HOST'
+  const source    = sp.get('source')    ?? 'all'   // 'all' | 'CASA' | 'PARTNER' | 'PRIVATE'
   const page      = Math.max(1, parseInt(sp.get('page') ?? '1', 10))
 
   // Normalise umlauts so 'munich' matches 'München', 'berlin' matches 'Berlin' etc.
@@ -37,9 +37,9 @@ export async function GET(req: NextRequest) {
 
   // ── HOST (user-submitted listings in D1) ──────────────────────
   let hostListings: UnifiedListing[] = []
-  if (source === 'all' || source === 'HOST') {
+  if (source === 'all' || source === 'PRIVATE') {
     const params: (string | number)[] = []
-    const conditions: string[] = ["l.status IN ('published', 'draft')"]
+    const conditions: string[] = ["l.status IN ('published', 'draft')", "(l.source IS NULL OR l.source = 'private')"]
 
     if (q) {
       // Normalise both sides so 'munich' matches 'München'; cityAlts also covers 'munchen' for 'münchen'
@@ -97,8 +97,8 @@ export async function GET(req: NextRequest) {
         const fallback = cityCoords(r.city);
         return {
           id: r.id,
-          source: 'host' as const,
-          badge: 'HOST' as const,
+          source: 'private' as const,
+          badge: 'PRIVATE' as const,
           title: r.title,
           address: `${r.street}, ${r.city}`,
           city: r.city,
@@ -123,8 +123,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── CASA (static for now, moves to D1 later) ──────────────────
-  const casaListings: UnifiedListing[] = source !== 'PARTNER' && source !== 'HOST'
+  // ── CASA (legacy static entries, kept until fully migrated) ────
+  const staticCasaListings: UnifiedListing[] = source !== 'PARTNER' && source !== 'PRIVATE'
     ? PROPERTIES
         .filter(p => p.badge === 'CASA')
         .filter(p => !q || cityAlts.some(alt => p.city.toLowerCase().replace(/ü/g, 'u').replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ß/g, 'ss').includes(alt)))
@@ -154,6 +154,95 @@ export async function GET(req: NextRequest) {
           rank: p.featured ? 100 : 80,
         }))
     : []
+
+  // ── CASA (admin-curated, D1-backed) ────────────────────────────
+  let d1CasaListings: UnifiedListing[] = []
+  if (source === 'all' || source === 'CASA') {
+    const params: (string | number)[] = []
+    const conditions: string[] = ["l.status = 'published'", "l.source = 'casa'"]
+
+    if (q) {
+      const cityLikeClauses = cityAlts.map(() =>
+        "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(l.city,'ü','u'),'ä','a'),'ö','o'),'ß','ss')) LIKE ?"
+      )
+      conditions.push(`(${cityLikeClauses.join(' OR ')})`)
+      for (const alt of cityAlts) params.push(`%${alt}%`)
+    }
+    if (minPrice !== undefined) {
+      conditions.push('(l.cold_rent + l.utilities) >= ?')
+      params.push(minPrice)
+    }
+    if (maxPrice !== undefined) {
+      conditions.push('(l.cold_rent + l.utilities) <= ?')
+      params.push(maxPrice)
+    }
+    if (type && type !== 'Any type') {
+      conditions.push('l.ptype = ?')
+      params.push(type)
+    }
+    if (moveIn) {
+      conditions.push('(l.avail_from IS NULL OR l.avail_from <= ?)')
+      params.push(moveIn)
+    }
+
+    const sql = `
+      SELECT l.id, l.ptype, l.title, l.street, l.city, l.postcode,
+             l.bedrooms, l.size_sqm, l.cold_rent, l.utilities,
+             l.avail_from, l.open_ended, l.created_at,
+             l.lat, l.lng,
+             lp.r2_key as cover_r2_key
+      FROM listings l
+      LEFT JOIN listing_photos lp ON l.id = lp.listing_id AND lp.is_cover = 1
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY l.created_at DESC
+      LIMIT 50
+    `
+
+    try {
+      const rows = await d1Query<{
+        id: string; ptype: string; title: string;
+        street: string; city: string; postcode: string;
+        bedrooms: number; size_sqm: number;
+        cold_rent: number; utilities: number;
+        avail_from: string | null; open_ended: number;
+        created_at: number; cover_r2_key: string | null;
+        lat: number; lng: number;
+      }>(sql, params)
+
+      const today = new Date().toISOString().slice(0, 10)
+      d1CasaListings = rows.map(r => {
+        const storedLat = r.lat ?? 0
+        const storedLng = r.lng ?? 0
+        const fallback = cityCoords(r.city)
+        return {
+          id: r.id,
+          source: 'casa' as const,
+          badge: 'CASA' as const,
+          title: r.title,
+          address: `${r.street}, ${r.city}`,
+          city: r.city,
+          area: r.size_sqm,
+          beds: r.bedrooms === 1 ? '1 bed' : `${r.bedrooms} beds`,
+          price: r.cold_rent + r.utilities,
+          type: r.ptype,
+          avail: !r.avail_from || r.avail_from <= today ? 'Available now' : `From ${r.avail_from}`,
+          availFrom: r.avail_from,
+          now: !r.avail_from || r.avail_from <= today,
+          incl: false,
+          featured: false,
+          lat: storedLat !== 0 ? storedLat : (fallback?.[0] ?? 0),
+          lng: storedLng !== 0 ? storedLng : (fallback?.[1] ?? 0),
+          coverPhoto: r.cover_r2_key ? getSignedUrl(r.cover_r2_key) : null,
+          externalLink: null,
+          rank: 90,
+        }
+      })
+    } catch (err) {
+      console.error('[GET /api/listings] D1 CASA query failed:', err)
+    }
+  }
+
+  const casaListings = [...d1CasaListings, ...staticCasaListings]
 
   // ── PARTNER (JSON files, paginated) ───────────────────────────
   const partnerResult = source !== 'CASA' && q
@@ -227,7 +316,7 @@ export async function POST(req: NextRequest) {
         description,
         mate_count, mate_gender, pref_gender, mate_notes,
         status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_review', ?, ?)`,
       [
         listingId, uid, ptype ?? 'studio', title.trim(),
         street.trim(), city.trim(), postcode.trim(),

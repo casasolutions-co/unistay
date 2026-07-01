@@ -48,8 +48,6 @@ export interface Property {
   hostType: string;
   hostReplies: string;
   hostListings: string;
-  rating: number;
-  reviewsCount: number;
 }
 
 // Icon paths matching design
@@ -128,9 +126,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'Casa Munich East',
     hostType: 'Casa Verified',
     hostReplies: 'Replies within 2 hours',
-    hostListings: '45 listings',
-    rating: 4.65,
-    reviewsCount: 14,
+    hostListings: '45',
   },
   {
     id: 'munich-2',
@@ -165,9 +161,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'Maxvorstadt Student Living',
     hostType: 'Casa Verified',
     hostReplies: 'Replies within 15 mins',
-    hostListings: '12 listings',
-    rating: 4.91,
-    reviewsCount: 22,
+    hostListings: '12',
   },
   {
     id: 'munich-3',
@@ -202,9 +196,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'Casa Schwabing Group',
     hostType: 'Casa Verified',
     hostReplies: 'Replies within an hour',
-    hostListings: '240+ listings',
-    rating: 4.86,
-    reviewsCount: 32,
+    hostListings: '240+',
   },
   {
     id: 'munich-4',
@@ -239,9 +231,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'WG Living Munich',
     hostType: 'Casa Verified',
     hostReplies: 'Replies within 3 hours',
-    hostListings: '4 listings',
-    rating: 4.78,
-    reviewsCount: 9,
+    hostListings: '4',
   },
   {
     id: 'munich-5',
@@ -276,9 +266,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'Casa West Properties',
     hostType: 'Casa Verified',
     hostReplies: 'Replies within an hour',
-    hostListings: '80 listings',
-    rating: 4.70,
-    reviewsCount: 19,
+    hostListings: '80',
   },
   {
     id: 'munich-6',
@@ -313,9 +301,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'Neon Student Housing',
     hostType: 'Partner Verified',
     hostReplies: 'Replies within 2 hours',
-    hostListings: '110 listings',
-    rating: 4.52,
-    reviewsCount: 41,
+    hostListings: '110',
   },
   {
     id: 'munich-7',
@@ -350,9 +336,7 @@ export const PROPERTIES: Property[] = [
     hostName: 'Casa East Properties',
     hostType: 'Casa Verified',
     hostReplies: 'Replies within an hour',
-    hostListings: '80 listings',
-    rating: 4.80,
-    reviewsCount: 15,
+    hostListings: '80',
   },
   {
     id: 'munich-8',
@@ -387,8 +371,6 @@ export const PROPERTIES: Property[] = [
     hostName: 'Isar Rentals Group',
     hostType: 'Partner Verified',
     hostReplies: 'Replies within 4 hours',
-    hostListings: '15 listings',
-    rating: 4.67,
-    reviewsCount: 8,
+    hostListings: '15',
   },
 ];
