@@ -46,6 +46,7 @@ export default function ProfileMobile() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [editing, setEditing] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('unverified');
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -67,6 +68,20 @@ export default function ProfileMobile() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    user.getIdToken().then(token =>
+      fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { user?: { verification_status?: string } }) => {
+          if (!cancelled && d.user?.verification_status) setVerificationStatus(d.user.verification_status);
+        })
+        .catch(() => {})
+    );
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -104,10 +119,14 @@ export default function ProfileMobile() {
     },
     {
       label: 'Government ID',
-      sub: 'Boosts host trust',
-      iconBg: '#f3effe',
-      iconColor: '#6d28d9',
-      done: false,
+      sub: verificationStatus === 'verified' ? 'Verified with Didit'
+        : verificationStatus === 'pending' ? 'In review — usually a few minutes'
+        : verificationStatus === 'rejected' ? "Didn't go through — try again"
+        : 'Required to list a place',
+      iconBg: verificationStatus === 'verified' ? '#e9f6ef' : '#f3effe',
+      iconColor: verificationStatus === 'verified' ? '#1f8a5b' : '#6d28d9',
+      done: verificationStatus === 'verified',
+      pending: verificationStatus === 'pending',
       icon: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 8h4M7 12h6M15 8h2M15 12h2',
     },
     {
@@ -167,12 +186,18 @@ export default function ProfileMobile() {
           </div>
           <p className={styles.identityName}>{userName}</p>
           <p className={styles.identityOrg}>LMU München · Munich</p>
-          <span className={styles.badge}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            Verified student
-          </span>
+          {verificationStatus === 'verified' ? (
+            <span className={styles.badge}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              Verified student
+            </span>
+          ) : verificationStatus === 'pending' ? (
+            <span className={styles.badge} style={{ background: '#fff7ed', color: '#b45309' }}>In review</span>
+          ) : (
+            <Link href="/verify" className={styles.badge} style={{ background: '#f3effe', color: '#6d28d9' }}>Not verified — verify now</Link>
+          )}
         </div>
 
         {/* Profile strength */}
@@ -236,6 +261,10 @@ export default function ProfileMobile() {
                 </div>
                 {v.done ? (
                   <span className={styles.verifyDone}><DoneIcon /></span>
+                ) : v.pending ? (
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: '#b45309', background: '#fff7ed', padding: '5px 10px', borderRadius: 999 }}>In review</span>
+                ) : v.label === 'Government ID' ? (
+                  <Link href="/verify" className={styles.verifyBtn}>Verify</Link>
                 ) : (
                   <button type="button" className={styles.verifyBtn}>Verify</button>
                 )}

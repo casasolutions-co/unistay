@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) return NextResponse.json({ error: 'No token' }, { status: 400 });
+
+  let decoded;
+  try {
+    decoded = await adminAuth.verifyIdToken(token);
+  } catch {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  }
+
+  const [user] = await d1Query(
+    `SELECT id, email, name, phone, nationality, role, university, program,
+            start_year, job_title, why, profile_complete, verification_status
+     FROM users WHERE id = ?`,
+    [decoded.uid]
+  );
+
+  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+  return NextResponse.json({ user });
+}
+
 export async function POST(req: NextRequest) {
   const { token, name, phone, nationality, role, university, program, startYear, jobTitle, why } = await req.json();
 

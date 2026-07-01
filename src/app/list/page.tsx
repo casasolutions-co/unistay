@@ -8,6 +8,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { previewUrlFor } from '@/lib/heicPreview';
 import ListMobile from './ListMobile';
+import VerifyIdentity from '../verify/page';
 import styles from './page.module.css';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
@@ -161,6 +162,7 @@ export default function ListYourPlace() {
   const [user, setUser] = useState<User | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   // Stable listing ID generated once — used as R2 key prefix before publish
   const listingIdRef = useRef(crypto.randomUUID());
@@ -169,6 +171,20 @@ export default function ListYourPlace() {
   useEffect(() => {
     return onAuthStateChanged(auth, setUser);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    user.getIdToken().then(token =>
+      fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { user?: { verification_status?: string } }) => {
+          if (!cancelled) setVerificationStatus(d.user?.verification_status ?? 'unverified');
+        })
+        .catch(() => { if (!cancelled) setVerificationStatus('unverified'); })
+    );
+    return () => { cancelled = true; };
+  }, [user]);
 
   const [ptype, setPtype] = useState<PType>('studio');
   const [title, setTitle] = useState('');
@@ -374,6 +390,16 @@ export default function ListYourPlace() {
     bg: on ? '#f3effe' : '#fff',
     color: on ? '#6d28d9' : '#5a5568',
   });
+
+  // Hosts must complete identity verification before they can list a place.
+  // Wait until we know the real status before deciding what to render, so the
+  // listing form never flashes on screen for an unverified user.
+  if (user && verificationStatus === null) {
+    return null;
+  }
+  if (user && verificationStatus !== 'verified') {
+    return <VerifyIdentity />;
+  }
 
   return (
     <>

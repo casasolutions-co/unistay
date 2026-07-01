@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AppNav from '../components/AppNav';
@@ -117,7 +118,11 @@ function ProfileSection({ user }: { user: User }) {
 }
 
 /* ── Verification section ── */
-function VerifySection({ user }: { user: User }) {
+function VerifySection({ user, verificationStatus }: { user: User; verificationStatus: string }) {
+  const idVerified = verificationStatus === 'verified';
+  const idPending = verificationStatus === 'pending';
+  const idSub = idVerified ? 'Verified with Didit' : idPending ? 'In review — usually a few minutes' : verificationStatus === 'rejected' ? "Didn't go through — try again" : 'Required to list a place';
+
   const verifications = [
     {
       label: 'Student email', sub: user.email ?? 'Not set',
@@ -130,16 +135,18 @@ function VerifySection({ user }: { user: User }) {
       icon: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92Z',
     },
     {
-      label: 'Government ID', sub: 'Boosts host trust',
-      iconBg: '#f3effe', iconColor: '#6d28d9', done: false,
+      label: 'Government ID', sub: idSub,
+      iconBg: idVerified ? '#e9f6ef' : '#f3effe', iconColor: idVerified ? '#1f8a5b' : '#6d28d9', done: idVerified, pending: idPending,
       icon: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 8h4M7 12h6M15 8h2M15 12h2',
     },
     {
       label: 'Proof of enrolment', sub: 'Upload current certificate',
-      iconBg: '#f3effe', iconColor: '#6d28d9', done: false,
+      iconBg: '#f3effe', iconColor: '#6d28d9', done: false, pending: false,
       icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4',
     },
   ];
+
+  const donePct = Math.round((verifications.filter(v => v.done).length / verifications.length) * 100);
 
   return (
     <div className={styles.panel}>
@@ -149,7 +156,7 @@ function VerifySection({ user }: { user: User }) {
           <p>Verified profiles get priority responses from hosts.</p>
         </div>
         <div className={styles.verifyCompletion}>
-          <span className={styles.verifyPct}>75%</span>
+          <span className={styles.verifyPct}>{donePct}%</span>
           <span className={styles.verifyPctLabel}>complete</span>
         </div>
       </div>
@@ -171,6 +178,10 @@ function VerifySection({ user }: { user: User }) {
                 </svg>
                 Verified
               </span>
+            ) : v.pending ? (
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#b45309', background: '#fff7ed', padding: '6px 12px', borderRadius: 999 }}>In review</span>
+            ) : v.label === 'Government ID' ? (
+              <Link href="/verify" className={styles.verifyNowBtn}>Verify now</Link>
             ) : (
               <button type="button" className={styles.verifyNowBtn}>Verify now</button>
             )}
@@ -295,10 +306,25 @@ export default function ProfileDesktop() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [section, setSection] = useState<Section>('profile');
+  const [verificationStatus, setVerificationStatus] = useState('unverified');
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    user.getIdToken().then(token =>
+      fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { user?: { verification_status?: string } }) => {
+          if (!cancelled && d.user?.verification_status) setVerificationStatus(d.user.verification_status);
+        })
+        .catch(() => {})
+    );
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -323,12 +349,18 @@ export default function ProfileDesktop() {
               <div className={styles.identityAvatar}>{userInitials}</div>
               <p className={styles.identityName}>{userName}</p>
               <p className={styles.identityOrg}>LMU München</p>
-              <span className={styles.identityBadge}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-                Verified student
-              </span>
+              {verificationStatus === 'verified' ? (
+                <span className={styles.identityBadge}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  Verified student
+                </span>
+              ) : verificationStatus === 'pending' ? (
+                <span className={styles.identityBadge} style={{ background: '#fff7ed', color: '#b45309' }}>In review</span>
+              ) : (
+                <Link href="/verify" className={styles.identityBadge} style={{ background: '#f3effe', color: '#6d28d9' }}>Not verified — verify now</Link>
+              )}
             </div>
 
             <nav className={styles.sideNav}>
@@ -357,7 +389,7 @@ export default function ProfileDesktop() {
           {/* Content */}
           <div>
             {section === 'profile'   && user && <ProfileSection user={user} />}
-            {section === 'verify'    && user && <VerifySection user={user} />}
+            {section === 'verify'    && user && <VerifySection user={user} verificationStatus={verificationStatus} />}
             {section === 'prefs'     && <PrefsSection />}
             {section === 'activity'  && <ActivitySection />}
             {section === 'settings'  && <SettingsSection />}
