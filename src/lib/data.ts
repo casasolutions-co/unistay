@@ -1,5 +1,11 @@
 import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
 import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts } from './types'
+import { findStaticListing } from './staticListings'
+import { deletePhoto } from './r2'
+
+function inClause(n: number): string {
+  return Array.from({ length: n }, () => '?').join(',')
+}
 
 // ─── Row shapes (snake_case, as stored in D1) ─────────────────────────────────
 
@@ -332,16 +338,20 @@ const THREAD_META_SELECT = `
 `
 
 function mapThreadMeta(r: ThreadRow): MessageThread {
+  // CASA/PARTNER listings are static data with no D1 row by design (see
+  // reference/html_files/ADMIN_PANEL_PLAN.md §3) — fall back to that catalog
+  // so these conversations still show a real title/city/price.
+  const fallback = r.listing_title ? undefined : findStaticListing(r.listing_id)
   return {
     inquiryId: r.inquiry_id,
     listingId: r.listing_id,
-    listingTitle: r.listing_title,
-    listingCity: r.listing_city,
-    coldRent: r.cold_rent,
+    listingTitle: r.listing_title ?? fallback?.title ?? null,
+    listingCity: r.listing_city ?? fallback?.city ?? null,
+    coldRent: r.cold_rent ?? fallback?.coldRent ?? null,
     studentId: r.student_id,
     studentName: r.student_name ?? '(unknown student)',
     landlordId: r.landlord_id,
-    landlordName: r.landlord_name ?? (r.landlord_id ? '(unknown landlord)' : 'UniStay CASA'),
+    landlordName: r.landlord_name ?? (r.landlord_id ? '(unknown landlord)' : fallback?.badge === 'PARTNER' ? 'Partner host' : 'UniStay CASA'),
   }
 }
 
@@ -388,14 +398,18 @@ interface ThreadMessageRow {
   metadata: string | null
   created_at: number | null
   deleted_at: number | null
+  read_at: number | null
   report_id: string | null
   report_reason: string | null
 }
 
-// Full message history for one conversation, oldest first.
-export async function getThreadMessages(inquiryId: string, studentId: string): Promise<ThreadMessage[]> {
+// Full message history for one conversation, oldest first. A sender that is
+// neither the student nor the (real) landlord is an admin replying directly
+// in the conversation — for support, or standing in as the host on CASA
+// listings that have no real landlord.
+export async function getThreadMessages(inquiryId: string, studentId: string, landlordId: string | null): Promise<ThreadMessage[]> {
   const rows = await d1All<ThreadMessageRow>(
-    `SELECT m.id, m.sender_id, m.body, m.msg_type, m.metadata, m.created_at, m.deleted_at,
+    `SELECT m.id, m.sender_id, m.body, m.msg_type, m.metadata, m.created_at, m.deleted_at, m.read_at,
             r.id as report_id, r.reason as report_reason
      FROM messages m
      LEFT JOIN reports r ON r.target_type = 'message' AND r.target_id = m.id AND r.status = 'open'
@@ -406,7 +420,8 @@ export async function getThreadMessages(inquiryId: string, studentId: string): P
   return rows.map(r => ({
     id: r.id,
     senderId: r.sender_id,
-    senderRole: r.sender_id === studentId ? 'student' : 'landlord',
+    senderRole: r.sender_id === studentId ? 'student' : landlordId && r.sender_id === landlordId ? 'landlord' : 'admin',
+    readAtMs: toMs(r.read_at),
     body: r.deleted_at ? '[message removed by moderator]' : r.body,
     msgType: r.msg_type ?? 'text',
     metadata: r.metadata,
@@ -606,6 +621,85 @@ export async function _setDocStatus(id: string, status: Document['status'], reje
 
 export async function _redactMessage(id: string, adminId: string) {
   await d1Run(`UPDATE messages SET deleted_at = ?, deleted_by = ? WHERE id = ?`, [nowSeconds(), adminId, id])
+}
+
+// Admin sends into a conversation directly — as support, or standing in as
+// the host on CASA listings. created_at is stored in ms to match the rest of
+// the messages table, which is written in ms by the student/host app.
+export async function _sendMessage(inquiryId: string, senderId: string, body: string) {
+  await d1Run(
+    `INSERT INTO messages (id, inquiry_id, sender_id, body, msg_type, created_at) VALUES (?, ?, ?, ?, 'text', ?)`,
+    [crypto.randomUUID(), inquiryId, senderId, body, Date.now()]
+  )
+}
+
+// Hard-deletes a user and everything that traces back to them: their listings
+// (and those listings' photos/amenities), every conversation they're part of
+// — including the other participant's copy of it, since messages are shared
+// rows, not per-user copies — uploaded documents, and any reports pointing at
+// any of the above. Deliberately a hard delete, not the soft-delete the
+// original plan doc recommended (ADMIN_PANEL_PLAN.md §2) — this account has
+// no history worth preserving once removed. Runs as a sequence of statements,
+// not a single transaction (the D1 REST API here doesn't expose batching),
+// ordered children-before-parents so it's still correct if partially applied.
+export async function _deleteUserAccount(userId: string): Promise<void> {
+  const [listingRows, docRows] = await Promise.all([
+    d1All<{ id: string }>(`SELECT id FROM listings WHERE landlord_id = ?`, [userId]),
+    d1All<{ r2_key: string | null }>(`SELECT r2_key FROM verification_docs WHERE user_id = ?`, [userId]),
+  ])
+  const listingIds = listingRows.map(l => l.id)
+
+  const inquiryRows = await d1All<{ id: string }>(
+    listingIds.length
+      ? `SELECT id FROM inquiries WHERE student_id = ? OR listing_id IN (${inClause(listingIds.length)})`
+      : `SELECT id FROM inquiries WHERE student_id = ?`,
+    listingIds.length ? [userId, ...listingIds] : [userId]
+  )
+  const inquiryIds = inquiryRows.map(i => i.id)
+
+  const messageRows = inquiryIds.length
+    ? await d1All<{ id: string }>(`SELECT id FROM messages WHERE inquiry_id IN (${inClause(inquiryIds.length)})`, inquiryIds)
+    : []
+  const messageIds = messageRows.map(m => m.id)
+
+  const photoRows = listingIds.length
+    ? await d1All<{ r2_key: string | null }>(`SELECT r2_key FROM listing_photos WHERE listing_id IN (${inClause(listingIds.length)})`, listingIds)
+    : []
+
+  // Reports against anything we're about to remove.
+  if (messageIds.length) {
+    await d1Run(`DELETE FROM reports WHERE target_type = 'message' AND target_id IN (${inClause(messageIds.length)})`, messageIds)
+  }
+  if (inquiryIds.length) {
+    await d1Run(`DELETE FROM reports WHERE target_type = 'inquiry' AND target_id IN (${inClause(inquiryIds.length)})`, inquiryIds)
+  }
+  if (listingIds.length) {
+    await d1Run(`DELETE FROM reports WHERE target_type = 'listing' AND target_id IN (${inClause(listingIds.length)})`, listingIds)
+  }
+  await d1Run(`DELETE FROM reports WHERE target_type = 'user' AND target_id = ?`, [userId])
+
+  // Conversations — both the messages and the inquiry rows they belong to.
+  if (inquiryIds.length) {
+    await d1Run(`DELETE FROM messages WHERE inquiry_id IN (${inClause(inquiryIds.length)})`, inquiryIds)
+    await d1Run(`DELETE FROM inquiries WHERE id IN (${inClause(inquiryIds.length)})`, inquiryIds)
+  }
+
+  // Listings and their photos/amenities.
+  if (listingIds.length) {
+    await d1Run(`DELETE FROM listing_amenities WHERE listing_id IN (${inClause(listingIds.length)})`, listingIds)
+    await d1Run(`DELETE FROM listing_photos WHERE listing_id IN (${inClause(listingIds.length)})`, listingIds)
+    await d1Run(`DELETE FROM listings WHERE landlord_id = ?`, [userId])
+  }
+
+  await d1Run(`DELETE FROM verification_docs WHERE user_id = ?`, [userId])
+  await d1Run(`DELETE FROM user_inbox_counts WHERE user_id = ?`, [userId])
+  await d1Run(`DELETE FROM users WHERE id = ?`, [userId])
+
+  // Best-effort storage cleanup — the DB rows are already gone either way.
+  await Promise.all([
+    ...photoRows.filter(p => p.r2_key).map(p => deletePhoto(p.r2_key as string)),
+    ...docRows.filter(d => d.r2_key).map(d => deletePhoto(d.r2_key as string)),
+  ])
 }
 
 export async function _setReportStatus(id: string, status: Report['status'], resolutionNote: string | null = null, adminId?: string) {

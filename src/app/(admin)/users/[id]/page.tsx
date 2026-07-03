@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getUser, getDocsByUser, getListingsByHost, getMessagesByUser } from '@/lib/data'
-import { verifyUser, rejectUser, banUser, unbanUser, approveDoc, rejectDoc } from '@/lib/actions'
+import { verifyUser, rejectUser, banUser, unbanUser, deleteUser, approveDoc, rejectDoc } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
+import DeleteAccountModal from '@/components/ui/DeleteAccountModal'
 import UserRowActions from '../UserRowActions'
 import DocRowActions from '../../documents/DocRowActions'
 import { userStatus, listingStatus, docStatus, thumbBg } from '@/lib/utils'
@@ -61,6 +62,12 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         </div>
         <div style={{ display: 'flex', gap: 10, flex: 'none' }}>
           <UserRowActions status={user.status} verify={verify} reject={reject} ban={ban} unban={unban} size="md" />
+          <DeleteAccountModal
+            userName={user.name}
+            userEmail={user.email}
+            hasListings={listings.length > 0}
+            action={deleteUser.bind(null, id)}
+          />
         </div>
       </div>
 

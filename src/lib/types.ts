@@ -71,11 +71,12 @@ export interface MessageThread {
 export interface ThreadMessage {
   id: string
   senderId: string
-  senderRole: 'student' | 'landlord'
+  senderRole: 'student' | 'landlord' | 'admin'
   body: string
   msgType: string
   metadata: string | null
   createdAtMs: number | null
+  readAtMs: number | null
   deletedAt: string | null
   reportId: string | null
   reportReason: string | null

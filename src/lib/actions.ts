@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
   _setUserStatus, _setListingStatus, _setDocStatus, _redactMessage,
-  _setReportStatus, _setAppSetting, _writeAudit, _deleteCasaListing,
+  _setReportStatus, _setAppSetting, _writeAudit, _deleteCasaListing, _sendMessage, _deleteUserAccount,
 } from './data'
 import { deleteAdminSession, getAdminSession } from './session'
 
@@ -59,6 +59,22 @@ export async function unbanUser(id: string) {
   await _writeAudit(email, 'user.unban', 'user', id)
   revalidatePath('/users')
   revalidatePath('/')
+}
+
+// Hard delete — removes the user, their listings, every conversation they're
+// part of, uploaded documents, and reports against any of it. See
+// _deleteUserAccount for exactly what's cascaded. Irreversible.
+export async function deleteUser(id: string) {
+  const email = await adminEmail()
+  await _deleteUserAccount(id)
+  await _writeAudit(email, 'user.delete', 'user', id)
+  revalidatePath('/users')
+  revalidatePath('/listings')
+  revalidatePath('/messages')
+  revalidatePath('/reports')
+  revalidatePath('/documents')
+  revalidatePath('/')
+  redirect('/users')
 }
 
 // ─── Listings ──────────────────────────────────────────────────────────────
@@ -152,6 +168,16 @@ export async function redactMessage(id: string) {
   await _writeAudit(email, 'message.redact', 'message', id)
   revalidatePath('/messages')
   revalidatePath('/reports')
+}
+
+export async function sendMessage(inquiryId: string, formData: FormData) {
+  const body = String(formData.get('body') ?? '').trim()
+  if (!body) return
+  const email = await adminEmail()
+  const uid = await adminUid()
+  await _sendMessage(inquiryId, uid ?? email, body)
+  await _writeAudit(email, 'message.send', 'inquiry', inquiryId, body)
+  revalidatePath('/messages')
 }
 
 // ─── Settings ──────────────────────────────────────────────────────────────

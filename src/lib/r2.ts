@@ -1,5 +1,5 @@
 import 'server-only'
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
 function env(name: string): string {
   const v = process.env[name]
@@ -39,4 +39,13 @@ export async function putPhoto(key: string, body: Buffer, contentType: string): 
   await r2Client().send(
     new PutObjectCommand({ Bucket: env('R2_BUCKET_NAME'), Key: key, Body: body, ContentType: contentType })
   )
+}
+
+// Best-effort — callers should not fail a DB delete over a storage cleanup issue.
+export async function deletePhoto(key: string): Promise<void> {
+  try {
+    await r2Client().send(new DeleteObjectCommand({ Bucket: env('R2_BUCKET_NAME'), Key: key }))
+  } catch {
+    /* orphaned R2 object — not worth blocking the caller over */
+  }
 }

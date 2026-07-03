@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getMessageThreads, getThreadMeta, getThreadMessages } from '@/lib/data'
-import { resolveReport, redactMessage } from '@/lib/actions'
+import { resolveReport, redactMessage, sendMessage } from '@/lib/actions'
 import FilterPills from '@/components/ui/FilterPills'
 import ActionBtn, { TriggerBtn } from '@/components/ui/ActionBtn'
 import ReasonModal from '@/components/ui/ReasonModal'
@@ -49,6 +49,38 @@ const IMsg = () => (
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 )
+const ICheck = () => (
+  <svg width="15" height="11" viewBox="0 0 24 16" fill="none" stroke="#6d28d9" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 9l4 4L15 3" /><path d="M9 12l1 1L22 2" />
+  </svg>
+)
+const IVerify = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+)
+const IAttach = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m21.4 11.1-9.2 9.2a5 5 0 0 1-7-7l9.1-9.2a3.3 3.3 0 0 1 4.7 4.7l-9.1 9.1a1.7 1.7 0 0 1-2.4-2.4l8.5-8.4" />
+  </svg>
+)
+const ISend = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
+  </svg>
+)
+
+const ROLE_STYLE: Record<'student' | 'landlord', { color: string; bg: string }> = {
+  student:  { color: '#1f8a5b', bg: '#eafaf2' },
+  landlord: { color: '#6d28d9', bg: '#f3effe' },
+}
+function roleLabel(role: 'student' | 'landlord'): string {
+  return role === 'landlord' ? 'Host' : 'Student'
+}
+function RoleChip({ role }: { role: 'student' | 'landlord' }) {
+  const rs = ROLE_STYLE[role]
+  return <span className={styles.roleChip} style={{ color: rs.color, background: rs.bg }}>{roleLabel(role)}</span>
+}
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 const LISTING_THUMBS = [
@@ -139,12 +171,15 @@ function ViewingCard({ msg, thread }: { msg: ThreadMessage; thread: MessageThrea
   )
 }
 
+// Rendered as its own flex item right after the bubble, for any message type
+// (text, file, booking or viewing) that has an open report against it.
 function ReportedTag({ msg }: { msg: ThreadMessage }) {
   const reportId = msg.reportId
   if (!reportId) return null
   const deleted = !!msg.deletedAt
+  const isOut = msg.senderRole === 'landlord'
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#fdecec', border: '1px solid #f3c6c6', borderRadius: 10, padding: '7px 11px', margin: '2px 0 4px', fontSize: 12, fontWeight: 600, color: '#92201a' }}>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', alignSelf: isOut ? 'flex-end' : 'flex-start', maxWidth: '62%', background: '#fdecec', border: '1px solid #f3c6c6', borderRadius: 10, padding: '7px 11px', fontSize: 12, fontWeight: 600, color: '#92201a' }}>
       <span>Reported: {msg.reportReason}</span>
       {!deleted && <ActionBtn action={redactMessage.bind(null, msg.id)} label="Redact" variant="danger" size="sm" />}
       <ReasonModal
@@ -161,8 +196,7 @@ function ReportedTag({ msg }: { msg: ThreadMessage }) {
 }
 
 function MessageBubble({ msg, thread }: { msg: ThreadMessage; thread: MessageThread }) {
-  const isOut = msg.senderRole === 'landlord'
-  const senderName = msg.senderRole === 'student' ? thread.studentName : thread.landlordName
+  const isOut = msg.senderRole !== 'student'
 
   if (msg.msgType === 'booking') return <BookingCard msg={msg} thread={thread} />
   if (msg.msgType === 'viewing') return <ViewingCard msg={msg} thread={thread} />
@@ -187,22 +221,26 @@ function MessageBubble({ msg, thread }: { msg: ThreadMessage; thread: MessageThr
   const deleted = !!msg.deletedAt
   const textStyle = deleted ? { fontStyle: 'italic' as const, opacity: 0.7 } : undefined
 
+  if (isOut) {
+    return (
+      <div className={styles.bubbleWrapOut}>
+        <div className={styles.bubbleOut} style={textStyle}>{msg.body}</div>
+        <div className={styles.timeOutRow}>
+          <span className={styles.timeOut}>
+            {msg.senderRole === 'admin' ? 'UniStay Support · ' : ''}
+            {fmtMsgTime(msg.createdAtMs)}
+            {msg.readAtMs ? ' · Read' : ''}
+          </span>
+          {msg.readAtMs && <ICheck />}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start' }}>
-      {isOut ? (
-        <div className={styles.bubbleWrapOut}>
-          <div className={styles.bubbleOut} style={textStyle}>{msg.body}</div>
-          <div className={styles.timeOutRow}>
-            <span className={styles.timeOut}>{senderName} · {fmtMsgTime(msg.createdAtMs)}</span>
-          </div>
-        </div>
-      ) : (
-        <div className={styles.bubbleWrapIn}>
-          <div className={styles.bubbleIn} style={textStyle}>{msg.body}</div>
-          <span className={styles.timeIn}>{senderName} · {fmtMsgTime(msg.createdAtMs)}</span>
-        </div>
-      )}
-      <ReportedTag msg={msg} />
+    <div className={styles.bubbleWrapIn}>
+      <div className={styles.bubbleIn} style={textStyle}>{msg.body}</div>
+      <span className={styles.timeIn}>{fmtMsgTime(msg.createdAtMs)}</span>
     </div>
   )
 }
@@ -216,7 +254,7 @@ export default async function MessagesPage({
   const { filter = 'all', thread: threadId } = await searchParams
   const threads = await getMessageThreads({ filter })
   const activeThread = threadId ? await getThreadMeta(threadId) : null
-  const messages = activeThread ? await getThreadMessages(activeThread.inquiryId, activeThread.studentId) : []
+  const messages = activeThread ? await getThreadMessages(activeThread.inquiryId, activeThread.studentId, activeThread.landlordId) : []
   const qs = filter !== 'all' ? `filter=${filter}&` : ''
 
   return (
@@ -251,6 +289,8 @@ export default async function MessagesPage({
                   <div className={styles.threadMeta}>
                     <div className={styles.threadNameRow}>
                       <span className={styles.threadName}>{t.studentName} ↔ {t.landlordName}</span>
+                      <RoleChip role="student" />
+                      <RoleChip role="landlord" />
                       <span className={styles.threadTime} style={{ color: t.reported ? '#b91c1c' : '#b0aabf' }}>{t.lastAt}</span>
                     </div>
                     {t.listingTitle && (
@@ -289,6 +329,8 @@ export default async function MessagesPage({
                 <div className={styles.chatHeaderMeta}>
                   <div className={styles.chatHeaderNameRow}>
                     <span className={styles.chatHeaderName}>{activeThread.studentName} ↔ {activeThread.landlordName}</span>
+                    <RoleChip role="student" />
+                    <span className={styles.hostChip}><IVerify /> HOST</span>
                   </div>
                   <div className={styles.chatHeaderStatus}>
                     {activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : 'Listing not in admin catalog'}
@@ -332,10 +374,27 @@ export default async function MessagesPage({
                         </div>
                       )}
                       <MessageBubble msg={msg} thread={activeThread} />
+                      <ReportedTag msg={msg} />
                     </div>
                   )
                 })}
               </div>
+
+              <form action={sendMessage.bind(null, activeThread.inquiryId)} className={styles.composer}>
+                <div className={styles.composerRow}>
+                  <button type="button" className={styles.attachBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="Attachments aren't supported from the admin console yet"><IAttach /></button>
+                  <div className={styles.inputWrap}>
+                    <input
+                      name="body"
+                      className={styles.composerInput}
+                      placeholder={`Message as UniStay Support…`}
+                      autoComplete="off"
+                      required
+                    />
+                    <button type="submit" className={styles.sendBtn}><ISend /></button>
+                  </div>
+                </div>
+              </form>
             </>
           )}
         </div>
