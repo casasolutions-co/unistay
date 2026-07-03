@@ -82,9 +82,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  let status = 'pending';
+  // Only 'In Review' is a genuine pending state (Didit's manual review). Every other
+  // non-terminal status (Not Started, In Progress, Awaiting User, Resubmitted, ...) is just
+  // progress chatter we don't need to reflect — leave verification_status untouched for those.
+  const CANNOT_COMPLETE = new Set(['Declined', 'Abandoned', 'Expired', 'Kyc Expired']);
+
+  let status: string | null = null;
   if (diditStatus === 'Approved') status = 'verified';
-  else if (diditStatus === 'Declined') status = 'rejected';
+  else if (diditStatus === 'In Review') status = 'pending';
+  else if (diditStatus && CANNOT_COMPLETE.has(diditStatus)) status = 'unverified';
+
+  if (status === null) {
+    return NextResponse.json({ ok: true, webhook_type, ignored: true });
+  }
 
   await d1Query(
     `UPDATE users SET verification_status = ?, didit_decision_json = ?, decision_processed_at = ?, updated_at = ? WHERE id = ?`,

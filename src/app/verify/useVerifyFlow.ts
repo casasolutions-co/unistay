@@ -4,14 +4,13 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-export type Stage = 'intro' | 'consent' | 'redirecting' | 'pending' | 'rejected' | 'verified';
+export type Stage = 'intro' | 'consent' | 'redirecting' | 'pending' | 'verified';
 
 type ProfileResponse = { user?: { verification_status?: string } };
 
 function stageForStatus(status: string | undefined): Stage | null {
   if (status === 'verified') return 'verified';
   if (status === 'pending') return 'pending';
-  if (status === 'rejected') return 'rejected';
   return null;
 }
 
@@ -78,8 +77,9 @@ export function useVerifyFlow() {
       const token = await user.getIdToken();
       const res = await fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json() as ProfileResponse;
-      const s = stageForStatus(data.user?.verification_status);
-      if (s === 'verified' || s === 'rejected') setStage(s);
+      const status = data.user?.verification_status;
+      if (status === 'verified') setStage('verified');
+      else if (status === 'unverified') setStage('consent');
       else setStillPendingNotice(true);
     } catch {
       setStillPendingNotice(true);
@@ -96,6 +96,5 @@ export function useVerifyFlow() {
     submitId, refreshPending,
     goBack: () => setStage('intro'),
     goConsent: () => setStage('consent'),
-    resubmit: () => setStage('consent'),
   };
 }

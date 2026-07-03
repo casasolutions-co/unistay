@@ -1,0 +1,262 @@
+/* ── Screen ───────────────────────────────────────────────────── */
+.screen {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: #f7f6fa;
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.header {
+  flex-shrink: 0;
+  background: rgba(247, 246, 250, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--divider);
+  padding: 52px 18px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9;
+}
+
+.backBtn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  color: #4a3d6b;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+  text-decoration: none;
+}
+.backBtn:hover {
+  background: var(--tint);
+  border-color: #cfc8dd;
+}
+
+.headerTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ── Scroll body ──────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 18px 40px;
+  scrollbar-width: none;
+}
+.body::-webkit-scrollbar { display: none; }
+
+/* ── Success state ────────────────────────────────────────────── */
+.successWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px 30px;
+}
+
+.successIcon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #e9f9ee;
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+  color: #16a34a;
+}
+
+.successTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+
+.successSub {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 260px;
+  margin: 0 0 26px;
+}
+
+.successBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  border-radius: 13px;
+  background: var(--brand);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+
+/* ── Quick contact cards ──────────────────────────────────────── */
+.quickRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.quickCard {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--divider);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quickIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--tint);
+  display: grid;
+  place-items: center;
+  color: var(--brand);
+}
+
+.quickLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.quickValue {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.quickValueLink {
+  color: var(--text-soft);
+  text-decoration: none;
+}
+.quickValueLink:hover {
+  color: var(--brand);
+}
+
+/* ── Topic chips ──────────────────────────────────────────────── */
+.groupLabel {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin: 0 6px 9px;
+}
+
+.topicsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.topic {
+  padding: 10px 15px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--chip-text);
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+.topicActive {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+/* ── Form ─────────────────────────────────────────────────────── */
+.form {
+  background: #fff;
+  border: 1px solid var(--divider);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+
+.fieldInput,
+.fieldTextarea {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  padding: 12px 13px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  background: #fff;
+}
+.fieldInput:focus,
+.fieldTextarea:focus {
+  border-color: var(--brand);
+}
+
+.fieldTextarea {
+  resize: none;
+  line-height: 1.5;
+}
+
+/* ── Submit ───────────────────────────────────────────────────── */
+.submitBtn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, var(--brand-top), var(--brand));
+  box-shadow: var(--shadow-button);
+}
+.submitBtn:disabled {
+  background: #cabde8;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.8;
+}

@@ -39,7 +39,7 @@ export default function VerifyMobile() {
   const {
     stage, consent, setConsent,
     checkingPending, stillPendingNotice, redirectError,
-    canSubmit, submitId, refreshPending, goBack, goConsent, resubmit,
+    canSubmit, submitId, refreshPending, goBack, goConsent,
   } = useVerifyFlow();
 
   const isFormStage = stage === 'consent';
@@ -185,29 +185,6 @@ export default function VerifyMobile() {
                 Still in review — thanks for your patience. Check back a little later.
               </div>
             )}
-          </div>
-        )}
-
-        {stage === 'rejected' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
-            <div style={{ width: 86, height: 86, borderRadius: '50%', background: '#fdeeee', display: 'grid', placeItems: 'center', margin: '0 auto 22px' }}>
-              <Icon size={38} sw={1.8} stroke="#d2453f" paths={['M12 8v5', 'M12 16.5v.01', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z']} />
-            </div>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 25, lineHeight: 1.1, letterSpacing: '-.02em', margin: 0, color: 'var(--text)' }}>Didit couldn&apos;t verify that ID</h1>
-            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-muted)', margin: '10px 0 0' }}>Something didn&apos;t check out. Here&apos;s what to fix:</p>
-
-            <div style={{ display: 'flex', gap: 10, textAlign: 'left', background: '#fff7ed', border: '1px solid #fde0c2', borderRadius: 14, padding: '14px 16px', margin: '18px 0 0' }}>
-              <Icon size={16} sw={2.2} stroke="#b45309" paths={['M12 9v4', 'M12 16.5v.01', 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z']} />
-              <span style={{ fontSize: 12.5, lineHeight: 1.55, color: '#92400e', fontWeight: 600 }}>The photo was too blurry to read, or the selfie didn&apos;t match the document. Please retry in good lighting.</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={resubmit}
-              style={{ width: '100%', height: 52, marginTop: 20, border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: '#fff', background: 'linear-gradient(180deg, #7c3aed, #6d28d9)', boxShadow: '0 10px 22px -6px rgba(109,40,217,.5), inset 0 1px 0 rgba(255,255,255,.22)' }}
-            >
-              Try again with Didit
-            </button>
           </div>
         )}
 
