@@ -13,13 +13,6 @@ const FILTER_PILLS = [
   { label: 'Dismissed',  value: 'dismissed', href: '/reports?filter=dismissed' },
 ]
 
-const TARGET_LINK: Record<string, (id: string) => string> = {
-  listing: id => `/listings/${id}`,
-  user: id => `/users/${id}`,
-  message: id => `/messages?modal=${id}`,
-  inquiry: id => `/messages?modal=${id}`,
-}
-
 export default async function ReportsPage({
   searchParams,
 }: {
@@ -53,7 +46,7 @@ export default async function ReportsPage({
               return (
                 <tr key={r.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
                   <td style={{ padding: '13px 20px' }}>
-                    <Link href={TARGET_LINK[r.targetType]?.(r.targetId) ?? '#'} style={{ fontWeight: 700, color: '#1c1530', textDecoration: 'none', display: 'block' }}>{r.summary}</Link>
+                    <Link href={r.targetHref} style={{ fontWeight: 700, color: '#1c1530', textDecoration: 'none', display: 'block' }}>{r.summary}</Link>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#9a94a8', textTransform: 'capitalize' }}>{r.targetType}</div>
                   </td>
                   <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600, maxWidth: 320 }}>{r.reason}</td>

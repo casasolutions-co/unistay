@@ -54,9 +54,14 @@ export function nowSeconds(): number {
   return Math.floor(Date.now() / 1000)
 }
 
+// Some rows were written with Date.now() (ms) instead of unix seconds — normalize to ms.
+export function toMs(timestamp: number | null | undefined): number | null {
+  if (timestamp == null) return null
+  return timestamp > 10_000_000_000 ? timestamp : timestamp * 1000
+}
+
 export function relativeTime(timestamp: number | null | undefined): string {
   if (timestamp == null) return '—'
-  // Some rows were written with Date.now() (ms) instead of unix seconds — normalize.
   const unixSeconds = timestamp > 10_000_000_000 ? Math.floor(timestamp / 1000) : timestamp
   const diff = nowSeconds() - unixSeconds
   if (diff < 60) return 'just now'

@@ -169,7 +169,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           {listingMessages.map(m => {
             const ms = messageStatus(false, !!m.deletedAt)
             return (
-              <Link key={m.id} href={`/messages?modal=${m.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #f5f2fa', textDecoration: 'none' }}>
+              <Link key={m.id} href={`/messages?thread=${m.inquiryId}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #f5f2fa', textDecoration: 'none' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1530' }}>{m.userA} ↔ {m.userB}</div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: '#9a94a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.preview}</div>

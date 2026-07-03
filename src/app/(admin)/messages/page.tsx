@@ -1,81 +1,345 @@
 import Link from 'next/link'
-import { getMessages, getMessage, getReportForMessage } from '@/lib/data'
+import { getMessageThreads, getThreadMeta, getThreadMessages } from '@/lib/data'
 import { resolveReport, redactMessage } from '@/lib/actions'
-import StatusBadge from '@/components/ui/StatusBadge'
 import FilterPills from '@/components/ui/FilterPills'
-import MessageModal from '@/components/ui/MessageModal'
-import { messageStatus } from '@/lib/utils'
+import ActionBtn, { TriggerBtn } from '@/components/ui/ActionBtn'
+import ReasonModal from '@/components/ui/ReasonModal'
+import { avatarBg, initials } from '@/lib/utils'
+import type { MessageThread, ThreadMessage } from '@/lib/types'
+import styles from './page.module.css'
 
 const FILTER_PILLS = [
   { label: 'All',      value: 'all',      href: '/messages' },
   { label: 'Reported', value: 'reported', href: '/messages?filter=reported' },
 ]
 
+/* ── Icons (copied from the student/host messages UI) ─────────────── */
+const IMore = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+  </svg>
+)
+const IFile = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />
+  </svg>
+)
+const IDownload = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+  </svg>
+)
+const IBooking = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 7h-9M14 17H5M17 3l3 4-3 4M7 21l-3-4 3-4" />
+  </svg>
+)
+const ICalendar = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+  </svg>
+)
+const IPin = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6675" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /><circle cx="12" cy="9" r="2.5" />
+  </svg>
+)
+const IMsg = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+)
+
+/* ── Helpers ─────────────────────────────────────────────────────── */
+const LISTING_THUMBS = [
+  'repeating-linear-gradient(135deg,#c4b5fd 0 4px,#a78bfa 4px 8px)',
+  'repeating-linear-gradient(135deg,#a7f3d0 0 4px,#6ee7b7 4px 8px)',
+  'repeating-linear-gradient(135deg,#fde68a 0 4px,#fcd34d 4px 8px)',
+  'repeating-linear-gradient(135deg,#fca5a5 0 4px,#f87171 4px 8px)',
+]
+
+function listingThumb(listingId: string): string {
+  let h = 0
+  for (let i = 0; i < listingId.length; i++) h = (h * 31 + listingId.charCodeAt(i)) & 0xfffffff
+  return LISTING_THUMBS[h % LISTING_THUMBS.length]
+}
+
+function fmtMsgTime(ms: number | null): string {
+  if (!ms) return ''
+  return new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
+/* ── Structured card sub-components ─────────────────────────────── */
+function ListingRef({ title, city, rent, listingId }: { title: string | null; city: string | null; rent: number | null; listingId: string }) {
+  return (
+    <div className={styles.cardListingRef}>
+      <div className={styles.cardListingThumb} style={{ background: listingThumb(listingId) }} />
+      <span className={styles.cardListingName}>{title ? `${title} · ${city}` : `Listing ${listingId}`}</span>
+      <span className={styles.cardListingPrice}>{rent != null ? `€${rent}/mo` : '—'}</span>
+    </div>
+  )
+}
+
+function BookingCard({ msg, thread }: { msg: ThreadMessage; thread: MessageThread }) {
+  const meta = msg.metadata ? JSON.parse(msg.metadata) : {}
+  return (
+    <div className={styles.bookingCard}>
+      <div className={styles.bookingCardInner}>
+        <ListingRef title={thread.listingTitle} city={thread.listingCity} rent={thread.coldRent} listingId={thread.listingId} />
+        <div className={styles.bookingCardHeader}>
+          <div className={styles.bookingCardTitleRow}>
+            <IBooking />
+            <span className={styles.bookingCardLabel}>Booking offer</span>
+            {meta.expiry && <span className={styles.bookingCardExpiry}>Expires in {meta.expiry}</span>}
+          </div>
+          <div className={styles.bookingCardPrice}>€{meta.price ?? thread.coldRent ?? '—'}<span className={styles.bookingCardPriceSuffix}>/mo</span></div>
+          <div className={styles.bookingCardDetails}>
+            {meta.move_in && `Move-in ${meta.move_in} · `}
+            {meta.contract ?? ''}
+            {meta.deposit && ` · deposit €${meta.deposit}`}
+          </div>
+        </div>
+        <div className={styles.cardActions}>
+          <button className={styles.declineBtn} disabled>Decline</button>
+          <button className={styles.acceptBtn} disabled>Accept &amp; book</button>
+        </div>
+      </div>
+      <span className={styles.timeIn}>{fmtMsgTime(msg.createdAtMs)}</span>
+    </div>
+  )
+}
+
+function ViewingCard({ msg, thread }: { msg: ThreadMessage; thread: MessageThread }) {
+  const meta = msg.metadata ? JSON.parse(msg.metadata) : {}
+  return (
+    <div className={styles.viewingCard}>
+      <div className={styles.viewingCardInner}>
+        <ListingRef title={thread.listingTitle} city={thread.listingCity} rent={thread.coldRent} listingId={thread.listingId} />
+        <div className={styles.viewingCardHeader}>
+          <div className={styles.viewingCardTitleRow}>
+            <ICalendar />
+            <span className={styles.viewingCardLabel}>Viewing appointment</span>
+            {meta.expiry && <span className={styles.bookingCardExpiry}>{meta.expiry}</span>}
+          </div>
+          <div className={styles.viewingSlot}>
+            <div>
+              <div className={styles.viewingDate}>{meta.date ?? '—'}</div>
+              <div className={styles.viewingTime}>{meta.slot ?? ''}</div>
+            </div>
+          </div>
+          {meta.address && <div className={styles.viewingAddress}><IPin />{meta.address}</div>}
+        </div>
+        <div className={styles.cardActions}>
+          <button className={styles.declineBtn} disabled>Decline</button>
+          <button className={styles.acceptBtn} disabled>Confirm viewing</button>
+        </div>
+      </div>
+      <span className={styles.timeIn}>{fmtMsgTime(msg.createdAtMs)}</span>
+    </div>
+  )
+}
+
+function ReportedTag({ msg }: { msg: ThreadMessage }) {
+  const reportId = msg.reportId
+  if (!reportId) return null
+  const deleted = !!msg.deletedAt
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#fdecec', border: '1px solid #f3c6c6', borderRadius: 10, padding: '7px 11px', margin: '2px 0 4px', fontSize: 12, fontWeight: 600, color: '#92201a' }}>
+      <span>Reported: {msg.reportReason}</span>
+      {!deleted && <ActionBtn action={redactMessage.bind(null, msg.id)} label="Redact" variant="danger" size="sm" />}
+      <ReasonModal
+        trigger={open => <TriggerBtn onClick={open} label="Resolve" size="sm" />}
+        title="Resolve report"
+        description="What action was taken on this message?"
+        confirmLabel="Confirm resolve"
+        placeholder="e.g. Warned the user, message redacted…"
+        danger={false}
+        onSubmit={note => resolveReport(reportId, note)}
+      />
+    </div>
+  )
+}
+
+function MessageBubble({ msg, thread }: { msg: ThreadMessage; thread: MessageThread }) {
+  const isOut = msg.senderRole === 'landlord'
+  const senderName = msg.senderRole === 'student' ? thread.studentName : thread.landlordName
+
+  if (msg.msgType === 'booking') return <BookingCard msg={msg} thread={thread} />
+  if (msg.msgType === 'viewing') return <ViewingCard msg={msg} thread={thread} />
+
+  if (msg.msgType === 'file') {
+    const meta = msg.metadata ? JSON.parse(msg.metadata) : {}
+    return (
+      <div className={styles.fileCard} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
+        <div className={styles.fileCardInner}>
+          <div className={styles.fileIcon}><IFile /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className={styles.fileName}>{meta.name ?? msg.body}</div>
+            <div className={styles.fileMeta}>{meta.size ?? ''}</div>
+          </div>
+          <IDownload />
+        </div>
+        <span className={styles.timeIn}>{fmtMsgTime(msg.createdAtMs)}</span>
+      </div>
+    )
+  }
+
+  const deleted = !!msg.deletedAt
+  const textStyle = deleted ? { fontStyle: 'italic' as const, opacity: 0.7 } : undefined
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start' }}>
+      {isOut ? (
+        <div className={styles.bubbleWrapOut}>
+          <div className={styles.bubbleOut} style={textStyle}>{msg.body}</div>
+          <div className={styles.timeOutRow}>
+            <span className={styles.timeOut}>{senderName} · {fmtMsgTime(msg.createdAtMs)}</span>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.bubbleWrapIn}>
+          <div className={styles.bubbleIn} style={textStyle}>{msg.body}</div>
+          <span className={styles.timeIn}>{senderName} · {fmtMsgTime(msg.createdAtMs)}</span>
+        </div>
+      )}
+      <ReportedTag msg={msg} />
+    </div>
+  )
+}
+
+/* ── Page ────────────────────────────────────────────────────────── */
 export default async function MessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; modal?: string }>
+  searchParams: Promise<{ filter?: string; thread?: string }>
 }) {
-  const { filter = 'all', modal } = await searchParams
-  const messages = await getMessages({ filter })
-  const messagesWithStatus = await Promise.all(
-    messages.map(async m => ({ m, report: await getReportForMessage(m.id) }))
-  )
-
-  const modalMessage = modal ? await getMessage(modal) : null
-  const modalReport = modalMessage ? await getReportForMessage(modalMessage.id) : null
+  const { filter = 'all', thread: threadId } = await searchParams
+  const threads = await getMessageThreads({ filter })
+  const activeThread = threadId ? await getThreadMeta(threadId) : null
+  const messages = activeThread ? await getThreadMessages(activeThread.inquiryId, activeThread.studentId) : []
+  const qs = filter !== 'all' ? `filter=${filter}&` : ''
 
   return (
-    <>
-      <h1 style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 800, fontSize: 27, letterSpacing: '-.02em', margin: '0 0 4px' }}>Messages</h1>
-      <p style={{ fontSize: 14, fontWeight: 600, color: '#6b6675', margin: '0 0 18px' }}>Messages are not proactively moderated — a conversation only surfaces here once it has been reported.</p>
+    <div className={styles.page} style={{ height: 'calc(100vh - 110px)', margin: '0 -38px', overflow: 'hidden' }}>
+      <div className={styles.workspace} style={{ maxWidth: 'none', padding: '0 38px' }}>
+        {/* ── Left: conversation list ── */}
+        <div className={styles.threadPanel}>
+          <div className={styles.threadPanelHeader}>
+            <div className={styles.threadPanelTop}>
+              <h1 className={styles.threadPanelTitle}>Messages</h1>
+            </div>
+            <FilterPills pills={FILTER_PILLS} current={filter} />
+          </div>
 
-      <FilterPills pills={FILTER_PILLS} current={filter} />
-
-      <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-          <thead>
-            <tr style={{ background: '#fbfafd' }}>
-              {['CONVERSATION', 'LISTING', 'LAST MESSAGE', 'STATUS', 'ACTIONS'].map((h, i) => (
-                <th key={h} style={{ textAlign: i === 4 ? 'right' : 'left', padding: i === 0 || i === 4 ? '13px 20px' : '13px 16px', fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', borderBottom: '1px solid #f1eef7' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {messagesWithStatus.map(({ m, report }) => {
-              const ms = messageStatus(!!report, !!m.deletedAt)
+          <div className={`${styles.threadList} us-scroll`}>
+            {threads.length === 0 && (
+              <div style={{ padding: '40px 22px', textAlign: 'center', color: 'var(--text-soft)', fontSize: 13, fontWeight: 600 }}>
+                No conversations match this view.
+              </div>
+            )}
+            {threads.map(t => {
+              const isActive = t.inquiryId === threadId
               return (
-                <tr key={m.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
-                  <td style={{ padding: '13px 20px' }}>
-                    <Link href={`/messages?${filter !== 'all' ? `filter=${filter}&` : ''}modal=${m.id}`} style={{ fontWeight: 700, color: '#1c1530', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap' }}>{m.userA} ↔ {m.userB}</Link>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#9a94a8' }}>{m.time}</div>
-                  </td>
-                  <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600 }}>{m.listing ?? '—'}</td>
-                  <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600, maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.preview}</td>
-                  <td style={{ padding: '13px 16px' }}><StatusBadge label={ms.label} bg={ms.bg} color={ms.color} /></td>
-                  <td style={{ padding: '13px 20px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
-                      <Link href={`/messages?${filter !== 'all' ? `filter=${filter}&` : ''}modal=${m.id}`} style={{ height: 32, padding: '0 13px', borderRadius: 9, border: '1px solid #ece8f3', background: '#fff', color: '#4a4654', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>View</Link>
+                <Link
+                  key={t.inquiryId}
+                  href={`/messages?${qs}thread=${t.inquiryId}`}
+                  className={[styles.threadRow, isActive ? styles.threadRowActive : ''].join(' ')}
+                >
+                  <div className={styles.threadAvatarWrap}>
+                    <div className={styles.threadAvatar} style={{ background: avatarBg(t.studentName) }}>{initials(t.studentName)}</div>
+                  </div>
+                  <div className={styles.threadMeta}>
+                    <div className={styles.threadNameRow}>
+                      <span className={styles.threadName}>{t.studentName} ↔ {t.landlordName}</span>
+                      <span className={styles.threadTime} style={{ color: t.reported ? '#b91c1c' : '#b0aabf' }}>{t.lastAt}</span>
                     </div>
-                  </td>
-                </tr>
+                    {t.listingTitle && (
+                      <div className={styles.listingPill}>
+                        <div className={styles.listingThumb} style={{ background: listingThumb(t.listingId) }} />
+                        <span className={styles.listingPillText}>{t.listingTitle} · {t.listingCity}</span>
+                      </div>
+                    )}
+                    <div className={styles.threadPreviewRow}>
+                      <span className={styles.threadPreview} style={{ fontWeight: t.reported ? 700 : 600, color: t.reported ? '#1c1530' : '#9a94a8' }}>
+                        {t.lastBody ?? 'No messages yet'}
+                      </span>
+                      {t.reported && <span className={styles.unreadBadge}>!</span>}
+                    </div>
+                  </div>
+                </Link>
               )
             })}
-          </tbody>
-        </table>
-        {messages.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#9a94a8', fontWeight: 600, fontSize: 14 }}>No conversations match this view.</div>
-        )}
-      </div>
+          </div>
+        </div>
 
-      {modalMessage && (
-        <MessageModal
-          message={modalMessage}
-          report={modalReport}
-          onResolve={modalReport ? resolveReport.bind(null, modalReport.id) : undefined}
-          onRedact={redactMessage.bind(null, modalMessage.id)}
-        />
-      )}
-    </>
+        {/* ── Right: full conversation ── */}
+        <div className={styles.chatPanel}>
+          {!activeThread ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}><IMsg /></div>
+              <p className={styles.emptyTitle}>Conversation history</p>
+              <p className={styles.emptyDesc}>Select a conversation to view the full message thread.</p>
+            </div>
+          ) : (
+            <>
+              <div className={styles.chatHeader}>
+                <div className={styles.chatHeaderAvatar}>
+                  <div className={styles.chatAvatar} style={{ background: avatarBg(activeThread.studentName) }}>{initials(activeThread.studentName)}</div>
+                </div>
+                <div className={styles.chatHeaderMeta}>
+                  <div className={styles.chatHeaderNameRow}>
+                    <span className={styles.chatHeaderName}>{activeThread.studentName} ↔ {activeThread.landlordName}</span>
+                  </div>
+                  <div className={styles.chatHeaderStatus}>
+                    {activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : 'Listing not in admin catalog'}
+                  </div>
+                </div>
+                <button type="button" className={styles.moreBtn}><IMore /></button>
+              </div>
+
+              <div className={styles.pinnedListing}>
+                <div className={styles.pinnedThumb} style={{ background: listingThumb(activeThread.listingId) }} />
+                <div className={styles.pinnedMeta}>
+                  <div className={styles.pinnedTitle}>
+                    {activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : `Listing ${activeThread.listingId}`}
+                  </div>
+                  <div className={styles.pinnedPrice}>{activeThread.coldRent != null ? `€${activeThread.coldRent}/mo` : 'price unavailable'}</div>
+                </div>
+                {activeThread.listingTitle && (
+                  <Link href={`/listings/${activeThread.listingId}`} className={styles.viewListingBtn}>View listing</Link>
+                )}
+              </div>
+
+              <div className={`${styles.messages} us-scroll`}>
+                {messages.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-soft)', fontSize: 13, fontWeight: 600 }}>
+                    No messages in this conversation.
+                  </div>
+                )}
+                {messages.map((msg, i) => {
+                  const prev = messages[i - 1]
+                  const showDate = !!msg.createdAtMs && (!prev || !prev.createdAtMs ||
+                    new Date(msg.createdAtMs).toDateString() !== new Date(prev.createdAtMs).toDateString())
+                  return (
+                    <div key={msg.id} style={{ display: 'contents' }}>
+                      {showDate && (
+                        <div className={styles.dateDivider}>
+                          <span className={styles.dateDividerLine} />
+                          <span className={styles.dateDividerLabel}>
+                            {new Date(msg.createdAtMs as number).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                          </span>
+                          <span className={styles.dateDividerLine} />
+                        </div>
+                      )}
+                      <MessageBubble msg={msg} thread={activeThread} />
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

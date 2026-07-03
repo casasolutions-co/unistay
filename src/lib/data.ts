@@ -1,5 +1,5 @@
-import { d1All, d1First, d1Run, nowSeconds, relativeTime } from './d1'
-import type { User, Listing, Message, Document, Report, AppSetting, AuditLogEntry, DashboardCounts } from './types'
+import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
+import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts } from './types'
 
 // ─── Row shapes (snake_case, as stored in D1) ─────────────────────────────────
 
@@ -39,6 +39,7 @@ interface ListingRow {
 
 interface MessageRow {
   id: string
+  inquiry_id: string
   body: string
   created_at: number | null
   deleted_at: number | null
@@ -121,6 +122,7 @@ function mapListing(r: ListingRow, amenities?: string[], photoKeys?: string[]): 
 function mapMessage(r: MessageRow): Message {
   return {
     id: r.id,
+    inquiryId: r.inquiry_id,
     userA: r.student_name ?? '(unknown student)',
     userB: r.landlord_name ?? '(unknown landlord)',
     listing: r.listing_title,
@@ -168,8 +170,19 @@ async function reportSummary(targetType: string, targetId: string): Promise<stri
   return targetId
 }
 
+async function reportHref(targetType: string, targetId: string): Promise<string> {
+  if (targetType === 'message') {
+    const row = await d1First<{ inquiry_id: string }>(`SELECT inquiry_id FROM messages WHERE id = ?`, [targetId])
+    return row ? `/messages?thread=${row.inquiry_id}` : '/messages'
+  }
+  if (targetType === 'inquiry') return `/messages?thread=${targetId}`
+  if (targetType === 'listing') return `/listings/${targetId}`
+  if (targetType === 'user') return `/users/${targetId}`
+  return '#'
+}
+
 const MESSAGE_SELECT = `
-  SELECT m.id as id, m.body as body, m.created_at as created_at, m.deleted_at as deleted_at,
+  SELECT m.id as id, m.inquiry_id as inquiry_id, m.body as body, m.created_at as created_at, m.deleted_at as deleted_at,
          l.title as listing_title, su.name as student_name, lu.name as landlord_name
   FROM messages m
   JOIN inquiries i ON i.id = m.inquiry_id
@@ -291,37 +304,117 @@ export async function getListing(id: string): Promise<Listing | null> {
   return mapListing(withHost, amenityRows.map(a => a.amenity), photoRows.map(p => p.r2_key))
 }
 
-export async function getMessages(opts: { filter?: string } = {}): Promise<Message[]> {
-  if (opts.filter === 'reported') {
-    const rows = await d1All<MessageRow>(
-      `${MESSAGE_SELECT} AND m.id IN (SELECT target_id FROM reports WHERE target_type = 'message') ORDER BY m.created_at DESC`
-    )
-    return rows.map(mapMessage)
+interface ThreadRow {
+  inquiry_id: string
+  listing_id: string
+  listing_title: string | null
+  listing_city: string | null
+  cold_rent: number | null
+  student_id: string
+  student_name: string | null
+  landlord_id: string | null
+  landlord_name: string | null
+  last_body: string | null
+  last_at: number | null
+  last_deleted_at: number | null
+}
+
+// listings is a LEFT JOIN: inquiries can point at a static/partner listing_id
+// (e.g. CASA properties baked into the student app) that never got a row in
+// the D1 listings table, and those conversations still need to show up here.
+const THREAD_META_SELECT = `
+  SELECT i.id as inquiry_id, i.listing_id, l.title as listing_title, l.city as listing_city, l.cold_rent,
+         i.student_id, su.name as student_name, l.landlord_id, lu.name as landlord_name
+  FROM inquiries i
+  LEFT JOIN listings l ON l.id = i.listing_id
+  JOIN users su ON su.id = i.student_id
+  LEFT JOIN users lu ON lu.id = l.landlord_id
+`
+
+function mapThreadMeta(r: ThreadRow): MessageThread {
+  return {
+    inquiryId: r.inquiry_id,
+    listingId: r.listing_id,
+    listingTitle: r.listing_title,
+    listingCity: r.listing_city,
+    coldRent: r.cold_rent,
+    studentId: r.student_id,
+    studentName: r.student_name ?? '(unknown student)',
+    landlordId: r.landlord_id,
+    landlordName: r.landlord_name ?? (r.landlord_id ? '(unknown landlord)' : 'UniStay CASA'),
   }
-  const rows = await d1All<MessageRow>(`${MESSAGE_SELECT} ORDER BY m.created_at DESC`)
-  return rows.map(mapMessage)
 }
 
-export async function getMessage(id: string): Promise<Message | null> {
-  const row = await d1First<MessageRow>(`${MESSAGE_SELECT} AND m.id = ?`, [id])
-  return row ? mapMessage(row) : null
+// One row per conversation (inquiry) that has at least one message, newest activity first.
+export async function getMessageThreads(opts: { filter?: string } = {}): Promise<MessageThread[]> {
+  const [rows, reportedRows] = await Promise.all([
+    d1All<ThreadRow>(
+      `SELECT i.id as inquiry_id, i.listing_id, l.title as listing_title, l.city as listing_city, l.cold_rent,
+              i.student_id, su.name as student_name, l.landlord_id, lu.name as landlord_name,
+              m.body as last_body, m.created_at as last_at, m.deleted_at as last_deleted_at
+       FROM inquiries i
+       LEFT JOIN listings l ON l.id = i.listing_id
+       JOIN users su ON su.id = i.student_id
+       LEFT JOIN users lu ON lu.id = l.landlord_id
+       JOIN messages m ON m.id = (SELECT id FROM messages WHERE inquiry_id = i.id ORDER BY created_at DESC LIMIT 1)
+       ORDER BY m.created_at DESC`
+    ),
+    d1All<{ inquiry_id: string }>(
+      `SELECT DISTINCT m.inquiry_id as inquiry_id
+       FROM reports r JOIN messages m ON m.id = r.target_id AND r.target_type = 'message'
+       WHERE r.status = 'open'`
+    ),
+  ])
+  const reportedIds = new Set(reportedRows.map(r => r.inquiry_id))
+  const threads = rows.map(r => ({
+    ...mapThreadMeta(r),
+    lastBody: r.last_deleted_at ? '[message removed by moderator]' : r.last_body,
+    lastAt: relativeTime(r.last_at),
+    reported: reportedIds.has(r.inquiry_id),
+  }))
+  return opts.filter === 'reported' ? threads.filter(t => t.reported) : threads
 }
 
-export async function getReportForMessage(messageId: string): Promise<Report | null> {
-  const row = await d1First<ReportRow>(
-    `SELECT * FROM reports WHERE target_type = 'message' AND target_id = ? AND status = 'open'`,
-    [messageId]
+export async function getThreadMeta(inquiryId: string): Promise<MessageThread | null> {
+  const row = await d1First<ThreadRow>(`${THREAD_META_SELECT} WHERE i.id = ?`, [inquiryId])
+  return row ? mapThreadMeta(row) : null
+}
+
+interface ThreadMessageRow {
+  id: string
+  sender_id: string
+  body: string
+  msg_type: string | null
+  metadata: string | null
+  created_at: number | null
+  deleted_at: number | null
+  report_id: string | null
+  report_reason: string | null
+}
+
+// Full message history for one conversation, oldest first.
+export async function getThreadMessages(inquiryId: string, studentId: string): Promise<ThreadMessage[]> {
+  const rows = await d1All<ThreadMessageRow>(
+    `SELECT m.id, m.sender_id, m.body, m.msg_type, m.metadata, m.created_at, m.deleted_at,
+            r.id as report_id, r.reason as report_reason
+     FROM messages m
+     LEFT JOIN reports r ON r.target_type = 'message' AND r.target_id = m.id AND r.status = 'open'
+     WHERE m.inquiry_id = ?
+     ORDER BY m.created_at ASC`,
+    [inquiryId]
   )
-  if (!row) return null
-  return { ...row, createdAt: relativeTime(row.created_at), resolvedAt: row.resolved_at ? relativeTime(row.resolved_at) : null, resolutionNote: row.resolution_note, status: row.status as Report['status'], targetType: row.target_type as Report['targetType'], targetId: row.target_id, summary: await reportSummary(row.target_type, row.target_id) }
-}
-
-export async function isMessageReported(messageId: string): Promise<boolean> {
-  const row = await d1First<{ n: number }>(
-    `SELECT COUNT(*) as n FROM reports WHERE target_type = 'message' AND target_id = ? AND status = 'open'`,
-    [messageId]
-  )
-  return (row?.n ?? 0) > 0
+  return rows.map(r => ({
+    id: r.id,
+    senderId: r.sender_id,
+    senderRole: r.sender_id === studentId ? 'student' : 'landlord',
+    body: r.deleted_at ? '[message removed by moderator]' : r.body,
+    msgType: r.msg_type ?? 'text',
+    metadata: r.metadata,
+    createdAtMs: toMs(r.created_at),
+    deletedAt: r.deleted_at ? relativeTime(r.deleted_at) : null,
+    reportId: r.report_id,
+    reportReason: r.report_reason,
+  }))
 }
 
 export async function getDocuments(opts: { filter?: string } = {}): Promise<Document[]> {
@@ -396,6 +489,7 @@ export async function getReports(opts: { filter?: string } = {}): Promise<Report
       resolvedAt: r.resolved_at ? relativeTime(r.resolved_at) : null,
       resolutionNote: r.resolution_note,
       summary: await reportSummary(r.target_type, r.target_id),
+      targetHref: await reportHref(r.target_type, r.target_id),
     }))
   )
 }
@@ -413,6 +507,7 @@ export async function getReport(id: string): Promise<Report | null> {
     resolvedAt: row.resolved_at ? relativeTime(row.resolved_at) : null,
     resolutionNote: row.resolution_note,
     summary: await reportSummary(row.target_type, row.target_id),
+    targetHref: await reportHref(row.target_type, row.target_id),
   }
 }
 
@@ -432,6 +527,7 @@ export async function getReportsForTarget(targetType: string, targetId: string):
       resolvedAt: r.resolved_at ? relativeTime(r.resolved_at) : null,
       resolutionNote: r.resolution_note,
       summary: await reportSummary(r.target_type, r.target_id),
+      targetHref: await reportHref(r.target_type, r.target_id),
     }))
   )
 }
