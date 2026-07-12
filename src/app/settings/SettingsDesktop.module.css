@@ -220,54 +220,6 @@
   color: #b0aabf;
 }
 
-.toggle {
-  flex: none;
-  width: 46px;
-  height: 28px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  position: relative;
-  transition: background 0.18s;
-}
-
-.toggleKnob {
-  position: absolute;
-  top: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
-  transition: left 0.18s;
-}
-
-.selectOptions {
-  flex: none;
-  display: flex;
-  gap: 6px;
-}
-
-.selectOption {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 9px;
-  border: 1.5px solid #e6e2ef;
-  background: #fff;
-  color: #4b4757;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.14s;
-}
-
-.selectOptionActive {
-  border-color: #6d28d9;
-  background: #6d28d9;
-  color: #fff;
-}
-
 /* ── Danger zone ── */
 .dangerZone {
   background: #fff;

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { previewUrlFor } from '@/lib/heicPreview';
+import { useDraftAutosave } from './useDraftAutosave';
 import styles from './ListMobile.module.css';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
@@ -152,7 +153,7 @@ function ptypeIcon(id: PType) {
   return <Icon paths={p[id]} size={20} />;
 }
 
-export default function ListMobile() {
+function ListMobileInner() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState(1);
@@ -193,6 +194,72 @@ export default function ListMobile() {
   const [maxPeriod, setMaxPeriod] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
 
+  // Resume an existing draft/listing via /list?draft=<id>
+  const searchParams = useSearchParams();
+  const draftId = searchParams.get('draft');
+  const [formReady, setFormReady] = useState(!draftId);
+
+  useEffect(() => {
+    if (!draftId || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/listings/${draftId}`);
+        if (!res.ok) throw new Error('not found');
+        const data = await res.json() as {
+          listing?: { landlord_id?: string };
+          formFields?: {
+            ptype: PType; title: string; streetName: string; houseNumber: string;
+            city: string; postcode: string; bedrooms: number; bathrooms: number;
+            roomSize: number; aptSize: number; amenities: Record<string, boolean>;
+            desc: string; mates: string; numMates: number; mateGender: string; prefGender: string;
+            rent: string; utilities: string; deposit: string;
+            availFrom: string; availTo: string; openEnded: boolean;
+            minPeriod: string; maxPeriod: string;
+            photos: { r2Key: string; position: number; isCover: boolean; previewUrl: string }[];
+          };
+        };
+        if (cancelled) return;
+        if (!data.listing || data.listing.landlord_id !== user.uid || !data.formFields) {
+          router.push('/');
+          return;
+        }
+        const f = data.formFields;
+        listingIdRef.current = draftId;
+        setPtype(f.ptype || 'studio');
+        setTitle(f.title || '');
+        setStreetName(f.streetName || '');
+        setHouseNumber(f.houseNumber || '');
+        setCity(f.city || '');
+        setPostcode(f.postcode || '');
+        setBedrooms(f.bedrooms || 1);
+        setBathrooms(f.bathrooms || 1);
+        setRoomSize(f.roomSize || 15);
+        setAptSize(f.aptSize || 50);
+        setAmenities(f.amenities || {});
+        setDesc(f.desc || '');
+        setMates(f.mates || '');
+        setNumMates(f.numMates || 0);
+        setMateGender(f.mateGender || '');
+        setPrefGender(f.prefGender || 'any');
+        setRent(f.rent || '');
+        setUtilities(f.utilities || '');
+        setDeposit(f.deposit || '');
+        setAvailFrom(f.availFrom || '');
+        setAvailTo(f.availTo || '');
+        setOpenEnded(!!f.openEnded);
+        setMinPeriod(f.minPeriod || '');
+        setMaxPeriod(f.maxPeriod || '');
+        setPhotos((f.photos ?? []).map(p => ({ r2Key: p.r2Key, previewUrl: p.previewUrl })));
+      } catch {
+        // Fall back to a blank/new listing rather than blocking the page.
+      } finally {
+        if (!cancelled) setFormReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftId, user, router]);
+
   // Derived
   const titleOk = title.length >= 12 && title.length <= 60;
   const descOk = desc.length >= 60 && desc.length <= 600;
@@ -226,6 +293,19 @@ export default function ListMobile() {
   ];
   const pct = Math.round(reqs.filter(Boolean).length / reqs.length * 100);
   const canPublish = reqs.every(Boolean);
+
+  const autosaveStatus = useDraftAutosave(user, listingIdRef.current, {
+    ptype, title, streetName, houseNumber, city, postcode,
+    bedrooms, bathrooms, roomSize, aptSize,
+    amenities, desc, mates, numMates, mateGender, prefGender,
+    rent, utilities, deposit,
+    availFrom, availTo, openEnded,
+    minPeriod, maxPeriod,
+    photos: uploadedPhotos.map((p, i) => ({ r2Key: p.r2Key, position: i, isCover: i === 0 })),
+  }, formReady);
+  const draftStatusText = autosaveStatus === 'saving' ? 'Saving…'
+    : autosaveStatus === 'error' ? 'Couldn’t save changes'
+    : 'Draft saved automatically';
 
   const checklist = [
     { done: !!title.trim() && titleOk, label: 'Title (12–60 characters)' },
@@ -319,6 +399,8 @@ export default function ListMobile() {
 
   const barColors = [1, 2, 3, 4].map(n => step >= n ? '#6d28d9' : '#ece8f6');
 
+  if (draftId && !formReady) return null;
+
   return (
     <div className={styles.screen}>
       {/* ── Dark banner ── */}
@@ -328,7 +410,7 @@ export default function ListMobile() {
           <button type="button" onClick={goBack} className={styles.backBtn} style={{ opacity: step > 1 ? 1 : 0.4 }}>
             <Icon paths={['M19 12H5M11 6l-6 6 6 6']} size={19} stroke="#fff" sw={2.4} />
           </button>
-          <span className={styles.draftLabel}>Draft saved automatically</span>
+          <span className={styles.draftLabel}>{draftStatusText}</span>
           <span className={styles.stepPill}>{step}/4</span>
         </div>
 
@@ -703,5 +785,13 @@ export default function ListMobile() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ListMobile() {
+  return (
+    <Suspense>
+      <ListMobileInner />
+    </Suspense>
   );
 }

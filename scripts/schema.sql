@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
   banned_by            TEXT REFERENCES users(id),
   ban_reason           TEXT,
   ban_expires_at       INTEGER,
+  deleted_at           INTEGER,
+  preferences          TEXT,
   created_at           INTEGER,
   updated_at           INTEGER
 );
@@ -90,6 +92,8 @@ CREATE TABLE IF NOT EXISTS inquiries (
   student_id TEXT REFERENCES users(id),
   message    TEXT,
   status     TEXT DEFAULT 'pending',
+  type       TEXT NOT NULL DEFAULT 'booking',
+  subject    TEXT,
   created_at INTEGER,
   updated_at INTEGER
 );
@@ -143,3 +147,18 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_by  TEXT REFERENCES users(id),
   updated_at  INTEGER
 );
+
+-- category is a fixed app-level enum ('booking' | 'payments' | 'account' | 'safety'),
+-- not a foreign key — matches the /help page's hardcoded category chips.
+CREATE TABLE IF NOT EXISTS faqs (
+  id         TEXT PRIMARY KEY,
+  category   TEXT NOT NULL,
+  question   TEXT NOT NULL,
+  answer     TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  published  INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER,
+  updated_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_faqs_category ON faqs(category, position);

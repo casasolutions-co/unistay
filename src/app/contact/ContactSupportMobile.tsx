@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import styles from './ContactSupportMobile.module.css';
 
 const SUPPORT_EMAIL = 'support@unistay.de';
@@ -44,16 +46,43 @@ const TOPICS = ['Booking issue', 'Payments', 'Account', 'Report a problem', 'Som
 
 /* ── Main component ───────────────────────────────────────────── */
 export default function ContactSupportMobile() {
+  const [user, setUser] = useState<User | null>(null);
   const [topic, setTopic] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, u => setUser(u));
+  }, []);
 
   const canSubmit = email.trim().length > 3 && subject.trim().length > 0 && message.trim().length > 0;
 
-  const handleSubmit = () => {
-    if (canSubmit) setSent(true);
+  const handleSubmit = async () => {
+    if (!canSubmit || sending) return;
+    if (!user) {
+      setError('Please sign in to send a message.');
+      return;
+    }
+    setError('');
+    setSending(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ topic, subject: subject.trim(), message: message.trim() }),
+      });
+      if (!res.ok) throw new Error('request failed');
+      setSent(true);
+    } catch {
+      setError('Something went wrong sending your message. Please try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -74,9 +103,9 @@ export default function ContactSupportMobile() {
             <span className={styles.successIcon}><ICheck /></span>
             <p className={styles.successTitle}>Message sent</p>
             <p className={styles.successSub}>
-              Thanks for reaching out. Our support team will get back to you at {email} within one business day.
+              Thanks for reaching out. Our support team will reply in Messages — we&apos;ll also follow up at {email} within one business day.
             </p>
-            <Link href="/settings" className={styles.successBtn}>Back to settings</Link>
+            <Link href="/messages" className={styles.successBtn}>View in Messages</Link>
           </div>
         ) : (
           <>
@@ -141,8 +170,9 @@ export default function ContactSupportMobile() {
               </div>
             </div>
 
-            <button type="button" className={styles.submitBtn} onClick={handleSubmit} disabled={!canSubmit}>
-              Send message
+            {error && <p className={styles.errorText}>{error}</p>}
+            <button type="button" className={styles.submitBtn} onClick={handleSubmit} disabled={!canSubmit || sending}>
+              {sending ? 'Sending…' : 'Send message'}
             </button>
           </>
         )}

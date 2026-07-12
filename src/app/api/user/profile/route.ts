@@ -15,16 +15,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const [user] = await d1Query(
+  const [user] = await d1Query<{ preferences: string | null; [key: string]: unknown }>(
     `SELECT id, email, name, phone, nationality, role, university, program,
-            start_year, job_title, why, profile_complete, verification_status
+            start_year, job_title, why, profile_complete, verification_status, preferences
      FROM users WHERE id = ?`,
     [decoded.uid]
   );
 
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  return NextResponse.json({ user });
+  const defaultPreferences = { showActivityStatus: true, emailDigest: false };
+  const preferences = user.preferences ? { ...defaultPreferences, ...JSON.parse(user.preferences) } : defaultPreferences;
+
+  return NextResponse.json({ user: { ...user, preferences } });
 }
 
 export async function POST(req: NextRequest) {

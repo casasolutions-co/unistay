@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { Property } from '../../data/properties';
 
 const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
@@ -28,10 +30,90 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
 
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
+
+  const [msgModal, setMsgModal] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgSent, setMsgSent] = useState(false);
+  const [msgError, setMsgError] = useState('');
+
+  const [booking, setBooking] = useState(false);
+  const [booked, setBooked] = useState(false);
+  const [bookError, setBookError] = useState('');
+
   const photos = p.photos ?? [];
   const warmRent = p.price;
   const dueTotal = warmRent + (p.deposit ?? 0);
   const isPartner = !!p.externalLink;
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageText.trim() || msgSending) return;
+    if (!authUser) { setMsgError('Sign in to message the host.'); return; }
+
+    setMsgSending(true);
+    setMsgError('');
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_id: p.id, message: messageText.trim() }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let error = 'Failed to send. Try again.';
+        try { error = JSON.parse(text).error ?? error; } catch { /* non-JSON body */ }
+        setMsgError(error);
+        return;
+      }
+      setMsgSent(true);
+      setTimeout(() => {
+        setMsgModal(false);
+        setMessageText('');
+        setMsgSent(false);
+      }, 2000);
+    } catch (err) {
+      console.error('[sendMessage]', err);
+      setMsgError('Network error. Try again.');
+    } finally {
+      setMsgSending(false);
+    }
+  };
+
+  const handleBook = async () => {
+    if (booking) return;
+    if (!authUser) { router.push('/login'); return; }
+
+    setBooking(true);
+    setBookError('');
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_id: p.id, price: p.coldRent, deposit: p.deposit }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let error = 'Failed to send booking request. Try again.';
+        try { error = JSON.parse(text).error ?? error; } catch { /* non-JSON body */ }
+        setBookError(error);
+        setTimeout(() => setBookError(''), 4000);
+        return;
+      }
+      setBooked(true);
+      setTimeout(() => setBooked(false), 3000);
+    } catch (err) {
+      console.error('[handleBook]', err);
+      setBookError('Network error. Try again.');
+      setTimeout(() => setBookError(''), 4000);
+    } finally {
+      setBooking(false);
+    }
+  };
 
   function onGalleryScroll() {
     const el = galleryRef.current;
@@ -251,7 +333,7 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
                   <div className={styles.hostMeta}>{p.hostListings} listing{p.hostListings === '1' ? '' : 's'}</div>
                 </div>
               </div>
-              <button type="button" className={styles.messageBtn}>
+              <button type="button" className={styles.messageBtn} onClick={() => setMsgModal(true)}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 Message host
               </button>
@@ -302,9 +384,59 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
             View on HousingAnywhere →
           </a>
         ) : (
-          <button type="button" className={styles.bookingBtn}>Request to book</button>
+          <button type="button" className={styles.bookingBtn} onClick={handleBook} disabled={booking}>
+            {booking ? 'Sending…' : 'Request to book'}
+          </button>
         )}
       </div>
+
+      {/* ── Message host modal ── */}
+      {msgModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => { setMsgModal(false); setMessageText(''); setMsgError(''); }}
+        >
+          <div
+            style={{ background: '#1c1530', width: '100%', borderRadius: '20px 20px 0 0', padding: 20 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Message {p.hostName}</h3>
+            {msgSent ? (
+              <p style={{ color: '#a7f3d0', fontSize: 14, padding: '12px 0' }}>Message sent!</p>
+            ) : (
+              <form onSubmit={handleSendMessage}>
+                <textarea
+                  value={messageText}
+                  onChange={e => setMessageText(e.target.value)}
+                  placeholder="Is this place still available?"
+                  rows={4}
+                  style={{ width: '100%', borderRadius: 12, border: '1px solid #372e4a', background: '#241c33', color: '#fff', padding: 12, fontFamily: 'inherit', fontSize: 14, resize: 'none' }}
+                />
+                {msgError && <p style={{ color: '#fca5a5', fontSize: 13, marginTop: 8 }}>{msgError}</p>}
+                <button
+                  type="submit"
+                  disabled={msgSending || !messageText.trim()}
+                  style={{ marginTop: 12, width: '100%', padding: '13px 0', borderRadius: 999, border: 'none', background: '#6d28d9', color: '#fff', fontWeight: 700, fontSize: 14 }}
+                >
+                  {msgSending ? 'Sending…' : 'Send message'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Toasts ── */}
+      {booked && (
+        <div style={{ position: 'fixed', bottom: 90, left: 16, right: 16, background: '#1f8a5b', color: '#fff', padding: '12px 16px', borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 300, textAlign: 'center' }}>
+          Booking request sent successfully!
+        </div>
+      )}
+      {bookError && (
+        <div style={{ position: 'fixed', bottom: 90, left: 16, right: 16, background: '#dc2626', color: '#fff', padding: '12px 16px', borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 300, textAlign: 'center' }}>
+          {bookError}
+        </div>
+      )}
     </>
   );
 }

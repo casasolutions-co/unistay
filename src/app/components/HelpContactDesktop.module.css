@@ -12,127 +12,12 @@
 }
 
 .workspace {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 28px;
-  align-items: start;
-}
-
-/* ── Sidebar ── */
-.sidebar {
-  position: sticky;
-  top: 32px;
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.accountCard {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  background: #fff;
-  border: 1px solid #ece8f3;
-  border-radius: 18px;
-  padding: 16px;
-  text-decoration: none;
-  box-shadow: 0 1px 3px rgba(34, 18, 68, .05);
-}
-
-.accountAvatar {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #7c3aed, #c084fc);
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
-  font-weight: 700;
-  font-size: 18px;
-  color: #fff;
-}
-
-.accountInfo { flex: 1; min-width: 0; }
-
-.accountName {
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
-  font-weight: 800;
-  font-size: 15.5px;
-  color: #1c1530;
-  margin: 0;
-}
-
-.accountSub {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #9a94a8;
-  margin: 0;
-}
-
-.sectionNav {
-  background: #fff;
-  border: 1px solid #ece8f3;
-  border-radius: 18px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sectionNavItem {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 11px 12px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 700;
-  color: #1c1530;
-  transition: background 0.12s;
-}
-
-.sectionNavItem:hover { background: #f6f3fd; }
-
-.sectionNavItemActive {
-  background: #f3effe;
-  color: #6d28d9;
-  font-weight: 800;
-}
-.sectionNavItemActive:hover { background: #f3effe; }
-
-.sectionNavIcon {
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: #f3effe;
-  color: #6d28d9;
-  display: grid;
-  place-items: center;
-}
-
-.sectionNavIconActive {
-  background: #6d28d9;
-  color: #fff;
-}
-
-.versionText {
-  text-align: center;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #c4bdd2;
 }
 
 /* ── Content ── */
 .content {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -155,10 +40,26 @@
   margin: 4px 0 0;
 }
 
-.formWrap {
+/* ── Two-column layout ── */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+.faqCol,
+.contactCol {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
+  min-width: 0;
 }
 
 .groupLabel {
@@ -168,9 +69,117 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #9a94a8;
-  margin: 0 4px 9px;
+  margin: 0 4px;
 }
 
+/* ── FAQ column ── */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #ece8f3;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c1530;
+}
+
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1.5px solid #e6e2ef;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #4b4757;
+  white-space: nowrap;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+.chipActive {
+  border-color: #6d28d9;
+  background: #6d28d9;
+  color: #fff;
+}
+
+.faqCard {
+  background: #fff;
+  border: 1px solid #ece8f3;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(34, 18, 68, .05);
+}
+
+.faqRow + .faqRow {
+  border-top: 1px solid #f3f1f8;
+}
+
+.faqQuestionBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.faqQuestion {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c1530;
+  line-height: 1.35;
+}
+
+.faqChevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.faqChevronOpen {
+  transform: rotate(180deg);
+}
+
+.faqAnswer {
+  padding: 0 16px 17px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #6b6578;
+  font-weight: 500;
+}
+
+.noResults {
+  padding: 30px 20px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9a94a8;
+}
+
+/* ── Contact column ── */
 .topicsRow {
   display: flex;
   flex-wrap: wrap;
@@ -196,7 +205,6 @@
   color: #fff;
 }
 
-/* ── Form card ── */
 .formCard {
   background: #fff;
   border: 1px solid #ece8f3;
@@ -206,11 +214,6 @@
   flex-direction: column;
   gap: 18px;
   box-shadow: 0 1px 3px rgba(34, 18, 68, .05);
-}
-
-.formRow {
-  display: flex;
-  gap: 16px;
 }
 
 .formField { flex: 1; }
@@ -235,6 +238,7 @@
   color: #1c1530;
   outline: none;
   background: #fff;
+  box-sizing: border-box;
 }
 .fieldInput:focus,
 .fieldTextarea:focus {
@@ -266,17 +270,22 @@
   opacity: 0.8;
 }
 
-/* ── Info row ── */
+.errorText {
+  margin: -6px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
 .infoRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: 14px;
 }
 
-.infoCard,
-.infoCardLink {
-  flex: 1 1 220px;
-  min-width: 220px;
+.infoCard {
+  flex: 1 1 200px;
+  min-width: 200px;
   background: #fff;
   border: 1px solid #ece8f3;
   border-radius: 18px;
@@ -288,8 +297,6 @@
   box-sizing: border-box;
 }
 
-.infoCardLink { text-decoration: none; }
-
 .infoIcon {
   flex: none;
   width: 34px;
@@ -300,8 +307,6 @@
   display: grid;
   place-items: center;
 }
-
-.infoBody { flex: 1; min-width: 0; }
 
 .infoTitle {
   font-size: 13px;
@@ -323,12 +328,6 @@
 }
 .infoValueLink:hover { color: #6d28d9; }
 
-.infoSub {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #9a94a8;
-}
-
 /* ── Success state ── */
 .successCard {
   background: #fff;
@@ -339,7 +338,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 80px 20px;
+  padding: 60px 20px;
 }
 
 .successIcon {

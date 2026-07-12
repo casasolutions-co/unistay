@@ -36,6 +36,18 @@ const ILogout = () => (
   </svg>
 );
 
+const ICheck = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
+const IShield = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+  </svg>
+);
+
 /* ── Helpers ── */
 function initials(user: User | null): string {
   if (!user) return '';
@@ -48,6 +60,7 @@ function initials(user: User | null): string {
 
 const MENU_ITEMS = [
   { label: 'My account',      path: '/settings', iconPath: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' },
+  { label: 'My listings',     path: '/my-listings', iconPath: 'M3 11.2 12 4l9 7.2 M5.5 9.8V20h13V9.8' },
   { label: 'Saved homes',     path: '/saved',   iconPath: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z' },
   { label: 'Messages',        path: '/messages', iconPath: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', badge: '3' },
   { label: 'My applications', path: '#',         iconPath: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4' },
@@ -62,6 +75,7 @@ export default function AppNav({ centerSlot }: AppNavProps) {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +85,21 @@ export default function AppNav({ centerSlot }: AppNavProps) {
       setAuthReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!authUser) return;
+    let cancelled = false;
+    authUser.getIdToken().then(token =>
+      fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { user?: { verification_status?: string } }) => {
+          if (cancelled || !d.user?.verification_status) return;
+          setVerificationStatus(d.user.verification_status);
+        })
+        .catch(() => {})
+    );
+    return () => { cancelled = true; };
+  }, [authUser]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -134,6 +163,15 @@ export default function AppNav({ centerSlot }: AppNavProps) {
                       <span className={styles.dropdownEmail}>{authUser.email}</span>
                     </div>
                   </div>
+
+                  <Link
+                    href="/verify"
+                    className={`${styles.verifyBanner} ${verificationStatus === 'verified' ? styles.verifyBannerVerified : ''}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    {verificationStatus === 'verified' ? <ICheck /> : <IShield />}
+                    {verificationStatus === 'verified' ? 'Verified' : verificationStatus === 'pending' ? 'Verification in review' : 'Not verified — verify now'}
+                  </Link>
 
                   <div className={styles.divider} />
 

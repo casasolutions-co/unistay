@@ -7,6 +7,7 @@ import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
 import { cityCoords } from '@/lib/city-coords'
 import { geocodeAddress } from '@/lib/geocode'
+import { getAppSetting } from '@/lib/settings'
 
 const LIMIT = 20
 
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
   let hostListings: UnifiedListing[] = []
   if (source === 'all' || source === 'PRIVATE') {
     const params: (string | number)[] = []
-    const conditions: string[] = ["l.status IN ('published', 'draft')", "(l.source IS NULL OR l.source = 'private')"]
+    const conditions: string[] = ["l.status = 'published'", "(l.source IS NULL OR l.source = 'private')"]
 
     if (q) {
       // Normalise both sides so 'munich' matches 'München'; cityAlts also covers 'munchen' for 'münchen'
@@ -278,6 +279,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
+  if (!(await getAppSetting('listing_submission_enabled'))) {
+    return NextResponse.json({ error: 'New listing submissions are temporarily paused.' }, { status: 403 });
+  }
+
   const body = await req.json();
   const {
     listingId: clientListingId,
@@ -304,6 +309,15 @@ export async function POST(req: NextRequest) {
     ? clientListingId
     : crypto.randomUUID();
 
+  // Ownership check — if this id was already autosaved as a draft, only its
+  // own landlord may publish over it.
+  const [existingRow] = await d1Query<{ landlord_id: string }>(
+    'SELECT landlord_id FROM listings WHERE id = ?', [listingId]
+  );
+  if (existingRow && existingRow.landlord_id !== uid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     await d1Query(
       `INSERT INTO listings (
@@ -316,7 +330,19 @@ export async function POST(req: NextRequest) {
         description,
         mate_count, mate_gender, pref_gender, mate_notes,
         status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_review', ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_review', ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        ptype = excluded.ptype, title = excluded.title,
+        street = excluded.street, city = excluded.city, postcode = excluded.postcode,
+        bedrooms = excluded.bedrooms, bathrooms = excluded.bathrooms,
+        size_sqm = excluded.size_sqm, room_size_sqm = excluded.room_size_sqm,
+        cold_rent = excluded.cold_rent, utilities = excluded.utilities, deposit = excluded.deposit,
+        avail_from = excluded.avail_from, avail_to = excluded.avail_to, open_ended = excluded.open_ended,
+        min_period = excluded.min_period, max_period = excluded.max_period,
+        description = excluded.description,
+        mate_count = excluded.mate_count, mate_gender = excluded.mate_gender,
+        pref_gender = excluded.pref_gender, mate_notes = excluded.mate_notes,
+        status = 'pending_review', updated_at = excluded.updated_at`,
       [
         listingId, uid, ptype ?? 'studio', title.trim(),
         street.trim(), city.trim(), postcode.trim(),
@@ -334,6 +360,7 @@ export async function POST(req: NextRequest) {
       .filter(([, v]) => v)
       .map(([k]) => k);
 
+    await d1Query('DELETE FROM listing_amenities WHERE listing_id = ?', [listingId]);
     for (const amenity of selectedAmenities) {
       await d1Query(
         'INSERT OR IGNORE INTO listing_amenities (listing_id, amenity) VALUES (?, ?)',
@@ -344,6 +371,7 @@ export async function POST(req: NextRequest) {
     // Save photo metadata — actual files are already in R2
     const photoList: { r2Key: string; position: number; isCover: boolean }[] =
       Array.isArray(photos) ? photos : [];
+    await d1Query('DELETE FROM listing_photos WHERE listing_id = ?', [listingId]);
     for (const photo of photoList) {
       await d1Query(
         `INSERT INTO listing_photos (id, listing_id, r2_key, position, is_cover)

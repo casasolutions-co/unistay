@@ -100,7 +100,8 @@ export default function DetailsPage({ params }: PageProps) {
   const router = useRouter();
 
   const [authUser, setAuthUser] = useState<User | null>(null);
-  useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
+  const [authReady, setAuthReady] = useState(false);
+  useEffect(() => onAuthStateChanged(auth, u => { setAuthUser(u); setAuthReady(true); }), []);
 
   const [listing, setListing] = useState<AnyListing | null>(
     (PROPERTIES.find(p => p.id === id) as AnyListing) ?? null
@@ -108,15 +109,21 @@ export default function DetailsPage({ params }: PageProps) {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (listing) return; // already found in static array
-    fetch(`/api/listings/${id}`)
-      .then(r => r.json())
-      .then(data => {
+    if (listing || !authReady) return; // already found in static array, or still resolving auth
+    (async () => {
+      try {
+        // Attach the owner's token (if any) so previewing a not-yet-published
+        // or rented listing from My Listings still works for its landlord.
+        const headers: HeadersInit = authUser ? { Authorization: `Bearer ${await authUser.getIdToken()}` } : {};
+        const res = await fetch(`/api/listings/${id}`, { headers });
+        const data = await res.json();
         if (data.listing) setListing(data.listing as AnyListing);
         else setNotFound(true);
-      })
-      .catch(() => setNotFound(true));
-  }, [id, listing]);
+      } catch {
+        setNotFound(true);
+      }
+    })();
+  }, [id, listing, authReady, authUser]);
 
   // States — must all be declared before any early returns
   const [saved, setSaved] = useState(false);
@@ -130,6 +137,8 @@ export default function DetailsPage({ params }: PageProps) {
   const [msgSending, setMsgSending] = useState(false);
   const [msgError, setMsgError] = useState('');
   const [booked, setBooked] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [bookError, setBookError] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -164,9 +173,42 @@ export default function DetailsPage({ params }: PageProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleBook = () => {
-    setBooked(true);
-    setTimeout(() => setBooked(false), 3000);
+  const handleBook = async () => {
+    if (booking) return;
+    if (!authUser) { setBookError('Sign in to request a booking.'); return; }
+
+    setBooking(true);
+    setBookError('');
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_id: id,
+          move_in: moveIn,
+          move_out: moveOut,
+          price: coldRent,
+          deposit,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let error = 'Failed to send booking request. Try again.';
+        try { error = JSON.parse(text).error ?? error; } catch { /* non-JSON body */ }
+        setBookError(error);
+        setTimeout(() => setBookError(''), 4000);
+        return;
+      }
+      setBooked(true);
+      setTimeout(() => setBooked(false), 3000);
+    } catch (err) {
+      console.error('[handleBook]', err);
+      setBookError('Network error. Try again.');
+      setTimeout(() => setBookError(''), 4000);
+    } finally {
+      setBooking(false);
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -224,6 +266,11 @@ export default function DetailsPage({ params }: PageProps) {
       {booked && (
         <div className={styles.toast} style={{ background: '#1f8a5b' }}>
           Booking request sent successfully!
+        </div>
+      )}
+      {bookError && (
+        <div className={styles.toast} style={{ background: '#dc2626' }}>
+          {bookError}
         </div>
       )}
 
@@ -502,8 +549,8 @@ export default function DetailsPage({ params }: PageProps) {
                 </a>
               ) : (
                 <>
-                  <button type="button" className={styles.bookBtn} onClick={handleBook}>
-                    Request to book
+                  <button type="button" className={styles.bookBtn} onClick={handleBook} disabled={booking}>
+                    {booking ? 'Sending…' : 'Request to book'}
                   </button>
                   <button type="button" className={styles.msgBtn} onClick={() => setMsgModal(true)}>
                     <IMessage /> Message host

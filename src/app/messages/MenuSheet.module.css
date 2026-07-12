@@ -1,0 +1,192 @@
+/* ── Desktop popover ─────────────────────────────────────────── */
+.popover {
+  display: block;
+  position: absolute;
+  width: 236px;
+  background: var(--white);
+  border: 1px solid var(--divider);
+  border-radius: 16px;
+  box-shadow: 0 20px 44px -14px rgba(34, 18, 68, 0.32);
+  padding: 8px;
+  z-index: 30;
+}
+
+.popoverGrid {
+  width: 216px;
+}
+
+.popoverBelowRight {
+  top: calc(100% + 10px);
+  right: 0;
+}
+
+.popoverAboveLeft {
+  bottom: calc(100% + 10px);
+  left: 0;
+}
+
+.popoverTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  padding: 6px 10px 8px;
+}
+
+.listWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.listItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-ui);
+  transition: background 0.15s;
+}
+.listItem:hover:not(:disabled) {
+  background: var(--tint-hover);
+}
+.listItem:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.listIcon {
+  flex: none;
+  display: flex;
+  color: var(--text);
+}
+
+.listIconBoxed {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+}
+
+.listLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.destructive .listIcon,
+.destructive .listLabel {
+  color: #dc2626;
+}
+
+.divider {
+  height: 1px;
+  background: var(--divider);
+  margin: 6px 4px;
+}
+
+/* ── Grid layout (mobile attachment sheet) ───────────────────── */
+.gridWrap {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 10px;
+}
+
+.gridItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.gridItem:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.gridIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--tint);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+}
+
+.gridLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Mobile bottom sheet (hidden on desktop) ─────────────────── */
+.mobileScrim {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .popover {
+    display: none;
+  }
+
+  .mobileScrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 14, 32, 0.4);
+    z-index: 40;
+  }
+
+  .mobileSheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--white);
+    border-radius: 22px 22px 0 0;
+    padding: 10px 14px 26px;
+    box-shadow: 0 -10px 30px rgba(34, 18, 68, 0.18);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .sheetHandle {
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--divider);
+    margin: 0 auto 14px;
+  }
+
+  .sheetTitle {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--text-soft);
+    padding: 0 10px 8px;
+  }
+
+  .listItem {
+    padding: 12px 10px;
+    gap: 13px;
+  }
+
+  .listLabel {
+    font-size: 14.5px;
+  }
+
+  .gridWrap {
+    gap: 16px 10px;
+  }
+}

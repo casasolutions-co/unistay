@@ -188,6 +188,28 @@
   text-overflow: ellipsis;
 }
 
+.verifyBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 6px 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: var(--tint);
+  color: var(--brand);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.verifyBanner:hover { background: var(--tint-hover); }
+
+.verifyBannerVerified {
+  background: #e9f6ef;
+  color: #1f8a5b;
+}
+.verifyBannerVerified:hover { background: #ddf1e5; }
+
 .divider {
   height: 1px;
   background: var(--divider-soft);

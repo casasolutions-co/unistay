@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { previewUrlFor } from '@/lib/heicPreview';
 import ListMobile from './ListMobile';
 import VerifyIdentity from '../verify/page';
+import { useDraftAutosave } from './useDraftAutosave';
 import styles from './page.module.css';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
@@ -157,7 +158,7 @@ function fmtDate(iso: string) {
 
 const OK = '#1f9d6b', WARN = '#c2557a', NEUTRAL = '#b3adbf';
 
-export default function ListYourPlace() {
+function ListYourPlaceInner() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -213,6 +214,73 @@ export default function ListYourPlace() {
   const [maxPeriod, setMaxPeriod] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
 
+  // Resume an existing draft/listing via /list?draft=<id> — prefills every
+  // field above from the same endpoint the public preview page reads.
+  const searchParams = useSearchParams();
+  const draftId = searchParams.get('draft');
+  const [formReady, setFormReady] = useState(!draftId);
+
+  useEffect(() => {
+    if (!draftId || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/listings/${draftId}`);
+        if (!res.ok) throw new Error('not found');
+        const data = await res.json() as {
+          listing?: { landlord_id?: string };
+          formFields?: {
+            ptype: PType; title: string; streetName: string; houseNumber: string;
+            city: string; postcode: string; bedrooms: number; bathrooms: number;
+            roomSize: number; aptSize: number; amenities: Record<string, boolean>;
+            desc: string; mates: string; numMates: number; mateGender: string; prefGender: string;
+            rent: string; utilities: string; deposit: string;
+            availFrom: string; availTo: string; openEnded: boolean;
+            minPeriod: string; maxPeriod: string;
+            photos: { r2Key: string; position: number; isCover: boolean; previewUrl: string }[];
+          };
+        };
+        if (cancelled) return;
+        if (!data.listing || data.listing.landlord_id !== user.uid || !data.formFields) {
+          router.push('/');
+          return;
+        }
+        const f = data.formFields;
+        listingIdRef.current = draftId;
+        setPtype(f.ptype || 'studio');
+        setTitle(f.title || '');
+        setStreetName(f.streetName || '');
+        setHouseNumber(f.houseNumber || '');
+        setCity(f.city || '');
+        setPostcode(f.postcode || '');
+        setBedrooms(f.bedrooms || 1);
+        setBathrooms(f.bathrooms || 1);
+        setRoomSize(f.roomSize || 15);
+        setAptSize(f.aptSize || 50);
+        setAmenities(f.amenities || {});
+        setDesc(f.desc || '');
+        setMates(f.mates || '');
+        setNumMates(f.numMates || 0);
+        setMateGender(f.mateGender || '');
+        setPrefGender(f.prefGender || 'any');
+        setRent(f.rent || '');
+        setUtilities(f.utilities || '');
+        setDeposit(f.deposit || '');
+        setAvailFrom(f.availFrom || '');
+        setAvailTo(f.availTo || '');
+        setOpenEnded(!!f.openEnded);
+        setMinPeriod(f.minPeriod || '');
+        setMaxPeriod(f.maxPeriod || '');
+        setPhotos((f.photos ?? []).map(p => ({ r2Key: p.r2Key, previewUrl: p.previewUrl })));
+      } catch {
+        // Fall back to a blank/new listing rather than blocking the page.
+      } finally {
+        if (!cancelled) setFormReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftId, user, router]);
+
   // Derived
   const titleOk = title.length >= 12 && title.length <= 60;
   const descOk = desc.length >= 60 && desc.length <= 600;
@@ -254,6 +322,19 @@ export default function ListYourPlace() {
   ];
   const pct = Math.round(reqs.filter(Boolean).length / reqs.length * 100);
   const canPublish = reqs.every(Boolean);
+
+  const autosaveStatus = useDraftAutosave(user, listingIdRef.current, {
+    ptype, title, streetName, houseNumber, city, postcode,
+    bedrooms, bathrooms, roomSize, aptSize,
+    amenities, desc, mates, numMates, mateGender, prefGender,
+    rent, utilities, deposit,
+    availFrom, availTo, openEnded,
+    minPeriod, maxPeriod,
+    photos: uploadedPhotos.map((p, i) => ({ r2Key: p.r2Key, position: i, isCover: i === 0 })),
+  }, formReady);
+  const draftStatusText = autosaveStatus === 'saving' ? 'Saving…'
+    : autosaveStatus === 'error' ? 'Couldn’t save changes'
+    : 'Draft saved automatically';
 
   const checklist = [
     { done: !!title.trim() && titleOk, label: 'Title (12–60 characters)' },
@@ -391,6 +472,12 @@ export default function ListYourPlace() {
     color: on ? '#6d28d9' : '#5a5568',
   });
 
+  // Wait for a resumed draft's data to arrive before rendering, so the form
+  // doesn't flash blank fields before the prefill lands.
+  if (draftId && !formReady) {
+    return null;
+  }
+
   // Hosts must complete identity verification before they can list a place.
   // Wait until we know the real status before deciding what to render, so the
   // listing form never flashes on screen for an unverified user.
@@ -415,7 +502,7 @@ export default function ListYourPlace() {
           <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 44, width: 'auto' }} priority />
         </Link>
         <div className={styles.navRight}>
-          <span className={styles.navDraft}>Draft saved automatically</span>
+          <span className={styles.navDraft}>{draftStatusText}</span>
           <Link href="/" className={styles.navExit}>Exit</Link>
         </div>
       </nav>
@@ -877,5 +964,13 @@ export default function ListYourPlace() {
     </div>
       </div>
     </>
+  );
+}
+
+export default function ListYourPlace() {
+  return (
+    <Suspense>
+      <ListYourPlaceInner />
+    </Suspense>
   );
 }

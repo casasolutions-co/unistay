@@ -1,7 +1,7 @@
 'use client';
 
 import ContactSupportMobile from './ContactSupportMobile';
-import ContactSupportDesktop from './ContactSupportDesktop';
+import HelpContactDesktop from '../components/HelpContactDesktop';
 import styles from './page.module.css';
 
 export default function ContactSupportPage() {
@@ -11,7 +11,7 @@ export default function ContactSupportPage() {
         <ContactSupportMobile />
       </div>
       <div className={styles.desktopOnly}>
-        <ContactSupportDesktop />
+        <HelpContactDesktop />
       </div>
     </>
   );

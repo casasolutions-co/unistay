@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AppNav from '../components/AppNav';
+import DeleteAccountModal from '../components/DeleteAccountModal';
 import styles from './SettingsDesktop.module.css';
 
 /* ── Icon helper ── */
@@ -47,98 +48,35 @@ interface NavRowDef {
   onPress?: () => void;
   danger?: boolean;
 }
-interface ToggleRowDef {
-  kind: 'toggle';
-  icon: string;
-  label: string;
-  sub?: string;
-  checked: boolean;
-  onToggle: () => void;
-}
-interface SelectRowDef {
-  kind: 'select';
-  icon: string;
-  label: string;
-  options: string[];
-  value: string;
-  onPick: (v: string) => void;
-}
-type RowDef = NavRowDef | ToggleRowDef | SelectRowDef;
+type RowDef = NavRowDef;
 
 function Row({ row }: { row: RowDef }) {
-  if (row.kind === 'nav') {
-    const inner = (
-      <>
-        <span className={`${styles.rowIconWrap} ${row.danger ? styles.rowIconWrapDanger : ''}`}>
-          <Icon d={row.icon} />
-        </span>
-        <div className={styles.rowBody}>
-          <div className={`${styles.rowLabel} ${row.danger ? styles.rowLabelDanger : ''}`}>{row.label}</div>
-          {row.sub && <div className={styles.rowSub}>{row.sub}</div>}
-        </div>
-        {row.value && <span className={styles.rowValue}>{row.value}</span>}
-        <IChevronRight />
-      </>
-    );
-
-    if (row.onPress) {
-      return (
-        <button type="button" className={styles.row} onClick={row.onPress} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-          {inner}
-        </button>
-      );
-    }
-
-    return (
-      <Link href={row.href ?? '#'} className={styles.row}>
-        {inner}
-      </Link>
-    );
-  }
-
-  if (row.kind === 'toggle') {
-    return (
-      <div className={styles.row}>
-        <span className={styles.rowIconWrap}><Icon d={row.icon} /></span>
-        <div className={styles.rowBody}>
-          <div className={styles.rowLabel}>{row.label}</div>
-          {row.sub && <div className={styles.rowSub}>{row.sub}</div>}
-        </div>
-        <button
-          type="button"
-          className={styles.toggle}
-          style={{ background: row.checked ? '#6d28d9' : '#dcd6e8' }}
-          onClick={row.onToggle}
-          aria-label={row.label}
-        >
-          <span className={styles.toggleKnob} style={{ left: row.checked ? 25 : 3 }} />
-        </button>
+  const inner = (
+    <>
+      <span className={`${styles.rowIconWrap} ${row.danger ? styles.rowIconWrapDanger : ''}`}>
+        <Icon d={row.icon} />
+      </span>
+      <div className={styles.rowBody}>
+        <div className={`${styles.rowLabel} ${row.danger ? styles.rowLabelDanger : ''}`}>{row.label}</div>
+        {row.sub && <div className={styles.rowSub}>{row.sub}</div>}
       </div>
+      {row.value && <span className={styles.rowValue}>{row.value}</span>}
+      <IChevronRight />
+    </>
+  );
+
+  if (row.onPress) {
+    return (
+      <button type="button" className={styles.row} onClick={row.onPress} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+        {inner}
+      </button>
     );
   }
 
   return (
-    <div className={styles.row}>
-      <span className={styles.rowIconWrap}><Icon d={row.icon} /></span>
-      <div className={styles.rowBody}>
-        <div className={styles.rowLabel}>{row.label}</div>
-      </div>
-      <div className={styles.selectOptions}>
-        {row.options.map(o => {
-          const active = row.value === o;
-          return (
-            <button
-              key={o}
-              type="button"
-              className={`${styles.selectOption} ${active ? styles.selectOptionActive : ''}`}
-              onClick={() => row.onPick(o)}
-            >
-              {o}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <Link href={row.href ?? '#'} className={styles.row}>
+      {inner}
+    </Link>
   );
 }
 
@@ -150,15 +88,27 @@ interface SettingsDesktopProps {
 export default function SettingsDesktop({ onOpenLegal }: SettingsDesktopProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [toggles, setToggles] = useState({ activityStatus: true, emailDigest: false });
-  const [appearance, setAppearance] = useState('Light');
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u));
   }, []);
 
-  const flip = (key: keyof typeof toggles) =>
-    setToggles(prev => ({ ...prev, [key]: !prev[key] }));
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    user.getIdToken().then(token =>
+      fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { user?: { verification_status?: string } }) => {
+          if (cancelled || !d.user?.verification_status) return;
+          setVerificationStatus(d.user.verification_status);
+        })
+        .catch(() => {})
+    );
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -172,50 +122,35 @@ export default function SettingsDesktop({ onOpenLegal }: SettingsDesktopProps) {
   const userInitials = user ? initials(user) : '?';
   const userName = user ? displayName(user) : 'Account';
 
+  const verificationLabel = verificationStatus === 'verified' ? 'Verified' : verificationStatus === 'pending' ? 'In review' : 'Not verified';
+
   const groups: { anchor: string; title: string; subtitle: string; icon: string; rows: RowDef[] }[] = [
     {
-      anchor: 'privacy',
-      title: 'Privacy & security',
-      subtitle: 'Control who can see your activity and data.',
-      icon: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+      anchor: 'account',
+      title: 'Account',
+      subtitle: 'Your identity verification status.',
+      icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z',
       rows: [
-        { kind: 'nav', icon: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z', label: 'Profile visibility', value: 'Hosts only', href: '#' },
-        { kind: 'toggle', icon: 'M12 8v4l3 3M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z', label: 'Show activity status', sub: 'Let others see when you’re online', checked: toggles.activityStatus, onToggle: () => flip('activityStatus') },
-        { kind: 'nav', icon: 'M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10', label: 'Blocked users', value: '0', href: '#' },
-        { kind: 'nav', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6', label: 'Download my data', href: '#' },
-      ],
-    },
-    {
-      anchor: 'preferences',
-      title: 'Preferences',
-      subtitle: 'Language, currency and appearance.',
-      icon: 'M5 8h14M5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 0v8a2 2 0 0 0 2 2h7m3 0 3-3-3-3m3 3h-6',
-      rows: [
-        { kind: 'nav', icon: 'M5 8h14M5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 0v8a2 2 0 0 0 2 2h7m3 0 3-3-3-3m3 3h-6', label: 'Language', value: 'English', href: '#' },
-        { kind: 'nav', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20', label: 'Currency', value: 'EUR €', href: '#' },
-        { kind: 'select', icon: 'M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36A5.4 5.4 0 0 1 12 3Z', label: 'Appearance', options: ['Light', 'Dark', 'System'], value: appearance, onPick: setAppearance },
-        { kind: 'toggle', icon: 'M4 4h16v16H4z M4 9h16 M9 4v16', label: 'Weekly email digest', sub: 'Summary of new listings and messages', checked: toggles.emailDigest, onToggle: () => flip('emailDigest') },
+        { kind: 'nav', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z', label: 'Identity verification', value: verificationLabel, href: '/verify' },
       ],
     },
     {
       anchor: 'activity',
       title: 'Activity',
-      subtitle: 'Your saved homes, applications and messages.',
+      subtitle: 'Your saved homes and messages.',
       icon: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z',
       rows: [
         { kind: 'nav', icon: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z', label: 'Saved homes', value: '12', href: '/saved' },
-        { kind: 'nav', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4', label: 'Applications', value: '3', href: '/messages' },
         { kind: 'nav', icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', label: 'Messages', value: '5', href: '/messages' },
       ],
     },
     {
       anchor: 'support',
-      title: 'Support',
+      title: 'Help center',
       subtitle: 'Get help or review our policies.',
       icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
       rows: [
         { kind: 'nav', icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01', label: 'Help center', href: '/help' },
-        { kind: 'nav', icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', label: 'Contact us', href: '/contact' },
         { kind: 'nav', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6', label: 'Terms & privacy', onPress: onOpenLegal },
       ],
     },
@@ -279,11 +214,15 @@ export default function SettingsDesktop({ onOpenLegal }: SettingsDesktopProps) {
                 <div className={styles.dangerTitle}>Delete account</div>
                 <div className={styles.dangerSub}>Permanently remove your account and all associated data.</div>
               </div>
-              <button type="button" className={styles.dangerBtn}>Delete account</button>
+              <button type="button" className={styles.dangerBtn} onClick={() => setDeleteModalOpen(true)}>Delete account</button>
             </div>
           </div>
         </div>
       </div>
+
+      {deleteModalOpen && (
+        <DeleteAccountModal user={user} onClose={() => setDeleteModalOpen(false)} />
+      )}
     </div>
   );
 }

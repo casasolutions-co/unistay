@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import styles from './HelpCenterMobile.module.css';
 
@@ -44,6 +44,13 @@ function IContact() {
 /* ── Data ─────────────────────────────────────────────────────── */
 type Category = 'all' | 'booking' | 'payments' | 'account' | 'safety';
 
+interface Faq {
+  id: string;
+  category: Exclude<Category, 'all'>;
+  question: string;
+  answer: string;
+}
+
 const CATS: { id: Category; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'booking', label: 'Booking' },
@@ -52,29 +59,32 @@ const CATS: { id: Category; label: string }[] = [
   { id: 'safety', label: 'Safety' },
 ];
 
-const ALL_FAQS: { id: number; cat: Category; q: string; a: string }[] = [
-  { id: 0, cat: 'booking', q: 'How do I book a room on UniStay?', a: 'Open a listing, check availability, and tap "Request to book." The landlord confirms within their response window, and you’ll get a notification once it’s accepted.' },
-  { id: 1, cat: 'booking', q: 'Can I cancel a confirmed booking?', a: 'Yes. Go to Settings → Applications, open the booking, and tap Cancel. Refund eligibility depends on the landlord’s cancellation policy shown at checkout.' },
-  { id: 2, cat: 'payments', q: 'What payment methods are supported?', a: 'We support major debit/credit cards and SEPA bank transfer for landlords based in the EU. Payment details are securely processed by our payment partner.' },
-  { id: 3, cat: 'payments', q: 'When is my deposit charged?', a: 'Deposits are only charged once a landlord accepts your booking request, never before. You’ll see a clear breakdown of charges before you confirm.' },
-  { id: 4, cat: 'account', q: 'How do I verify my identity?', a: 'Go to Settings → Verify identity and upload a valid photo ID. Verification usually completes within a few minutes.' },
-  { id: 5, cat: 'account', q: 'How do I change my email or password?', a: 'Open Settings → Profile to update your email, or use the "Forgot password" link on the login screen to reset your password.' },
-  { id: 6, cat: 'safety', q: 'How are listings verified?', a: 'Every listing goes through document and ownership checks before it goes live, and we monitor for suspicious activity across the platform.' },
-  { id: 7, cat: 'safety', q: 'What should I do if something feels wrong?', a: 'Use the Report button on a listing or profile, or contact support directly — our safety team reviews every report within 24 hours.' },
-];
-
 /* ── Main component ───────────────────────────────────────────── */
 export default function HelpCenterMobile() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category>('all');
-  const [open, setOpen] = useState<Record<number, boolean>>({ 0: true });
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggle = (id: number) => setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+  useEffect(() => {
+    fetch('/api/faqs')
+      .then((res) => (res.ok ? res.json() : { faqs: [] }))
+      .then((data: { faqs: Faq[] }) => {
+        setFaqs(data.faqs ?? []);
+        if (data.faqs?.[0]) setOpen({ [data.faqs[0].id]: true });
+      })
+      .catch(() => setFaqs([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = (id: string) => setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const q = query.trim().toLowerCase();
-  const filtered = ALL_FAQS.filter((f) => {
-    const matchesCat = category === 'all' || f.cat === category;
-    const matchesQuery = !q || f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q);
+  const filtered = faqs.filter((f) => {
+    const matchesCat = category === 'all' || f.category === category;
+    const matchesQuery =
+      !q || f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q);
     return matchesCat && matchesQuery;
   });
 
@@ -120,19 +130,23 @@ export default function HelpCenterMobile() {
 
         {/* FAQ group */}
         <div style={{ marginBottom: 22 }}>
-          <p className={styles.groupLabel}>{resultsLabel}</p>
+          <p className={styles.groupLabel}>{loading ? 'Frequently asked' : resultsLabel}</p>
           <div className={styles.faqCard}>
-            {filtered.map((f) => (
-              <div key={f.id} className={styles.faqRow}>
-                <button type="button" className={styles.faqQuestionBtn} onClick={() => toggle(f.id)}>
-                  <span className={styles.faqQuestion}>{f.q}</span>
-                  <IChevron open={!!open[f.id]} />
-                </button>
-                {open[f.id] && <div className={styles.faqAnswer}>{f.a}</div>}
+            {loading && <div className={styles.noResults}>Loading…</div>}
+            {!loading &&
+              filtered.map((f) => (
+                <div key={f.id} className={styles.faqRow}>
+                  <button type="button" className={styles.faqQuestionBtn} onClick={() => toggle(f.id)}>
+                    <span className={styles.faqQuestion}>{f.question}</span>
+                    <IChevron open={!!open[f.id]} />
+                  </button>
+                  {open[f.id] && <div className={styles.faqAnswer}>{f.answer}</div>}
+                </div>
+              ))}
+            {!loading && filtered.length === 0 && (
+              <div className={styles.noResults}>
+                {query ? <>No results for &ldquo;{query}&rdquo;</> : 'No FAQs yet.'}
               </div>
-            ))}
-            {filtered.length === 0 && (
-              <div className={styles.noResults}>No results for &ldquo;{query}&rdquo;</div>
             )}
           </div>
         </div>

@@ -392,6 +392,58 @@
 }
 .moreBtn:hover { background: var(--tint); }
 
+/* inline "search in conversation" bar */
+.inlineSearchBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 24px 0;
+  padding: 0 14px;
+  height: 42px;
+  background: var(--tint);
+  border: 1px solid #e6dcfb;
+  border-radius: 12px;
+}
+
+.inlineSearchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  outline: none;
+}
+
+.inlineSearchClose {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.blockedBanner {
+  flex: none;
+  margin: 12px 24px 0;
+  padding: 11px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #b91c1c;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 /* pinned listing */
 .pinnedListing {
   flex: none;
@@ -756,6 +808,73 @@
   color: #6b6675;
 }
 
+/* proposed viewing times card */
+.viewingTimesCard {
+  max-width: 60%;
+  align-self: flex-start;
+}
+
+.viewingTimesInner {
+  background: #fff;
+  border: 1.5px solid #e6dcfb;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px -10px rgba(76, 29, 149, 0.4);
+}
+
+.viewingTimesHeader {
+  padding: 13px 15px 11px;
+  background: linear-gradient(135deg, #f3effe, #ede4fd);
+}
+
+.viewingTimesTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.viewingTimesLabel {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 13px;
+  color: #4a1d95;
+}
+
+.viewingTimesSub {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6675;
+}
+
+.viewingTimesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.viewingTimesSlotBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 13px;
+  border: 1.5px solid #ece8f3;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  transition: background 0.15s;
+}
+.viewingTimesSlotBtn:hover:not(:disabled) { background: var(--tint-hover); }
+.viewingTimesSlotBtn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
 /* typing indicator */
 .typingBubble {
   align-self: flex-start;
@@ -833,6 +952,18 @@
   transition: background 0.15s;
 }
 .attachBtn:hover { background: var(--tint); }
+.attachBtn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.attachErrorBanner {
+  padding: 9px 14px;
+  margin-bottom: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 12.5px;
+  font-weight: 600;
+}
 
 .inputWrap {
   flex: 1;
@@ -1002,6 +1133,7 @@
 
   .bookingCard,
   .viewingCard,
+  .viewingTimesCard,
   .fileCard {
     max-width: 86%;
   }
@@ -1017,6 +1149,11 @@
 
   .chatHeader {
     padding: 12px 14px;
+  }
+
+  .inlineSearchBar,
+  .blockedBanner {
+    margin: 10px 14px 0;
   }
 
   .pinnedListing {

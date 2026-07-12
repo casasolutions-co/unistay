@@ -24,12 +24,14 @@ export async function GET(req: NextRequest) {
   // Returns one row per inquiry with the latest message preview and unread count.
   const threads = await d1Query<{
     inquiry_id: string;
-    listing_id: string;
+    listing_id: string | null;
     listing_title: string | null;
     listing_city: string | null;
     cold_rent: number | null;
     landlord_id: string | null;
     student_id: string;
+    type: string;
+    subject: string | null;
     other_id: string | null;
     other_name: string | null;
     other_role: string | null;
@@ -47,9 +49,12 @@ export async function GET(req: NextRequest) {
        l.cold_rent,
        l.landlord_id,
        i.student_id,
-       CASE WHEN i.student_id = ? THEN l.landlord_id ELSE i.student_id END AS other_id,
-       ou.name       AS other_name,
-       ou.role       AS other_role,
+       i.type,
+       i.subject,
+       CASE WHEN i.type = 'support' THEN NULL
+            ELSE CASE WHEN i.student_id = ? THEN l.landlord_id ELSE i.student_id END END AS other_id,
+       CASE WHEN i.type = 'support' THEN 'UniStay Support' ELSE ou.name END AS other_name,
+       CASE WHEN i.type = 'support' THEN 'support' ELSE ou.role END AS other_role,
        m.body        AS last_body,
        m.msg_type    AS last_type,
        m.sender_id   AS last_sender_id,
@@ -80,5 +85,18 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ threads: enriched });
+  // Hide threads the user has "deleted" — they reappear once a newer message arrives,
+  // since there's no per-user archive flag on `inquiries` to hide them permanently.
+  const [me] = await d1Query<{ preferences: string | null }>(
+    'SELECT preferences FROM users WHERE id = ?',
+    [uid]
+  );
+  const prefs = me?.preferences ? JSON.parse(me.preferences) : {};
+  const hiddenThreads: Record<string, number> = prefs.hiddenThreads ?? {};
+  const visible = enriched.filter(t => {
+    const hiddenAt = hiddenThreads[t.inquiry_id];
+    return hiddenAt === undefined || (t.last_at ?? 0) > hiddenAt;
+  });
+
+  return NextResponse.json({ threads: visible });
 }
