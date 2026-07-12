@@ -49,14 +49,7 @@ export async function POST(req: NextRequest) {
       photos: photoList,
     })
 
-    // Audit log is best-effort — admin_audit_log.admin_id FK-references users(id),
-    // and an admin session's email/uid isn't necessarily a row in `users`, so don't
-    // let a failed audit write undo an already-persisted listing.
-    try {
-      await _writeAudit(session.email, 'listing.casa_create', 'listing', id)
-    } catch (err) {
-      console.error('[POST /api/casa-listings] audit log write failed:', err)
-    }
+    await _writeAudit(session.email, 'listing.casa_create', 'listing', id)
 
     return NextResponse.json({ listing_id: id })
   } catch (err) {

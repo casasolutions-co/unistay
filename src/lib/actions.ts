@@ -5,17 +5,26 @@ import { redirect } from 'next/navigation'
 import {
   _setUserStatus, _setListingStatus, _setDocStatus, _redactMessage,
   _setReportStatus, _setAppSetting, _writeAudit, _deleteCasaListing, _sendMessage, _deleteUserAccount,
+  _createFaq, _updateFaq, _deleteFaq, _moveFaq, _setTicketStatus, getThreadMeta,
 } from './data'
 import { deleteAdminSession, getAdminSession } from './session'
+import { adminAuth } from './firebase-admin'
+import type { FaqCategory } from './types'
+import { sendEmail } from './email/send'
+import { supportTicketReplyEmail, supportTicketResolvedEmail } from './email/templates'
 
-async function adminEmail(): Promise<string> {
+async function requireAdmin() {
   const session = await getAdminSession()
-  return session?.email ?? 'unknown-admin'
+  if (!session) throw new Error('Not authenticated')
+  return session
 }
 
-async function adminUid(): Promise<string | undefined> {
-  const session = await getAdminSession()
-  return session?.uid
+async function adminEmail(): Promise<string> {
+  return (await requireAdmin()).email
+}
+
+async function adminUid(): Promise<string> {
+  return (await requireAdmin()).uid
 }
 
 export async function logout() {
@@ -47,6 +56,9 @@ export async function banUser(id: string, reason: string, expiresAt: string | nu
   const email = await adminEmail()
   const uid = await adminUid()
   await _setUserStatus(id, 'banned', { banReason: reason, banExpiresAt: expiresAt, adminId: uid })
+  // users.id is the Firebase uid (see src/app/api/auth/sync/route.ts in the student app) — revoke
+  // so a still-valid ID token can't keep authenticating past this point.
+  await adminAuth.revokeRefreshTokens(id)
   await _writeAudit(email, 'user.ban', 'user', id, `${reason}${expiresAt ? ` (until ${expiresAt})` : ' (permanent)'}`)
   revalidatePath('/users')
   revalidatePath('/')
@@ -106,9 +118,7 @@ export async function archiveListing(id: string, reason: string) {
 export async function deleteCasaListing(id: string) {
   const email = await adminEmail()
   await _deleteCasaListing(id)
-  try {
-    await _writeAudit(email, 'listing.casa_delete', 'listing', id)
-  } catch { /* best-effort — see /api/casa-listings for why this can fail */ }
+  await _writeAudit(email, 'listing.casa_delete', 'listing', id)
   revalidatePath('/listings')
   revalidatePath('/')
 }
@@ -178,6 +188,39 @@ export async function sendMessage(inquiryId: string, formData: FormData) {
   await _sendMessage(inquiryId, uid ?? email, body)
   await _writeAudit(email, 'message.send', 'inquiry', inquiryId, body)
   revalidatePath('/messages')
+
+  // Best-effort — the message is already sent and persisted above, so a failure
+  // here (thread lookup or the email provider) must never surface as a failed
+  // action and risk the admin retrying/duplicating the reply.
+  try {
+    const thread = await getThreadMeta(inquiryId)
+    if (thread?.type === 'support' && thread.studentEmail) {
+      await sendEmail(thread.studentEmail, supportTicketReplyEmail({
+        name: thread.studentName,
+        ticketNo: thread.ticketNo ?? 0,
+        subject: thread.subject ?? '',
+      }))
+    }
+  } catch (err) {
+    console.error('Failed to send ticket reply email', err)
+  }
+}
+
+export async function setTicketStatus(inquiryId: string, status: 'open' | 'resolved') {
+  const email = await adminEmail()
+  const thread = await getThreadMeta(inquiryId)
+  if (!thread || thread.type !== 'support') throw new Error('Not a support ticket')
+  await _setTicketStatus(inquiryId, status)
+  await _writeAudit(email, status === 'resolved' ? 'ticket.resolve' : 'ticket.reopen', 'inquiry', inquiryId)
+  revalidatePath('/messages')
+
+  if (status === 'resolved' && thread.studentEmail) {
+    await sendEmail(thread.studentEmail, supportTicketResolvedEmail({
+      name: thread.studentName,
+      ticketNo: thread.ticketNo ?? 0,
+      subject: thread.subject ?? '',
+    })).catch(err => console.error('Failed to send ticket resolved email', err))
+  }
 }
 
 // ─── Settings ──────────────────────────────────────────────────────────────
@@ -188,4 +231,41 @@ export async function toggleAppSetting(key: string, enabled: boolean) {
   await _setAppSetting(key, enabled, uid)
   await _writeAudit(email, 'setting.update', 'setting', key, enabled ? 'enabled' : 'disabled')
   revalidatePath('/settings')
+}
+
+// ─── FAQs ──────────────────────────────────────────────────────────────────
+
+export async function createFaq(category: FaqCategory, question: string, answer: string, published: boolean) {
+  const email = await adminEmail()
+  const id = await _createFaq(category, question, answer, published)
+  await _writeAudit(email, 'faq.create', 'faq', id, question)
+  revalidatePath('/faqs')
+}
+
+export async function updateFaq(id: string, fields: { question?: string; answer?: string }) {
+  const email = await adminEmail()
+  await _updateFaq(id, fields)
+  await _writeAudit(email, 'faq.update', 'faq', id)
+  revalidatePath('/faqs')
+}
+
+export async function toggleFaqPublished(id: string, published: boolean) {
+  const email = await adminEmail()
+  await _updateFaq(id, { published })
+  await _writeAudit(email, 'faq.update', 'faq', id, published ? 'published' : 'unpublished')
+  revalidatePath('/faqs')
+}
+
+export async function deleteFaq(id: string) {
+  const email = await adminEmail()
+  await _deleteFaq(id)
+  await _writeAudit(email, 'faq.delete', 'faq', id)
+  revalidatePath('/faqs')
+}
+
+export async function moveFaq(id: string, direction: 'up' | 'down') {
+  const email = await adminEmail()
+  await _moveFaq(id, direction)
+  await _writeAudit(email, 'faq.reorder', 'faq', id, direction)
+  revalidatePath('/faqs')
 }

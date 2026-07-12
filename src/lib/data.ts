@@ -1,5 +1,5 @@
 import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
-import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts } from './types'
+import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory } from './types'
 import { findStaticListing } from './staticListings'
 import { deletePhoto } from './r2'
 
@@ -312,12 +312,17 @@ export async function getListing(id: string): Promise<Listing | null> {
 
 interface ThreadRow {
   inquiry_id: string
-  listing_id: string
+  type: string
+  subject: string | null
+  ticket_no: number | null
+  ticket_status: string | null
+  listing_id: string | null
   listing_title: string | null
   listing_city: string | null
   cold_rent: number | null
   student_id: string
   student_name: string | null
+  student_email: string | null
   landlord_id: string | null
   landlord_name: string | null
   last_body: string | null
@@ -328,9 +333,11 @@ interface ThreadRow {
 // listings is a LEFT JOIN: inquiries can point at a static/partner listing_id
 // (e.g. CASA properties baked into the student app) that never got a row in
 // the D1 listings table, and those conversations still need to show up here.
+// Support tickets (i.type = 'support') carry no listing_id at all — they're
+// identified by i.subject/i.ticket_no instead.
 const THREAD_META_SELECT = `
-  SELECT i.id as inquiry_id, i.listing_id, l.title as listing_title, l.city as listing_city, l.cold_rent,
-         i.student_id, su.name as student_name, l.landlord_id, lu.name as landlord_name
+  SELECT i.id as inquiry_id, i.type, i.subject, i.ticket_no, i.status as ticket_status, i.listing_id, l.title as listing_title, l.city as listing_city, l.cold_rent,
+         i.student_id, su.name as student_name, su.email as student_email, l.landlord_id, lu.name as landlord_name
   FROM inquiries i
   LEFT JOIN listings l ON l.id = i.listing_id
   JOIN users su ON su.id = i.student_id
@@ -341,17 +348,25 @@ function mapThreadMeta(r: ThreadRow): MessageThread {
   // CASA/PARTNER listings are static data with no D1 row by design (see
   // reference/html_files/ADMIN_PANEL_PLAN.md §3) — fall back to that catalog
   // so these conversations still show a real title/city/price.
-  const fallback = r.listing_title ? undefined : findStaticListing(r.listing_id)
+  const fallback = r.listing_title || !r.listing_id ? undefined : findStaticListing(r.listing_id)
+  const isSupport = r.type === 'support'
   return {
     inquiryId: r.inquiry_id,
+    type: isSupport ? 'support' : 'booking',
+    subject: r.subject,
+    ticketNo: r.ticket_no,
+    // inquiries.status is generic ('pending'/'accepted'/'rejected' for booking
+    // inquiries) — support tickets repurpose it as 'open'/'resolved' instead.
+    ticketStatus: isSupport ? (r.ticket_status === 'resolved' ? 'resolved' : 'open') : null,
     listingId: r.listing_id,
     listingTitle: r.listing_title ?? fallback?.title ?? null,
     listingCity: r.listing_city ?? fallback?.city ?? null,
     coldRent: r.cold_rent ?? fallback?.coldRent ?? null,
     studentId: r.student_id,
     studentName: r.student_name ?? '(unknown student)',
+    studentEmail: r.student_email,
     landlordId: r.landlord_id,
-    landlordName: r.landlord_name ?? (r.landlord_id ? '(unknown landlord)' : fallback?.badge === 'PARTNER' ? 'Partner host' : 'UniStay CASA'),
+    landlordName: r.landlord_name ?? (r.landlord_id ? '(unknown landlord)' : isSupport ? 'UniStay Support' : fallback?.badge === 'PARTNER' ? 'Partner host' : 'UniStay CASA'),
   }
 }
 
@@ -359,8 +374,8 @@ function mapThreadMeta(r: ThreadRow): MessageThread {
 export async function getMessageThreads(opts: { filter?: string } = {}): Promise<MessageThread[]> {
   const [rows, reportedRows] = await Promise.all([
     d1All<ThreadRow>(
-      `SELECT i.id as inquiry_id, i.listing_id, l.title as listing_title, l.city as listing_city, l.cold_rent,
-              i.student_id, su.name as student_name, l.landlord_id, lu.name as landlord_name,
+      `SELECT i.id as inquiry_id, i.type, i.subject, i.ticket_no, i.status as ticket_status, i.listing_id, l.title as listing_title, l.city as listing_city, l.cold_rent,
+              i.student_id, su.name as student_name, su.email as student_email, l.landlord_id, lu.name as landlord_name,
               m.body as last_body, m.created_at as last_at, m.deleted_at as last_deleted_at
        FROM inquiries i
        LEFT JOIN listings l ON l.id = i.listing_id
@@ -548,14 +563,22 @@ export async function getReportsForTarget(targetType: string, targetId: string):
 }
 
 export async function getAppSettings(): Promise<AppSetting[]> {
-  const DEFAULTS: Omit<AppSetting, 'enabled'>[] = [
-    { key: 'signups_enabled', label: 'Allow new sign-ups', description: 'Kill switch for new account registration.' },
-    { key: 'listing_submission_enabled', label: 'Allow new listing submissions', description: 'Pause "List Your Place" submissions during an incident.' },
-    { key: 'maintenance_mode', label: 'Maintenance mode', description: 'Show a maintenance banner and block non-admin traffic.' },
+  // `default` is each switch's behavior when no admin has ever touched it —
+  // the two feature toggles are on until paused, but maintenance mode must
+  // default to off, not on, for a site nobody has ever put into maintenance.
+  const DEFAULTS: (Omit<AppSetting, 'enabled'> & { default: boolean })[] = [
+    { key: 'signups_enabled', label: 'Allow new sign-ups', description: 'Kill switch for new account registration.', default: true },
+    { key: 'listing_submission_enabled', label: 'Allow new listing submissions', description: 'Pause "List Your Place" submissions during an incident.', default: true },
+    { key: 'maintenance_mode', label: 'Maintenance mode', description: 'Show a maintenance banner and block non-admin traffic.', default: false },
   ]
   const rows = await d1All<{ key: string; value: string }>(`SELECT key, value FROM app_settings`)
   const stored = new Map(rows.map(r => [r.key, r.value]))
-  return DEFAULTS.map(d => ({ ...d, enabled: stored.has(d.key) ? stored.get(d.key) === 'true' : true }))
+  return DEFAULTS.map(({ key, label, description, default: def }) => ({
+    key,
+    label,
+    description,
+    enabled: stored.has(key) ? stored.get(key) === 'true' : def,
+  }))
 }
 
 export async function getAuditLog(): Promise<AuditLogEntry[]> {
@@ -577,6 +600,31 @@ export async function getAuditLog(): Promise<AuditLogEntry[]> {
     note: r.note,
     createdAt: relativeTime(r.created_at),
   }))
+}
+
+interface FaqRow {
+  id: string
+  category: string
+  question: string
+  answer: string
+  position: number
+  published: number
+}
+
+function mapFaq(r: FaqRow): Faq {
+  return {
+    id: r.id,
+    category: r.category as FaqCategory,
+    question: r.question,
+    answer: r.answer,
+    position: r.position,
+    published: !!r.published,
+  }
+}
+
+export async function getFaqs(): Promise<Faq[]> {
+  const rows = await d1All<FaqRow>(`SELECT * FROM faqs ORDER BY category, position`)
+  return rows.map(mapFaq)
 }
 
 // ─── Mutations (used by server actions) ───────────────────────────────────────
@@ -631,6 +679,16 @@ export async function _sendMessage(inquiryId: string, senderId: string, body: st
     `INSERT INTO messages (id, inquiry_id, sender_id, body, msg_type, created_at) VALUES (?, ?, ?, ?, 'text', ?)`,
     [crypto.randomUUID(), inquiryId, senderId, body, Date.now()]
   )
+}
+
+// Support tickets only — reuses inquiries.status ('open'/'resolved'), scoped
+// by type so this can never touch a booking inquiry's 'pending'/'accepted'/'rejected' state.
+export async function _setTicketStatus(inquiryId: string, status: 'open' | 'resolved') {
+  await d1Run(`UPDATE inquiries SET status = ?, updated_at = ? WHERE id = ? AND type = 'support'`, [
+    status,
+    nowSeconds(),
+    inquiryId,
+  ])
 }
 
 // Hard-deletes a user and everything that traces back to them: their listings
@@ -717,11 +775,67 @@ export async function _setAppSetting(key: string, enabled: boolean, adminId?: st
   )
 }
 
-export async function _writeAudit(adminEmail: string, action: string, targetType: string, targetId: string, note?: string | null) {
+export async function _createFaq(category: FaqCategory, question: string, answer: string, published: boolean): Promise<string> {
+  const id = crypto.randomUUID()
+  const now = nowSeconds()
+  const maxRow = await d1First<{ maxPos: number | null }>(`SELECT MAX(position) as maxPos FROM faqs WHERE category = ?`, [category])
+  const position = (maxRow?.maxPos ?? 0) + 1
   await d1Run(
-    `INSERT INTO admin_audit_log (id, admin_id, action, target_type, target_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [crypto.randomUUID(), adminEmail, action, targetType, targetId, note ?? null, nowSeconds()]
+    `INSERT INTO faqs (id, category, question, answer, position, published, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, category, question, answer, position, published ? 1 : 0, now, now]
   )
+  return id
+}
+
+export async function _updateFaq(id: string, fields: { question?: string; answer?: string; published?: boolean }) {
+  const sets: string[] = []
+  const params: (string | number)[] = []
+  if (fields.question !== undefined) { sets.push('question = ?'); params.push(fields.question) }
+  if (fields.answer !== undefined) { sets.push('answer = ?'); params.push(fields.answer) }
+  if (fields.published !== undefined) { sets.push('published = ?'); params.push(fields.published ? 1 : 0) }
+  if (!sets.length) return
+  sets.push('updated_at = ?')
+  params.push(nowSeconds())
+  params.push(id)
+  await d1Run(`UPDATE faqs SET ${sets.join(', ')} WHERE id = ?`, params)
+}
+
+export async function _deleteFaq(id: string) {
+  await d1Run(`DELETE FROM faqs WHERE id = ?`, [id])
+}
+
+// Swaps `position` with the adjacent row in the same category — the simplest
+// reorder mechanism that avoids a dedicated drag-and-drop dependency (see
+// admin_faqs.md point 4).
+export async function _moveFaq(id: string, direction: 'up' | 'down') {
+  const row = await d1First<FaqRow>(`SELECT * FROM faqs WHERE id = ?`, [id])
+  if (!row) return
+  const neighbor = await d1First<FaqRow>(
+    direction === 'up'
+      ? `SELECT * FROM faqs WHERE category = ? AND position < ? ORDER BY position DESC LIMIT 1`
+      : `SELECT * FROM faqs WHERE category = ? AND position > ? ORDER BY position ASC LIMIT 1`,
+    [row.category, row.position]
+  )
+  if (!neighbor) return
+  const now = nowSeconds()
+  await d1Run(`UPDATE faqs SET position = ?, updated_at = ? WHERE id = ?`, [neighbor.position, now, row.id])
+  await d1Run(`UPDATE faqs SET position = ?, updated_at = ? WHERE id = ?`, [row.position, now, neighbor.id])
+}
+
+// Best-effort — admin_audit_log.admin_id FK-references users(id), but an admin
+// session's email/uid isn't necessarily a row in `users` (that table only holds
+// students/landlords), so this can fail with a FOREIGN KEY constraint error for
+// every real admin. Never let a failed audit write undo an already-persisted
+// mutation the caller made just before this.
+export async function _writeAudit(adminEmail: string, action: string, targetType: string, targetId: string, note?: string | null) {
+  try {
+    await d1Run(
+      `INSERT INTO admin_audit_log (id, admin_id, action, target_type, target_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), adminEmail, action, targetType, targetId, note ?? null, nowSeconds()]
+    )
+  } catch (err) {
+    console.error(`[_writeAudit] failed to log ${action}:`, err)
+  }
 }
 
 // ─── CASA listings (admin-curated, published straight away, source = 'casa') ──

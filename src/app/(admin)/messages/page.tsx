@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getMessageThreads, getThreadMeta, getThreadMessages } from '@/lib/data'
-import { resolveReport, redactMessage, sendMessage } from '@/lib/actions'
+import { resolveReport, redactMessage, sendMessage, setTicketStatus } from '@/lib/actions'
 import FilterPills from '@/components/ui/FilterPills'
 import ActionBtn, { TriggerBtn } from '@/components/ui/ActionBtn'
 import ReasonModal from '@/components/ui/ReasonModal'
@@ -69,6 +69,12 @@ const ISend = () => (
     <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
   </svg>
 )
+const ISupport = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" />
+    <path d="m4.9 4.9 4.2 4.2M14.9 14.9l4.2 4.2M19.1 4.9l-4.2 4.2M9.1 14.9l-4.2 4.2" />
+  </svg>
+)
 
 const ROLE_STYLE: Record<'student' | 'landlord', { color: string; bg: string }> = {
   student:  { color: '#1f8a5b', bg: '#eafaf2' },
@@ -90,9 +96,10 @@ const LISTING_THUMBS = [
   'repeating-linear-gradient(135deg,#fca5a5 0 4px,#f87171 4px 8px)',
 ]
 
-function listingThumb(listingId: string): string {
+function listingThumb(listingId: string | null): string {
   let h = 0
-  for (let i = 0; i < listingId.length; i++) h = (h * 31 + listingId.charCodeAt(i)) & 0xfffffff
+  const key = listingId ?? ''
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) & 0xfffffff
   return LISTING_THUMBS[h % LISTING_THUMBS.length]
 }
 
@@ -102,11 +109,11 @@ function fmtMsgTime(ms: number | null): string {
 }
 
 /* ── Structured card sub-components ─────────────────────────────── */
-function ListingRef({ title, city, rent, listingId }: { title: string | null; city: string | null; rent: number | null; listingId: string }) {
+function ListingRef({ title, city, rent, listingId }: { title: string | null; city: string | null; rent: number | null; listingId: string | null }) {
   return (
     <div className={styles.cardListingRef}>
       <div className={styles.cardListingThumb} style={{ background: listingThumb(listingId) }} />
-      <span className={styles.cardListingName}>{title ? `${title} · ${city}` : `Listing ${listingId}`}</span>
+      <span className={styles.cardListingName}>{title ? `${title} · ${city}` : listingId ? `Listing ${listingId}` : 'General inquiry'}</span>
       <span className={styles.cardListingPrice}>{rent != null ? `€${rent}/mo` : '—'}</span>
     </div>
   )
@@ -333,24 +340,49 @@ export default async function MessagesPage({
                     <span className={styles.hostChip}><IVerify /> HOST</span>
                   </div>
                   <div className={styles.chatHeaderStatus}>
-                    {activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : 'Listing not in admin catalog'}
+                    {activeThread.type === 'support'
+                      ? `Support ticket #${String(activeThread.ticketNo ?? 0).padStart(8, '0')}`
+                      : activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : 'Listing not in admin catalog'}
                   </div>
                 </div>
                 <button type="button" className={styles.moreBtn}><IMore /></button>
               </div>
 
-              <div className={styles.pinnedListing}>
-                <div className={styles.pinnedThumb} style={{ background: listingThumb(activeThread.listingId) }} />
-                <div className={styles.pinnedMeta}>
-                  <div className={styles.pinnedTitle}>
-                    {activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : `Listing ${activeThread.listingId}`}
+              {activeThread.type === 'support' ? (
+                <div className={styles.pinnedListing}>
+                  <div className={styles.pinnedThumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3effe' }}><ISupport /></div>
+                  <div className={styles.pinnedMeta}>
+                    <div className={styles.pinnedTitle}>{activeThread.subject ?? 'Support ticket'}</div>
+                    <div className={styles.pinnedPrice}>
+                      {`Ticket #${String(activeThread.ticketNo ?? 0).padStart(8, '0')}`}
+                      {' · '}
+                      <span style={{ color: activeThread.ticketStatus === 'resolved' ? '#1f8a5b' : '#b45309' }}>
+                        {activeThread.ticketStatus === 'resolved' ? 'Resolved' : 'Open'}
+                      </span>
+                    </div>
                   </div>
-                  <div className={styles.pinnedPrice}>{activeThread.coldRent != null ? `€${activeThread.coldRent}/mo` : 'price unavailable'}</div>
+                  <ActionBtn
+                    action={setTicketStatus.bind(null, activeThread.inquiryId, activeThread.ticketStatus === 'resolved' ? 'open' : 'resolved')}
+                    label={activeThread.ticketStatus === 'resolved' ? 'Reopen' : 'Mark resolved'}
+                    variant={activeThread.ticketStatus === 'resolved' ? 'ghost' : 'primary'}
+                  />
                 </div>
-                {activeThread.listingTitle && (
-                  <Link href={`/listings/${activeThread.listingId}`} className={styles.viewListingBtn}>View listing</Link>
-                )}
-              </div>
+              ) : activeThread.listingId && (
+                <div className={styles.pinnedListing}>
+                  <div className={styles.pinnedThumb} style={{ background: listingThumb(activeThread.listingId) }} />
+                  <div className={styles.pinnedMeta}>
+                    <div className={styles.pinnedTitle}>
+                      {activeThread.listingTitle ? `${activeThread.listingTitle} · ${activeThread.listingCity}` : `Listing ${activeThread.listingId}`}
+                    </div>
+                    {activeThread.coldRent != null && (
+                      <div className={styles.pinnedPrice}>{`€${activeThread.coldRent}/mo`}</div>
+                    )}
+                  </div>
+                  {activeThread.listingTitle && (
+                    <Link href={`/listings/${activeThread.listingId}`} className={styles.viewListingBtn}>View listing</Link>
+                  )}
+                </div>
+              )}
 
               <div className={`${styles.messages} us-scroll`}>
                 {messages.length === 0 && (

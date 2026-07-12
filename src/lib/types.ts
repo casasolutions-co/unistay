@@ -55,12 +55,17 @@ export interface Message {
 
 export interface MessageThread {
   inquiryId: string
-  listingId: string
+  type: 'booking' | 'support'
+  subject: string | null
+  ticketNo: number | null
+  ticketStatus: 'open' | 'resolved' | null // support threads only
+  listingId: string | null
   listingTitle: string | null
   listingCity: string | null
   coldRent: number | null
   studentId: string
   studentName: string
+  studentEmail: string | null
   landlordId: string | null
   landlordName: string
   lastBody?: string | null
@@ -129,4 +134,17 @@ export interface DashboardCounts {
   messages: number
   documents: number
   reports: number
+}
+
+// Fixed app-level enum — matches the 4 category chips hardcoded in the
+// student app's /help UI. Not a DB-editable list on purpose (see admin_faqs.md).
+export type FaqCategory = 'booking' | 'payments' | 'account' | 'safety'
+
+export interface Faq {
+  id: string
+  category: FaqCategory
+  question: string
+  answer: string
+  position: number
+  published: boolean
 }

@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import { getDashboardCounts } from '@/lib/data'
 import { getAdminSession } from '@/lib/session'
@@ -5,8 +6,10 @@ import { getAdminSession } from '@/lib/session'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const counts = await getDashboardCounts()
   const session = await getAdminSession()
+  if (!session) redirect('/login')
+
+  const counts = await getDashboardCounts()
 
   return (
     <>

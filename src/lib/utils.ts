@@ -75,3 +75,9 @@ export function reportStatus(status: 'open' | 'resolved' | 'dismissed') {
   }
   return map[status]
 }
+
+export function faqStatus(published: boolean) {
+  return published
+    ? { label: 'Published', bg: '#eafaf2', color: '#1f8a5b' }
+    : { label: 'Draft',     bg: '#f4f2f9', color: '#6b6675' }
+}
