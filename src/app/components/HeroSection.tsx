@@ -8,16 +8,8 @@ import { useCitySearch } from '@/lib/useCitySearch';
 import DatePickerPanel from './DatePickerPanel';
 
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
-const AVATAR_SHIFTS = ['0px', '-9px', '-9px', '-9px', '-9px'];
 
 /* ── Icon components ────────────────────────────────────────────── */
-function IconHome() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 11.2 12 4l9 7.2" /><path d="M5.5 9.8V20h13V9.8" /><path d="M10 20v-5h4v5" />
-    </svg>
-  );
-}
 function IconSearch({ color = '#b0aabf', size = 16 }: { color?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,15 +55,6 @@ function IconCheck() {
   );
 }
 
-/* ── Helpers ────────────────────────────────────────────────────── */
-function fmtDate(s: string): string {
-  if (!s) return '';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const parts = s.split('-');
-  if (parts.length !== 3) return '';
-  return parseInt(parts[2], 10) + ' ' + months[parseInt(parts[1], 10) - 1];
-}
-
 /* ── Main Component ─────────────────────────────────────────────── */
 export default function HeroSection() {
   const router = useRouter();
@@ -90,10 +73,11 @@ export default function HeroSection() {
   }, []);
 
   const handleSearch = useCallback(() => {
+    const city = location.trim() || query.trim();
+    if (!city) return;
     setOpen(null);
     const params = new URLSearchParams();
-    const city = location.trim() || query.trim();
-    if (city) params.set('city', city);
+    params.set('city', city);
     if (type !== 'Any type') params.set('type', type);
     if (minVal > 0) params.set('minPrice', String(minVal));
     if (maxVal < 3000) params.set('maxPrice', String(maxVal));

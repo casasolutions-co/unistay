@@ -48,7 +48,6 @@ const TOPICS = ['Booking issue', 'Payments', 'Account', 'Report a problem', 'Som
 export default function ContactSupportMobile() {
   const [user, setUser] = useState<User | null>(null);
   const [topic, setTopic] = useState('');
-  const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
@@ -59,7 +58,7 @@ export default function ContactSupportMobile() {
     return onAuthStateChanged(auth, u => setUser(u));
   }, []);
 
-  const canSubmit = email.trim().length > 3 && subject.trim().length > 0 && message.trim().length > 0;
+  const canSubmit = subject.trim().length > 0 && message.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit || sending) return;
@@ -103,7 +102,7 @@ export default function ContactSupportMobile() {
             <span className={styles.successIcon}><ICheck /></span>
             <p className={styles.successTitle}>Message sent</p>
             <p className={styles.successSub}>
-              Thanks for reaching out. Our support team will reply in Messages — we&apos;ll also follow up at {email} within one business day.
+              Thanks for reaching out. Our support team will reply in Messages within one business day.
             </p>
             <Link href="/messages" className={styles.successBtn}>View in Messages</Link>
           </div>
@@ -140,15 +139,6 @@ export default function ContactSupportMobile() {
 
             {/* Form fields */}
             <div className={styles.form}>
-              <div>
-                <label className={styles.fieldLabel}>Your email</label>
-                <input
-                  className={styles.fieldInput}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
               <div>
                 <label className={styles.fieldLabel}>Subject</label>
                 <input

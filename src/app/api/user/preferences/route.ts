@@ -3,7 +3,7 @@ import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 
 // PATCH /api/user/preferences
-// Merges { showActivityStatus?, emailDigest? } into the user's stored preferences JSON.
+// Merges { showActivityStatus?, emailDigest?, savedListingIds?, ... } into the user's stored preferences JSON.
 export async function PATCH(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;

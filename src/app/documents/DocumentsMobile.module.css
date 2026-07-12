@@ -1,0 +1,235 @@
+.screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 16px 14px;
+  border-bottom: 1px solid #f1eef7;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #1c1530;
+  display: flex;
+}
+
+.headerTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: #1c1530;
+}
+
+.body {
+  padding: 18px 18px 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a94a8;
+  margin-bottom: 8px;
+}
+
+.dropdownWrap {
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.dropdownTrigger {
+  width: 100%;
+  height: 46px;
+  border: 1.5px solid #ece8f3;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: #faf9fc;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1c1530;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ece8f3;
+  border-radius: 12px;
+  box-shadow: 0 20px 44px -14px rgba(34, 18, 68, 0.32);
+  padding: 6px;
+  z-index: 5;
+}
+
+.dropdownOption {
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c1530;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.dropzone {
+  border: 2px dashed #ddd0f6;
+  border-radius: 15px;
+  background: #f9f6ff;
+  padding: 26px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.dropIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: #f3effe;
+  display: grid;
+  place-items: center;
+  color: #6d28d9;
+}
+
+.dropTitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1c1530;
+  text-align: center;
+}
+
+.dropSub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #9a94a8;
+}
+
+.errorText {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c2453f;
+  margin: -10px 0 16px;
+}
+
+.uploadedList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.emptyState {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #9a94a8;
+}
+
+.docRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid #ece8f3;
+  border-radius: 12px;
+}
+
+.docIcon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #fdecea;
+  display: grid;
+  place-items: center;
+  color: #d9534f;
+}
+
+.docBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.docName {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1c1530;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docMeta {
+  font-size: 11px;
+  font-weight: 600;
+  color: #27ae73;
+}
+
+.docRemoveBtn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: #f4f2f9;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #6b6675;
+}
+
+.footer {
+  padding: 14px 18px 24px;
+  border-top: 1px solid #f1eef7;
+}
+
+.submitBtn {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

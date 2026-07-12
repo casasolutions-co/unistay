@@ -7,6 +7,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import MobileTabBar from '../components/MobileTabBar';
 import DeleteAccountModal from '../components/DeleteAccountModal';
+import { useSavedListings } from '@/lib/useSavedListings';
 import styles from './SettingsMobile.module.css';
 
 /* ── Icon helpers ─────────────────────────────────────────────── */
@@ -93,7 +94,9 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const { savedIds } = useSavedListings();
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u));
@@ -108,6 +111,21 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
         .then((d: { user?: { verification_status?: string } }) => {
           if (cancelled || !d.user?.verification_status) return;
           setVerificationStatus(d.user.verification_status);
+        })
+        .catch(() => {})
+    );
+    return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    user.getIdToken().then(token =>
+      fetch('/api/chat/unread-count', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { count?: number }) => {
+          if (cancelled) return;
+          setUnreadCount(d.count ?? 0);
         })
         .catch(() => {})
     );
@@ -177,6 +195,11 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
               value={verificationLabel}
               href="/verify"
             />
+            <NavRow
+              icon="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4"
+              label="Documents"
+              href="/documents"
+            />
           </div>
         </div>
 
@@ -192,12 +215,13 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
             <NavRow
               icon="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"
               label="Saved homes"
-              value="12"
+              value={String(savedIds.length)}
+              href="/saved"
             />
             <NavRow
               icon="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
               label="Messages"
-              value="5"
+              value={unreadCount !== null ? String(unreadCount) : undefined}
               href="/messages"
             />
           </div>

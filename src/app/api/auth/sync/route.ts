@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { getAppSetting } from '@/lib/settings';
+import { sendEmail } from '@/lib/email';
+import { welcomeEmail } from '@/lib/emails/templates';
 
 export async function POST(req: NextRequest) {
   const { token, role } = await req.json();
@@ -38,6 +40,11 @@ export async function POST(req: NextRequest) {
        updated_at = excluded.updated_at`,
     [decoded.uid, decoded.email ?? '', userRole, now, now]
   );
+
+  if (!existing && decoded.email) {
+    const { subject, html } = welcomeEmail({ name: decoded.name, role: userRole });
+    void sendEmail(decoded.email, subject, html);
+  }
 
   // Return the user record including profile completeness
   const [user] = await d1Query(

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
+import { sendEmail } from '@/lib/email';
+import { supportTicketCreatedEmail } from '@/lib/emails/templates';
 
 // POST /api/support
 // Called from the contact form. Creates a support ticket — an inquiry with no
@@ -12,9 +14,11 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let uid: string;
+  let email: string | undefined;
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     uid = decoded.uid;
+    email = decoded.email;
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
@@ -29,8 +33,10 @@ export async function POST(req: NextRequest) {
   try {
     const inquiryId = crypto.randomUUID();
     await d1Query(
-      `INSERT INTO inquiries (id, listing_id, student_id, message, status, type, subject, created_at, updated_at)
-       VALUES (?, NULL, ?, ?, 'pending', 'support', ?, ?, ?)`,
+      `INSERT INTO inquiries (id, listing_id, student_id, message, status, type, subject, ticket_no, created_at, updated_at)
+       VALUES (?, NULL, ?, ?, 'pending', 'support', ?,
+         (SELECT COALESCE(MAX(ticket_no), 0) + 1 FROM inquiries WHERE type = 'support'),
+         ?, ?)`,
       [inquiryId, uid, message.trim(), subjectLine, now, now]
     );
 
@@ -43,6 +49,21 @@ export async function POST(req: NextRequest) {
 
     // No unread bump here — there's no admin participant yet. Once admin auth
     // exists, this is where a "notify any admin" step would go (see admin_support.md).
+
+    if (email) {
+      const [row] = await d1Query<{ ticket_no: number; name: string | null }>(
+        `SELECT i.ticket_no, u.name FROM inquiries i LEFT JOIN users u ON u.id = i.student_id WHERE i.id = ?`,
+        [inquiryId]
+      );
+      if (row?.ticket_no != null) {
+        const { subject: emailSubject, html } = supportTicketCreatedEmail({
+          name: row.name,
+          ticketNo: row.ticket_no,
+          subject: subjectLine,
+        });
+        void sendEmail(email, emailSubject, html);
+      }
+    }
 
     return NextResponse.json({ inquiry_id: inquiryId, message_id: msgId });
   } catch (err) {

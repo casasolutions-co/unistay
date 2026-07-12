@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  const defaultPreferences = { showActivityStatus: true, emailDigest: false };
+  const defaultPreferences = { showActivityStatus: true, emailDigest: false, savedListingIds: [] as string[] };
   const preferences = user.preferences ? { ...defaultPreferences, ...JSON.parse(user.preferences) } : defaultPreferences;
 
   return NextResponse.json({ user: { ...user, preferences } });

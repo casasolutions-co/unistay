@@ -325,30 +325,6 @@ export default function ProfileDesktop() {
                 })}
               </div>
             </div>
-
-            {/* Housing preferences */}
-            <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>Housing preferences</h2>
-              <div className={styles.prefGrid}>
-                {[
-                  { label: 'Budget', value: '€600 – €950' },
-                  { label: 'Move-in', value: 'Oct 2026' },
-                  { label: 'Duration', value: '6–12 months' },
-                  { label: 'Preferred area', value: 'Maxvorstadt' },
-                ].map(p => (
-                  <div key={p.label} className={styles.prefStat}>
-                    <p className={styles.prefStatLabel}>{p.label}</p>
-                    <p className={styles.prefStatValue}>{p.value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className={styles.tagsLabel}>Looking for</div>
-              <div className={styles.tags}>
-                {['Studio', 'Shared flat (WG)', 'Furnished', 'Pet-friendly', 'Near U-Bahn'].map(t => (
-                  <span key={t} className={styles.tag}>{t}</span>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>

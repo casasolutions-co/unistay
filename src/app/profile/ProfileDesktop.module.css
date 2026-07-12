@@ -393,63 +393,6 @@
 
 .verifyNowBtn:hover { filter: brightness(0.97); }
 
-/* ── Housing preferences ── */
-.prefGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.prefStat {
-  padding: 13px 14px;
-  background: #faf9fc;
-  border: 1px solid #f0edf7;
-  border-radius: 12px;
-}
-
-.prefStatLabel {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #9a94a8;
-  margin: 0 0 5px;
-}
-
-.prefStatValue {
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
-  font-weight: 800;
-  font-size: 15.5px;
-  color: #1c1530;
-  margin: 0;
-}
-
-.tagsLabel {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #9a94a8;
-  margin-bottom: 13px;
-}
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.tag {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #4a3d6b;
-  background: #f6f3fd;
-  border: 1.5px solid #ece5fa;
-  padding: 6px 12px;
-  border-radius: 999px;
-}
-
 /* ── Upload modal ── */
 .modalOverlay {
   position: fixed;

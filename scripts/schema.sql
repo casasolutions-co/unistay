@@ -39,6 +39,19 @@ CREATE TABLE IF NOT EXISTS verification_docs (
   created_at       INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS user_documents (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT REFERENCES users(id),
+  doc_type     TEXT NOT NULL,
+  file_name    TEXT NOT NULL,
+  r2_key       TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  size_bytes   INTEGER NOT NULL,
+  created_at   INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_documents_user ON user_documents(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS listings (
   id             TEXT PRIMARY KEY,
   landlord_id    TEXT REFERENCES users(id),
@@ -94,6 +107,7 @@ CREATE TABLE IF NOT EXISTS inquiries (
   status     TEXT DEFAULT 'pending',
   type       TEXT NOT NULL DEFAULT 'booking',
   subject    TEXT,
+  ticket_no  INTEGER,
   created_at INTEGER,
   updated_at INTEGER
 );

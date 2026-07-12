@@ -266,29 +266,6 @@ export default function ProfileMobile() {
           </div>
         </div>
 
-        {/* Housing preferences */}
-        <div className={styles.card}>
-          <p className={styles.cardTitle}>Housing preferences</p>
-          <div className={styles.prefGrid}>
-            {[
-              { label: 'Budget', value: '€600–950' },
-              { label: 'Move-in', value: 'Oct 2026' },
-              { label: 'Duration', value: '6–12 mo' },
-              { label: 'Area', value: 'Maxvorstadt' },
-            ].map((p) => (
-              <div key={p.label} className={styles.prefStat}>
-                <p className={styles.prefStatLabel}>{p.label}</p>
-                <p className={styles.prefStatValue}>{p.value}</p>
-              </div>
-            ))}
-          </div>
-          <div className={styles.tags}>
-            {['Studio', 'Shared (WG)', 'Furnished', 'Pet-friendly', 'Near U-Bahn'].map((t) => (
-              <span key={t} className={styles.tag}>{t}</span>
-            ))}
-          </div>
-        </div>
-
         {/* Log out */}
         <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

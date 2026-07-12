@@ -5,26 +5,11 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import AppNav from "../components/AppNav";
 import MenuSheet, { MenuItem } from "./MenuSheet";
+import ReportUserModal from "./ReportUserModal";
 import ProposeTimesSheet, { ProposedSlot } from "./ProposeTimesSheet";
 import styles from "./page.module.css";
 
 /* ── Icons ──────────────────────────────────────────────────────── */
-const IHome = () => (
-  <svg
-    width="26"
-    height="26"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#6d28d9"
-    strokeWidth="1.9"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 11.2 12 4l9 7.2" />
-    <path d="M5.5 9.8V20h13V9.8" />
-    <path d="M10 20v-5h4v5" />
-  </svg>
-);
 const ISearch = () => (
   <svg
     width="16"
@@ -38,20 +23,6 @@ const ISearch = () => (
   >
     <circle cx="11" cy="11" r="7" />
     <path d="m21 21-4.3-4.3" />
-  </svg>
-);
-const IPlus = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 5v14M5 12h14" />
   </svg>
 );
 const IMore = () => (
@@ -269,6 +240,7 @@ interface InboxThread {
   student_id: string;
   type: string;
   subject: string | null;
+  ticket_no: number | null;
   other_id: string | null;
   other_name: string | null;
   other_role: string;
@@ -287,6 +259,15 @@ interface ChatMessage {
   metadata: string | null;
   created_at: number;
   read_at: number | null;
+}
+
+// Appends only messages whose id isn't already present — guards against a
+// send/response handler and the background poll both landing the same
+// message (the poll's `since` window can overlap an in-flight send).
+function appendUnique(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const existingIds = new Set(prev.map((m) => m.id));
+  const fresh = incoming.filter((m) => !existingIds.has(m.id));
+  return fresh.length ? [...prev, ...fresh] : prev;
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
@@ -316,6 +297,10 @@ function avatarGradient(id: string): string {
 function initial(name: string | null, id: string): string {
   if (name) return name[0].toUpperCase();
   return id[0].toUpperCase();
+}
+
+function ticketRef(ticketNo: number | null, inquiryId: string): string {
+  return ticketNo != null ? String(ticketNo) : inquiryId.slice(0, 8).toUpperCase();
 }
 
 function fmtTime(ts: number): string {
@@ -699,6 +684,9 @@ export default function MessagesPage() {
   const [reportedThreadIds, setReportedThreadIds] = useState<Set<string>>(
     new Set(),
   );
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -826,7 +814,7 @@ export default function MessagesPage() {
       if (!res.ok) return;
       const { messages: newMsgs } = await res.json();
       if (newMsgs?.length) {
-        setMessages((prev) => [...prev, ...newMsgs]);
+        setMessages((prev) => appendUnique(prev, newMsgs));
         lastTsRef.current = newMsgs[newMsgs.length - 1].created_at;
 
         // Mark incoming as read immediately
@@ -879,12 +867,13 @@ export default function MessagesPage() {
       });
       if (res.ok) {
         const { id, created_at } = await res.json();
-        // Replace optimistic with real ID
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === optimisticId ? { ...m, id, created_at } : m,
-          ),
-        );
+        // Replace optimistic with real ID — unless the poll already landed
+        // this exact message first, in which case just drop the placeholder.
+        setMessages((prev) => {
+          const withoutOptimistic = prev.filter((m) => m.id !== optimisticId);
+          if (withoutOptimistic.some((m) => m.id === id)) return withoutOptimistic;
+          return [...withoutOptimistic, { ...optimisticMsg, id, created_at }];
+        });
         lastTsRef.current = created_at;
 
         // Refresh inbox preview
@@ -921,18 +910,19 @@ export default function MessagesPage() {
           return;
         }
         const { id, created_at, metadata } = await res.json();
-        setMessages((prev) => [
-          ...prev,
-          {
-            id,
-            sender_id: uid,
-            body: file.name,
-            msg_type: "file",
-            metadata: JSON.stringify(metadata),
-            created_at,
-            read_at: null,
-          },
-        ]);
+        setMessages((prev) =>
+          appendUnique(prev, [
+            {
+              id,
+              sender_id: uid,
+              body: file.name,
+              msg_type: "file",
+              metadata: JSON.stringify(metadata),
+              created_at,
+              read_at: null,
+            },
+          ]),
+        );
         lastTsRef.current = created_at;
         if (token) loadInbox(token);
       } catch (err) {
@@ -966,18 +956,19 @@ export default function MessagesPage() {
         });
         if (!res.ok) return;
         const { id, created_at } = await res.json();
-        setMessages((prev) => [
-          ...prev,
-          {
-            id,
-            sender_id: uid,
-            body: `Proposed ${slots.length} viewing time${slots.length > 1 ? "s" : ""}`,
-            msg_type: "viewing_times",
-            metadata: JSON.stringify(metadata),
-            created_at,
-            read_at: null,
-          },
-        ]);
+        setMessages((prev) =>
+          appendUnique(prev, [
+            {
+              id,
+              sender_id: uid,
+              body: `Proposed ${slots.length} viewing time${slots.length > 1 ? "s" : ""}`,
+              msg_type: "viewing_times",
+              metadata: JSON.stringify(metadata),
+              created_at,
+              read_at: null,
+            },
+          ]),
+        );
         lastTsRef.current = created_at;
         setProposeTimesOpen(false);
         if (token) loadInbox(token);
@@ -1007,21 +998,23 @@ export default function MessagesPage() {
         );
         if (!res.ok) return;
         const { metadata, confirmation } = await res.json();
-        setMessages((prev) => [
-          ...prev.map((m) => (m.id === messageId ? { ...m, metadata } : m)),
-          {
-            id: confirmation.id,
-            sender_id: uid,
-            body:
-              status === "accepted"
-                ? "Request accepted ✓"
-                : "Request declined",
-            msg_type: "text",
-            metadata: null,
-            created_at: confirmation.created_at,
-            read_at: null,
-          },
-        ]);
+        setMessages((prev) => {
+          const mapped = prev.map((m) => (m.id === messageId ? { ...m, metadata } : m));
+          return appendUnique(mapped, [
+            {
+              id: confirmation.id,
+              sender_id: uid,
+              body:
+                status === "accepted"
+                  ? "Request accepted ✓"
+                  : "Request declined",
+              msg_type: "text",
+              metadata: null,
+              created_at: confirmation.created_at,
+              read_at: null,
+            },
+          ]);
+        });
         lastTsRef.current = confirmation.created_at;
         if (token) loadInbox(token);
       } catch (err) {
@@ -1050,18 +1043,20 @@ export default function MessagesPage() {
         );
         if (!res.ok) return;
         const { metadata, confirmation } = await res.json();
-        setMessages((prev) => [
-          ...prev.map((m) => (m.id === messageId ? { ...m, metadata } : m)),
-          {
-            id: confirmation.id,
-            sender_id: uid,
-            body: confirmation.body,
-            msg_type: "text",
-            metadata: null,
-            created_at: confirmation.created_at,
-            read_at: null,
-          },
-        ]);
+        setMessages((prev) => {
+          const mapped = prev.map((m) => (m.id === messageId ? { ...m, metadata } : m));
+          return appendUnique(mapped, [
+            {
+              id: confirmation.id,
+              sender_id: uid,
+              body: confirmation.body,
+              msg_type: "text",
+              metadata: null,
+              created_at: confirmation.created_at,
+              read_at: null,
+            },
+          ]);
+        });
         lastTsRef.current = confirmation.created_at;
         if (token) loadInbox(token);
       } catch (err) {
@@ -1112,10 +1107,19 @@ export default function MessagesPage() {
     patchPreferences({ blockedUsers: next });
   }, [activeThread, myPrefs.blockedUsers, patchPreferences]);
 
-  const reportActiveUser = useCallback(async () => {
+  const openReportModal = useCallback(() => {
+    if (!activeThread?.other_id) return;
+    setOverflowMenuOpen(false);
+    setReportModalOpen(true);
+  }, [activeThread]);
+
+  const submitReport = useCallback(async (reason: string) => {
     if (!activeThread?.other_id) return;
     setReportedThreadIds((prev) => new Set(prev).add(activeThread.inquiry_id));
-    setOverflowMenuOpen(false);
+    setReportModalOpen(false);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(`${activeThread.other_name ?? "User"} reported`);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3500);
     const freshToken = await authUser?.getIdToken();
     await fetch("/api/reports", {
       method: "POST",
@@ -1126,7 +1130,7 @@ export default function MessagesPage() {
       body: JSON.stringify({
         targetType: "user",
         targetId: activeThread.other_id,
-        reason: "Reported from conversation",
+        reason,
         inquiryId: activeThread.inquiry_id,
       }),
     });
@@ -1192,7 +1196,7 @@ export default function MessagesPage() {
           key: "report",
           label: alreadyReported ? "Reported" : "Report user",
           icon: <MenuIcon d={MENU_ICON_PATHS.report} />,
-          onClick: reportActiveUser,
+          onClick: openReportModal,
           disabled: alreadyReported,
           divider: true,
         },
@@ -1221,7 +1225,7 @@ export default function MessagesPage() {
     reportedThreadIds,
     toggleMuteThread,
     toggleBlockUser,
-    reportActiveUser,
+    openReportModal,
     deleteActiveConversation,
   ]);
 
@@ -1291,9 +1295,6 @@ export default function MessagesPage() {
           <div className={styles.threadPanelHeader}>
             <div className={styles.threadPanelTop}>
               <h1 className={styles.threadPanelTitle}>Messages</h1>
-              <button className={styles.newBtn}>
-                <IPlus /> New
-              </button>
             </div>
             <div className={styles.searchBar}>
               <ISearch />
@@ -1405,6 +1406,11 @@ export default function MessagesPage() {
                         </span>
                       </div>
                     )}
+                    {!t.listing_title && t.subject && (
+                      <div className={styles.listingPill} style={{ paddingLeft: 9 }}>
+                        <span className={styles.listingPillText}>{t.subject}</span>
+                      </div>
+                    )}
                     <div className={styles.threadPreviewRow}>
                       <span
                         className={styles.threadPreview}
@@ -1483,7 +1489,7 @@ export default function MessagesPage() {
                   <div className={styles.chatHeaderStatus}>
                     {activeThread.listing_title
                       ? `${activeThread.listing_title} · ${activeThread.listing_city}`
-                      : "Support ticket"}
+                      : `Ticket #${ticketRef(activeThread.ticket_no, activeThread.inquiry_id)}${activeThread.subject ? ` · ${activeThread.subject}` : ""}`}
                   </div>
                 </div>
                 <div style={{ position: "relative" }}>
@@ -1555,6 +1561,34 @@ export default function MessagesPage() {
                   >
                     View listing
                   </button>
+                </div>
+              )}
+
+              {/* pinned support ticket */}
+              {!activeThread.listing_title && activeThread.other_role === "support" && (
+                <div className={styles.pinnedListing}>
+                  <div
+                    className={styles.pinnedThumb}
+                    style={{
+                      background: "linear-gradient(180deg, #7c3aed, #6d28d9)",
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <circle cx="12" cy="12" r="4" />
+                      <path d="m4.9 4.9 4.2 4.2M19.1 4.9l-4.2 4.2M4.9 19.1l4.2-4.2M19.1 19.1l-4.2-4.2" />
+                    </svg>
+                  </div>
+                  <div className={styles.pinnedMeta}>
+                    <div className={styles.pinnedTitle}>
+                      {activeThread.subject ?? "Support ticket"}
+                    </div>
+                    <div className={styles.pinnedPrice}>
+                      Ticket #{ticketRef(activeThread.ticket_no, activeThread.inquiry_id)}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1818,6 +1852,20 @@ export default function MessagesPage() {
           </a>
         ))}
       </nav>
+
+      {reportModalOpen && activeThread && (
+        <ReportUserModal
+          targetName={activeThread.other_name ?? "user"}
+          onClose={() => setReportModalOpen(false)}
+          onSubmit={submitReport}
+        />
+      )}
+
+      {toastMessage && (
+        <div className={styles.reportToast}>
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

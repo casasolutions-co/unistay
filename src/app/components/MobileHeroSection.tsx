@@ -315,8 +315,9 @@ export default function MobileHeroSection() {
           type="button"
           className={styles.searchBtn}
           onClick={() => {
+            if (!location.trim()) return;
             const params = new URLSearchParams();
-            if (location) params.set('city', location);
+            params.set('city', location);
             if (type !== 'Any type') params.set('type', type);
             if (maxRent !== 'Any budget') params.set('maxRent', maxRent);
             if (when.resolvedMoveIn) params.set('moveIn', when.resolvedMoveIn);

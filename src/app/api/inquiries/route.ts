@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
+import { sendEmail } from '@/lib/email';
+import { newInquiryEmail } from '@/lib/emails/templates';
 
 // POST /api/inquiries
 // Called from the listing details page "Message host" form.
@@ -26,8 +28,8 @@ export async function POST(req: NextRequest) {
 
   try {
     // Check if listing is in D1 to get landlord (static/partner listings won't be)
-    const [listing] = await d1Query<{ landlord_id: string }>(
-      'SELECT landlord_id FROM listings WHERE id = ?',
+    const [listing] = await d1Query<{ landlord_id: string; title: string }>(
+      'SELECT landlord_id, title FROM listings WHERE id = ?',
       [listing_id]
     );
     const landlordId = listing?.landlord_id ?? null;
@@ -70,6 +72,24 @@ export async function POST(req: NextRequest) {
          ON CONFLICT(user_id) DO UPDATE SET unread = unread + 1`,
         [landlordId]
       );
+
+      const [landlord] = await d1Query<{ email: string; name: string | null }>(
+        'SELECT email, name FROM users WHERE id = ?',
+        [landlordId]
+      );
+      const [student] = await d1Query<{ name: string | null }>(
+        'SELECT name FROM users WHERE id = ?',
+        [uid]
+      );
+      if (landlord?.email) {
+        const { subject, html } = newInquiryEmail({
+          landlordName: landlord.name,
+          studentName: student?.name,
+          listingTitle: listing?.title ?? 'your listing',
+          message: message.trim(),
+        });
+        void sendEmail(landlord.email, subject, html);
+      }
     }
 
     return NextResponse.json({ inquiry_id: inquiryId, message_id: msgId });

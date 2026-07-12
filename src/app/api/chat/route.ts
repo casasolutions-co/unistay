@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     student_id: string;
     type: string;
     subject: string | null;
+    ticket_no: number | null;
     other_id: string | null;
     other_name: string | null;
     other_role: string | null;
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
        i.student_id,
        i.type,
        i.subject,
+       i.ticket_no,
        CASE WHEN i.type = 'support' THEN NULL
             ELSE CASE WHEN i.student_id = ? THEN l.landlord_id ELSE i.student_id END END AS other_id,
        CASE WHEN i.type = 'support' THEN 'UniStay Support' ELSE ou.name END AS other_name,

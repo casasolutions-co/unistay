@@ -30,12 +30,6 @@
   font-size: 10.5px;
 }
 
-/* Only show on mobile */
-@media (min-width: 769px) {
-  .tabBar { display: none; }
-  .fab { display: none; }
-}
-
 .fab {
   position: fixed;
   right: 16px;
@@ -51,4 +45,10 @@
   color: #fff;
   box-shadow: 0 10px 22px -6px rgba(109, 40, 217, 0.55);
   text-decoration: none;
+}
+
+/* Only show on mobile */
+@media (min-width: 769px) {
+  .tabBar { display: none; }
+  .fab { display: none; }
 }

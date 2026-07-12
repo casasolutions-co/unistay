@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { bearerToken, verifyParticipant, bumpInquiryAndNotify } from '@/lib/chat';
+import { sendEmail } from '@/lib/email';
+import { bookingStatusEmail } from '@/lib/emails/templates';
 
 const RESPONDABLE_TYPES = ['booking', 'viewing', 'viewing_times'];
 
@@ -90,6 +92,25 @@ export async function PATCH(
   );
 
   await bumpInquiryAndNotify(inquiryId, message.sender_id, now);
+
+  if (message.msg_type === 'booking' && (payload.status === 'accepted' || payload.status === 'declined')) {
+    const [recipient] = await d1Query<{ email: string; name: string | null }>(
+      'SELECT email, name FROM users WHERE id = ?',
+      [message.sender_id]
+    );
+    const [row] = await d1Query<{ title: string | null }>(
+      `SELECT l.title FROM inquiries i LEFT JOIN listings l ON l.id = i.listing_id WHERE i.id = ?`,
+      [inquiryId]
+    );
+    if (recipient?.email) {
+      const { subject, html } = bookingStatusEmail({
+        studentName: recipient.name,
+        listingTitle: row?.title ?? 'the listing',
+        status: payload.status,
+      });
+      void sendEmail(recipient.email, subject, html);
+    }
+  }
 
   return NextResponse.json({
     metadata: updatedMetadata,
