@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import {
   _setUserStatus, _setListingStatus, _setDocStatus, _redactMessage,
   _setReportStatus, _setAppSetting, _writeAudit, _deleteCasaListing, _sendMessage, _deleteUserAccount,
-  _createFaq, _updateFaq, _deleteFaq, _moveFaq, _setTicketStatus, getThreadMeta,
+  _createFaq, _updateFaq, _deleteFaq, _moveFaq, _setTicketStatus, getThreadMeta, _setLandlordStatus,
 } from './data'
 import { deleteAdminSession, getAdminSession } from './session'
 import { adminAuth } from './firebase-admin'
@@ -70,6 +70,26 @@ export async function unbanUser(id: string) {
   await _setUserStatus(id, 'verified', { adminId: uid })
   await _writeAudit(email, 'user.unban', 'user', id)
   revalidatePath('/users')
+  revalidatePath('/')
+}
+
+// ─── Landlord applications ─────────────────────────────────────────────────
+
+export async function approveLandlord(id: string) {
+  const email = await adminEmail()
+  const uid = await adminUid()
+  await _setLandlordStatus(id, 'approved', null, uid)
+  await _writeAudit(email, 'landlord.approve', 'user', id)
+  revalidatePath('/landlord-requests')
+  revalidatePath('/')
+}
+
+export async function rejectLandlord(id: string, note: string) {
+  const email = await adminEmail()
+  const uid = await adminUid()
+  await _setLandlordStatus(id, 'rejected', note, uid)
+  await _writeAudit(email, 'landlord.reject', 'user', id, note)
+  revalidatePath('/landlord-requests')
   revalidatePath('/')
 }
 

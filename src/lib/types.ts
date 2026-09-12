@@ -3,6 +3,7 @@ export type ListingStatus = 'draft' | 'pending_review' | 'published' | 'rejected
 export type DocStatus = 'pending' | 'approved' | 'rejected'
 export type ReportStatus = 'open' | 'resolved' | 'dismissed'
 export type ReportTargetType = 'user' | 'listing' | 'message' | 'inquiry'
+export type LandlordStatus = 'none' | 'pending' | 'approved' | 'rejected'
 
 export interface User {
   id: string
@@ -87,6 +88,15 @@ export interface ThreadMessage {
   reportReason: string | null
 }
 
+export interface LandlordApplication {
+  id: string
+  name: string
+  email: string
+  applied: string
+  status: LandlordStatus
+  note?: string | null
+}
+
 export interface Document {
   id: string
   userId: string
@@ -137,6 +147,7 @@ export interface DashboardCounts {
   messages: number
   documents: number
   reports: number
+  landlordRequests: number
 }
 
 // Fixed app-level enum — matches the 4 category chips hardcoded in the

@@ -1,5 +1,5 @@
 import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
-import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory } from './types'
+import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory, LandlordApplication, LandlordStatus } from './types'
 import { findStaticListing } from './staticListings'
 import { deletePhoto } from './r2'
 
@@ -218,12 +218,13 @@ const MESSAGE_SELECT = `
 // ─── Query functions ───────────────────────────────────────────────────────────
 
 export async function getDashboardCounts(): Promise<DashboardCounts> {
-  const [users, listings, messages, documents, reports] = await Promise.all([
+  const [users, listings, messages, documents, reports, landlordRequests] = await Promise.all([
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM users WHERE verification_status IN ('unverified','pending')`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM listings WHERE status = 'pending_review'`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM reports WHERE target_type = 'message' AND status = 'open'`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM verification_docs WHERE status = 'pending'`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM reports WHERE status = 'open'`),
+    d1First<{ n: number }>(`SELECT COUNT(*) as n FROM users WHERE landlord_status = 'pending'`),
   ])
   return {
     users: users?.n ?? 0,
@@ -231,6 +232,7 @@ export async function getDashboardCounts(): Promise<DashboardCounts> {
     messages: messages?.n ?? 0,
     documents: documents?.n ?? 0,
     reports: reports?.n ?? 0,
+    landlordRequests: landlordRequests?.n ?? 0,
   }
 }
 
@@ -264,6 +266,52 @@ export async function getUsers(opts: { filter?: string; q?: string } = {}): Prom
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   const rows = await d1All<UserRow>(`SELECT * FROM users ${where} ORDER BY created_at DESC`, params)
   return rows.map(mapUser)
+}
+
+// ─── Landlord applications ─────────────────────────────────────────────────
+// Separate from user verification: verification_status is the identity (KYC)
+// check every user goes through; landlord_status is whether an already-
+// verified user has been approved to publish listings (enforced in the
+// student app's POST /api/listings).
+
+interface LandlordRow {
+  id: string; name: string | null; email: string
+  landlord_status: LandlordStatus; landlord_note: string | null; landlord_applied_at: number | null
+}
+
+function mapLandlordApplication(r: LandlordRow): LandlordApplication {
+  return {
+    id: r.id,
+    name: r.name ?? '(no name)',
+    email: r.email,
+    applied: relativeTime(r.landlord_applied_at),
+    status: r.landlord_status,
+    note: r.landlord_note,
+  }
+}
+
+export async function getLandlordApplications(opts: { filter?: string } = {}): Promise<LandlordApplication[]> {
+  const clauses: string[] = []
+  const params: (string | number)[] = []
+  if (opts.filter && opts.filter !== 'all') {
+    clauses.push('landlord_status = ?')
+    params.push(opts.filter)
+  } else {
+    clauses.push(`landlord_status != 'none'`)
+  }
+  const rows = await d1All<LandlordRow>(
+    `SELECT id, name, email, landlord_status, landlord_note, landlord_applied_at FROM users
+     WHERE ${clauses.join(' AND ')} ORDER BY landlord_applied_at DESC`,
+    params
+  )
+  return rows.map(mapLandlordApplication)
+}
+
+export async function _setLandlordStatus(id: string, status: 'approved' | 'rejected', note: string | null, adminId: string) {
+  await d1Run(
+    `UPDATE users SET landlord_status = ?, landlord_note = ?, landlord_reviewed_at = ?, landlord_reviewed_by = ? WHERE id = ?`,
+    [status, note, nowSeconds(), adminId, id]
+  )
 }
 
 export async function getUser(id: string): Promise<User | null> {

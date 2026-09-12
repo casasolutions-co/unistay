@@ -63,6 +63,17 @@ const NAV = [
     ),
   },
   {
+    href: '/landlord-requests',
+    label: 'Landlord requests',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 21h18M5 21V8l7-4 7 4v13" />
+        <path d="M10 21v-5h4v5" />
+        <path d="m15 10 2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
     href: '/reports',
     label: 'Reports',
     icon: (
@@ -105,7 +116,7 @@ const NAV = [
 ]
 
 interface SidebarProps {
-  counts: { users: number; listings: number; messages: number; documents: number; reports: number }
+  counts: { users: number; listings: number; messages: number; documents: number; reports: number; landlordRequests: number }
   email: string
 }
 
@@ -122,6 +133,7 @@ export default function Sidebar({ counts, email }: SidebarProps) {
     '/listings': counts.listings,
     '/messages': counts.messages,
     '/documents': counts.documents,
+    '/landlord-requests': counts.landlordRequests,
     '/reports': counts.reports,
   }
 

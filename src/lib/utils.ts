@@ -1,4 +1,4 @@
-import type { UserStatus, ListingStatus, DocStatus } from './types'
+import type { UserStatus, ListingStatus, DocStatus, LandlordStatus } from './types'
 
 const AVATAR_COLORS = [
   'linear-gradient(135deg,#7c3aed,#4a1d95)',
@@ -53,6 +53,16 @@ export function listingStatus(status: ListingStatus) {
 
 export function docStatus(status: DocStatus) {
   const map: Record<DocStatus, { label: string; bg: string; color: string }> = {
+    pending:  { label: 'Pending review', bg: '#fff3d6', color: '#92660b' },
+    approved: { label: 'Approved',       bg: '#eafaf2', color: '#1f8a5b' },
+    rejected: { label: 'Rejected',       bg: '#fdecec', color: '#b91c1c' },
+  }
+  return map[status]
+}
+
+export function landlordStatus(status: LandlordStatus) {
+  const map: Record<LandlordStatus, { label: string; bg: string; color: string }> = {
+    none:     { label: 'Not applied',    bg: '#f4f2f9', color: '#6b6675' },
     pending:  { label: 'Pending review', bg: '#fff3d6', color: '#92660b' },
     approved: { label: 'Approved',       bg: '#eafaf2', color: '#1f8a5b' },
     rejected: { label: 'Rejected',       bg: '#fdecec', color: '#b91c1c' },
