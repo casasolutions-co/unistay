@@ -129,7 +129,7 @@ function SearchPageInner() {
 
   /* ── API-fetched listings ── */
   const [listings, setListings]         = useState<UnifiedListing[]>([]);
-  const [partnerTotal, setPartnerTotal] = useState(0);
+  const [total, setTotal]               = useState(0);
   const [hasMore, setHasMore]           = useState(false);
   const [loading,     setLoading]       = useState(false);
   const [loadingMore, setLoadingMore]   = useState(false);
@@ -158,7 +158,7 @@ function SearchPageInner() {
       .then(r => r.json())
       .then(data => {
         setListings(prev => page === 1 ? data.listings : [...prev, ...data.listings]);
-        setPartnerTotal(data.partnerTotal);
+        setTotal(data.total);
         setHasMore(data.hasMore);
         setLoading(false);
         setLoadingMore(false);
@@ -307,7 +307,7 @@ function SearchPageInner() {
           {/* count + sort row */}
           <div className={styles.mobileResultsBar}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-              <span className={styles.mobileResultCount}>{partnerTotal + filtered.filter(l => l.source === 'casa').length || filtered.length}</span>
+              <span className={styles.mobileResultCount}>{total}</span>
               <span className={styles.mobileResultSub}>stays{cityName ? ` in ${cityName}` : ''}</span>
             </div>
             <button type="button" className={styles.mobileSortBtn} onClick={() => setMobileSheet('sort')}>
@@ -683,7 +683,7 @@ function SearchPageInner() {
           {/* Results */}
           <div>
             <div className={styles.resultsHeader}>
-              <span className={styles.resultCount}>{partnerTotal + filtered.filter(l => l.source === 'casa').length || filtered.length}</span>
+              <span className={styles.resultCount}>{total}</span>
               <span className={styles.resultSub}>
                 properties{cityName ? ` in ${cityName}` : ''}
               </span>

@@ -246,7 +246,7 @@ export async function GET(req: NextRequest) {
   const casaListings = [...d1CasaListings, ...staticCasaListings]
 
   // ── PARTNER (D1-backed, paginated; city optional — browses all when empty) ──
-  const partnerResult = source !== 'CASA'
+  const partnerResult = source === 'all' || source === 'PARTNER'
     ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT)
     : { listings: [], total: 0, hasMore: false }
 
