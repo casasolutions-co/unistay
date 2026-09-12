@@ -113,6 +113,7 @@ export function useCitySearch(initialQuery = '') {
   const [recent, setRecent] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage/cache on mount, not derivable during the server render
     setRecent(getRecentSearches());
     loadCities(setAllCities);
   }, []);

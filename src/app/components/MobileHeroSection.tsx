@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './MobileHeroSection.module.css';
 import { useCitySearch } from '@/lib/useCitySearch';
@@ -129,9 +130,9 @@ export default function MobileHeroSection() {
 
           {navOpen && (
             <div className={styles.navMenu}>
-              <a href="/search" className={styles.navMenuLink}>View Listings</a>
+              <Link href="/search" className={styles.navMenuLink}>View Listings</Link>
               <div className={styles.navMenuDivider} />
-              <a href="/login" className={styles.navMenuLoginBtn}>Login / Register</a>
+              <Link href="/login" className={styles.navMenuLoginBtn}>Login / Register</Link>
             </div>
           )}
         </div>

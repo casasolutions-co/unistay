@@ -740,6 +740,7 @@ export default function MessagesPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kicks off the fetch once a token is available; loadInbox sets loading synchronously before its own await
     if (token) loadInbox(token);
   }, [token, loadInbox]);
 

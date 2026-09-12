@@ -73,6 +73,7 @@ function CityPicker({ value, onChange }: { value: string; onChange: (v: string) 
   const wrapRef               = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs from a module-level cache shared across mounts of this component
     if (cityCache) { setCities(cityCache); return; }
     if (!cityFetch) {
       cityFetch = fetch('/api/cities')
@@ -86,6 +87,7 @@ function CityPicker({ value, onChange }: { value: string; onChange: (v: string) 
   }, []);
 
   // Sync display when parent resets
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local input display when the parent-controlled value is cleared
   useEffect(() => { if (!value) setQuery(''); }, [value]);
 
   const q = normaliseCityName(query.trim());

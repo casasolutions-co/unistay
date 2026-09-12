@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { uploadToR2 } from '@/lib/r2';
+import { sniffMime } from '@/lib/sniff-mime';
 
 const DOC_TYPES = ['Rental agreement', 'Insurance certificate', 'Proof of address', 'Other document'];
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -70,10 +71,18 @@ export async function POST(req: NextRequest) {
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf';
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // The declared file.type is whatever the browser/client claims — sniff the
+  // actual bytes so a renamed/relabeled file can't sneak past the allow-list.
+  const sniffed = sniffMime(buffer, file.type);
+  if (!sniffed || !ALLOWED_TYPES.includes(sniffed)) {
+    return NextResponse.json({ error: 'File content does not match its declared type' }, { status: 400 });
+  }
+
   const r2Key = `documents/${uid}/${crypto.randomUUID()}.${ext}`;
 
   try {
-    await uploadToR2(r2Key, buffer, file.type);
+    await uploadToR2(r2Key, buffer, sniffed);
   } catch (err) {
     console.error('[POST /api/user/documents]', err);
     return NextResponse.json({ error: 'Upload to storage failed. Please try again.' }, { status: 500 });
@@ -85,7 +94,7 @@ export async function POST(req: NextRequest) {
   await d1Query(
     `INSERT INTO user_documents (id, user_id, doc_type, file_name, r2_key, content_type, size_bytes, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, uid, docType, file.name, r2Key, file.type, file.size, now]
+    [id, uid, docType, file.name, r2Key, sniffed, file.size, now]
   );
 
   return NextResponse.json({

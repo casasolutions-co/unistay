@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
+import { APP_URL } from '@/lib/emails/layout';
 
 // Terminal statuses where Didit considers the session over — a fresh one is required.
 // Expired: TTL elapsed before the user opened the link.
@@ -41,7 +42,10 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       workflow_id: process.env.DIDIT_WORKFLOW_ID,
-      callback: `https://app.casasolutions.co/verify?kyc=callback`,
+      // Uses the same app-URL convention as outbound emails (NEXT_PUBLIC_APP_URL,
+      // falling back to the production domain) instead of a hardcoded host, so
+      // staging/preview deploys send users back to the right place after KYC.
+      callback: `${APP_URL}/verify?kyc=callback`,
       vendor_data: decoded.uid,
       contact_details: { email: decoded.email },
     }),

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import heicConvert from 'heic-convert';
 import { adminAuth } from '@/lib/firebase-admin';
 import { uploadToR2 } from '@/lib/r2';
+import { d1Query } from '@/lib/d1';
+import { sniffMime } from '@/lib/sniff-mime';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const HEIC_TYPES = ['image/heic', 'image/heif'];
@@ -12,8 +14,9 @@ export async function POST(req: NextRequest) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  let uid: string;
   try {
-    await adminAuth.verifyIdToken(token);
+    uid = (await adminAuth.verifyIdToken(token)).uid;
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
@@ -31,6 +34,17 @@ export async function POST(req: NextRequest) {
   if (!file || !listingId) {
     return NextResponse.json({ error: 'file and listingId required' }, { status: 400 });
   }
+
+  // Same ownership rule as every other listing-mutating route. A brand-new
+  // draft's id is a client-generated UUID with no row yet — that's fine,
+  // only an existing listing owned by someone else is rejected.
+  const [existing] = await d1Query<{ landlord_id: string }>(
+    'SELECT landlord_id FROM listings WHERE id = ?', [listingId]
+  );
+  if (existing && existing.landlord_id !== uid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   if (!ALLOWED_TYPES.includes(file.type)) {
     return NextResponse.json({ error: 'Only JPEG, PNG, WebP and HEIC images are allowed' }, { status: 400 });
   }
@@ -39,12 +53,19 @@ export async function POST(req: NextRequest) {
   }
 
   let ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-  let contentType = file.type;
   let buffer = Buffer.from(await file.arrayBuffer());
+
+  // The declared file.type is whatever the browser/client claims — sniff the
+  // actual bytes so a renamed/relabeled file can't sneak past the allow-list.
+  const sniffed = sniffMime(buffer, file.type);
+  if (!sniffed || !ALLOWED_TYPES.includes(sniffed)) {
+    return NextResponse.json({ error: 'File content does not match its declared type' }, { status: 400 });
+  }
+  let contentType = sniffed;
 
   // Browsers can't render HEIC/HEIF natively — convert to JPEG so uploaded
   // photos actually display once stored, instead of ever hitting R2 as HEIC.
-  if (HEIC_TYPES.includes(file.type)) {
+  if (HEIC_TYPES.includes(contentType)) {
     try {
       const jpegBuffer = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
       buffer = Buffer.from(jpegBuffer);

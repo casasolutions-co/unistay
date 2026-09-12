@@ -102,6 +102,7 @@ function SearchPageInner() {
      shared moveIn/moveOut/whenLabel above so it drives the same fetch + desktop UI. */
   const mobileWhen = useWhenPicker(moveIn, moveOut);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors the picker hook's derived output into the shared filter state that drives the fetch below
     setMoveIn(mobileWhen.resolvedMoveIn);
     setMoveOut(mobileWhen.resolvedMoveOut);
     setWhenLabel(mobileWhen.triggerMuted ? '' : mobileWhen.triggerText);
@@ -135,6 +136,7 @@ function SearchPageInner() {
   const [page, setPage]                 = useState(1);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets pagination when a filter changes, before the fetch-effect below re-runs on the new page
     setPage(1);
     setListings([]);
   }, [query, filterType, filterSource, minVal, maxVal, moveIn]);
@@ -150,6 +152,7 @@ function SearchPageInner() {
     if (moveIn)                  params.set('moveIn', moveIn);
 
     const ctrl = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sets the loading flag before starting the fetch that follows
     if (page === 1) setLoading(true); else setLoadingMore(true);
     fetch(`/api/listings?${params}`, { signal: ctrl.signal })
       .then(r => r.json())

@@ -21,17 +21,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const { listing_id, move_in, move_out, price, deposit } = await req.json();
+  const { listing_id, move_in, move_out } = await req.json();
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });
 
   const now = Date.now();
 
   try {
-    const [listing] = await d1Query<{ landlord_id: string; title: string }>(
-      'SELECT landlord_id, title FROM listings WHERE id = ?',
+    // price/deposit are re-derived from the listing row, not trusted from the
+    // request body — no payment processor sits behind this today, but this
+    // card is what the landlord sees as "the deal", so it shouldn't be
+    // client-editable.
+    const [listing] = await d1Query<{ landlord_id: string; title: string; cold_rent: number; utilities: number; deposit: number }>(
+      'SELECT landlord_id, title, cold_rent, utilities, deposit FROM listings WHERE id = ?',
       [listing_id]
     );
     const landlordId = listing?.landlord_id ?? null;
+    const price = listing ? listing.cold_rent + listing.utilities : null;
+    const deposit = listing ? listing.deposit : null;
 
     if (landlordId && landlordId === uid) {
       return NextResponse.json({ error: 'Cannot book your own listing' }, { status: 400 });

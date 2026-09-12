@@ -45,6 +45,7 @@ function mapPartnerDetail(l: any) {
   const bedrooms = parseInt(l.facilities?.bedrooms?.value ?? '1', 10) || 1
   const availFrom: string | null = l.available?.[0]?.from ?? null
   const today = new Date().toISOString().slice(0, 10)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- l is the raw partner API response, typed any above
   const photos = (l.images ?? []).map((img: any, i: number) => ({
     url: img.sizes?.['1024x768']?.link ?? img.sizes?.['640x480']?.link ?? null,
     label: img.categories?.[0] ?? `photo ${i + 1}`,
@@ -248,11 +249,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.action === 'set_status') {
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const status = body.status
-    // 'draft' is used for Unpublish — it hides the listing from search while
-    // keeping it editable/resumable from the Drafts tab. 'archived' is reserved
-    // for account deletion and isn't exposed through this action.
-    if (!['published', 'rented', 'draft'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    // Landlord self-service is only ever a toggle between already-live states
+    // (Active/Rented) or hiding a live listing (Unpublish) — the UI never
+    // asks for anything else. Moderation approval (draft/pending_review ->
+    // published) is deliberately not reachable through this endpoint: it
+    // must go through the admin review flow, not a landlord's own token.
+    const allowedNext: Record<string, string[]> = {
+      published: ['rented', 'draft'],
+      rented: ['published'],
+    }
+    if (!(allowedNext[existing.status] ?? []).includes(status)) {
+      return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 })
     }
     await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', [status, Date.now(), id])
     return NextResponse.json({ ok: true })

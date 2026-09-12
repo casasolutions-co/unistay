@@ -53,6 +53,7 @@ export default function SavedPage() {
   useEffect(() => {
     let cancelled = false;
     if (savedIds.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets to empty before the fetch-effect below would otherwise run, when there's nothing to fetch
       setListings([]);
       setLoading(false);
       return;

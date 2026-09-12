@@ -68,6 +68,7 @@ export default function LegalModal({
   // Sync state if modal reopens or props change
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting a controlled modal's local state when it reopens; no render-time equivalent without a remount key
       setActiveDoc(initialDoc);
       setShowWarning(false);
       setLocalAgreed(isAgreed);

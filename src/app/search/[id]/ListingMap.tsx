@@ -50,6 +50,7 @@ export default function ListingMap({ lat, lng, address, badge }: Props) {
   const [mapKey, setMapKey] = useState(0);
   const cleanedUpRef = useRef(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-mount flag for SSR-safe map rendering; can't be known during the server render
   useEffect(() => { setMounted(true); }, []);
 
   // react-leaflet v5 strict-mode fix

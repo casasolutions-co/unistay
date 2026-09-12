@@ -4,6 +4,7 @@ import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { uploadToR2 } from '@/lib/r2';
 import { bearerToken, verifyParticipant, resolveRecipient, isBlockedPair, bumpInquiryAndNotify } from '@/lib/chat';
+import { sniffMime } from '@/lib/sniff-mime';
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const HEIC_TYPES = ['image/heic', 'image/heif'];
@@ -72,10 +73,17 @@ export async function POST(
   }
 
   let ext = file.name.split('.').pop()?.toLowerCase() ?? (kind === 'photo' ? 'jpg' : 'pdf');
-  let contentType = file.type;
   let buffer = Buffer.from(await file.arrayBuffer());
 
-  if (kind === 'photo' && HEIC_TYPES.includes(file.type)) {
+  // The declared file.type is whatever the browser/client claims — sniff the
+  // actual bytes so a renamed/relabeled file can't sneak past the allow-list.
+  const sniffed = sniffMime(buffer, file.type);
+  if (!sniffed || !allowedTypes.includes(sniffed)) {
+    return NextResponse.json({ error: 'File content does not match its declared type' }, { status: 400 });
+  }
+  let contentType = sniffed;
+
+  if (kind === 'photo' && HEIC_TYPES.includes(contentType)) {
     try {
       const jpegBuffer = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
       buffer = Buffer.from(jpegBuffer);
