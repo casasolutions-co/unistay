@@ -108,6 +108,18 @@ function fmtMsgTime(ms: number | null): string {
   return new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
+// msg.metadata is JSON written by the student/host app, not admin-authored — one
+// malformed value shouldn't crash the whole thread view a moderator needs to see.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseMeta(raw: string | null): Record<string, any> {
+  if (!raw) return {}
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
 /* ── Structured card sub-components ─────────────────────────────── */
 function ListingRef({ title, city, rent, listingId }: { title: string | null; city: string | null; rent: number | null; listingId: string | null }) {
   return (
@@ -120,7 +132,7 @@ function ListingRef({ title, city, rent, listingId }: { title: string | null; ci
 }
 
 function BookingCard({ msg, thread }: { msg: ThreadMessage; thread: MessageThread }) {
-  const meta = msg.metadata ? JSON.parse(msg.metadata) : {}
+  const meta = parseMeta(msg.metadata)
   return (
     <div className={styles.bookingCard}>
       <div className={styles.bookingCardInner}>
@@ -149,7 +161,7 @@ function BookingCard({ msg, thread }: { msg: ThreadMessage; thread: MessageThrea
 }
 
 function ViewingCard({ msg, thread }: { msg: ThreadMessage; thread: MessageThread }) {
-  const meta = msg.metadata ? JSON.parse(msg.metadata) : {}
+  const meta = parseMeta(msg.metadata)
   return (
     <div className={styles.viewingCard}>
       <div className={styles.viewingCardInner}>
@@ -209,7 +221,7 @@ function MessageBubble({ msg, thread }: { msg: ThreadMessage; thread: MessageThr
   if (msg.msgType === 'viewing') return <ViewingCard msg={msg} thread={thread} />
 
   if (msg.msgType === 'file') {
-    const meta = msg.metadata ? JSON.parse(msg.metadata) : {}
+    const meta = parseMeta(msg.metadata)
     return (
       <div className={styles.fileCard} style={{ alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
         <div className={styles.fileCardInner}>

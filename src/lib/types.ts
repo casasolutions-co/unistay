@@ -95,6 +95,7 @@ export interface Document {
   uploaded: string
   status: DocStatus
   rejectionReason?: string | null
+  r2Key: string | null
 }
 
 export interface Report {

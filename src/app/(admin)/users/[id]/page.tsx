@@ -17,7 +17,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const [docs, listings, userMessages] = await Promise.all([
     getDocsByUser(id),
     getListingsByHost(id),
-    getMessagesByUser(user.name),
+    getMessagesByUser(id),
   ])
   const st = userStatus(user.status)
   const verify = verifyUser.bind(null, id)

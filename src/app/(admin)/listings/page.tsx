@@ -45,8 +45,8 @@ export default async function ListingsPage({
 
       <FilterPills pills={FILTER_PILLS} current={filter} />
 
-      <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+      <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13.5 }}>
           <thead>
             <tr style={{ background: '#fbfafd' }}>
               {['LISTING', 'HOST', 'PRICE', 'SUBMITTED', 'STATUS', 'ACTIONS'].map((h, i) => (

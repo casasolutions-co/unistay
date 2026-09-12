@@ -79,6 +79,14 @@ export async function unbanUser(id: string) {
 export async function deleteUser(id: string) {
   const email = await adminEmail()
   await _deleteUserAccount(id)
+  // users.id is the Firebase uid — delete the auth account too, or the user can just
+  // log back in and the main app's login sync (see src/app/api/auth/sync/route.ts) will
+  // re-create the D1 row we just wiped.
+  try {
+    await adminAuth.deleteUser(id)
+  } catch (err) {
+    if (!(err && typeof err === 'object' && 'code' in err && err.code === 'auth/user-not-found')) throw err
+  }
   await _writeAudit(email, 'user.delete', 'user', id)
   revalidatePath('/users')
   revalidatePath('/listings')

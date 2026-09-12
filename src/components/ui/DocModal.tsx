@@ -42,11 +42,20 @@ export default function DocModal({ document, onApprove, onReject }: DocModalProp
 
         {/* Preview */}
         <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: 260, height: 320, border: '1.5px dashed #ddd0f6', borderRadius: 14, background: 'repeating-linear-gradient(135deg,#f3effe 0 10px,#ede4fd 10px 20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#4a1d95' }}>Document preview</span>
-            <span style={{ fontSize: 12, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: ds.bg, color: ds.color }}>{ds.label}</span>
-          </div>
+          {document.r2Key ? (
+            <a href={`/api/admin-photo?key=${encodeURIComponent(document.r2Key)}`} target="_blank" rel="noopener noreferrer" style={{ width: 260, height: 320, borderRadius: 14, overflow: 'hidden', display: 'block', background: '#eee' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/admin-photo?key=${encodeURIComponent(document.r2Key)}`} alt={document.type} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </a>
+          ) : (
+            <div style={{ width: 260, height: 320, border: '1.5px dashed #ddd0f6', borderRadius: 14, background: 'repeating-linear-gradient(135deg,#f3effe 0 10px,#ede4fd 10px 20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#4a1d95' }}>No file uploaded</span>
+            </div>
+          )}
+        </div>
+        <div style={{ margin: '-14px 24px 16px', display: 'flex', justifyContent: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: ds.bg, color: ds.color }}>{ds.label}</span>
         </div>
 
         {document.status === 'rejected' && document.rejectionReason && (

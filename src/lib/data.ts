@@ -62,6 +62,7 @@ interface DocRow {
   status: string
   rejection_reason: string | null
   created_at: number | null
+  r2_key: string | null
 }
 
 interface ReportRow {
@@ -147,6 +148,7 @@ function mapDoc(r: DocRow): Document {
     uploaded: relativeTime(r.created_at),
     status: r.status as Document['status'],
     rejectionReason: r.rejection_reason,
+    r2Key: r.r2_key,
   }
 }
 
@@ -486,16 +488,16 @@ export async function getListingsByHost(hostId: string): Promise<Listing[]> {
   return rows.map(r => mapListing(r))
 }
 
-export async function getMessagesByUser(name: string): Promise<Message[]> {
+export async function getMessagesByUser(userId: string): Promise<Message[]> {
   const rows = await d1All<MessageRow>(
-    `${MESSAGE_SELECT} AND (su.name = ? OR lu.name = ?) ORDER BY m.created_at DESC`,
-    [name, name]
+    `${MESSAGE_SELECT} AND (i.student_id = ? OR l.landlord_id = ?) ORDER BY m.created_at DESC`,
+    [userId, userId]
   )
   return rows.map(mapMessage)
 }
 
-export async function getMessagesByListing(title: string): Promise<Message[]> {
-  const rows = await d1All<MessageRow>(`${MESSAGE_SELECT} AND l.title = ? ORDER BY m.created_at DESC`, [title])
+export async function getMessagesByListing(listingId: string): Promise<Message[]> {
+  const rows = await d1All<MessageRow>(`${MESSAGE_SELECT} AND l.id = ? ORDER BY m.created_at DESC`, [listingId])
   return rows.map(mapMessage)
 }
 

@@ -19,7 +19,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   const [host, listingMessages] = await Promise.all([
     isCasa ? Promise.resolve(null) : getUser(listing.hostId),
-    getMessagesByListing(listing.title),
+    getMessagesByListing(id),
   ])
 
   const st       = listingStatus(listing.status)
