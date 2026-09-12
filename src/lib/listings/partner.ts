@@ -77,28 +77,37 @@ export async function searchPartnerListings(
   page: number,
   limit: number
 ): Promise<{ listings: UnifiedListing[]; total: number; hasMore: boolean }> {
-  const slug = citySlug(city)
-  if (!slug) return { listings: [], total: 0, hasMore: false }
+  const conditions: string[] = []
+  const params: (string | number)[] = []
 
-  // city column stores HousingAnywhere's real city name (e.g. "Frankfurt am
-  // Main"); matching on its slugified prefix preserves the old file-based
-  // behaviour where a "frankfurt" search matched "frankfurt-am-main.json".
-  const conditions = ["LOWER(REPLACE(city, ' ', '-')) LIKE ? || '%'"]
-  const params: (string | number)[] = [slug]
+  // Unlike the old per-city JSON files, D1 has no cost to searching without a
+  // city — so an empty query browses every partner listing instead of
+  // silently returning none.
+  const slug = citySlug(city)
+  if (slug) {
+    // city column stores HousingAnywhere's real city name (e.g. "Frankfurt am
+    // Main"); matching on its slugified prefix preserves the old file-based
+    // behaviour where a "frankfurt" search matched "frankfurt-am-main.json".
+    conditions.push("LOWER(REPLACE(city, ' ', '-')) LIKE ? || '%'")
+    params.push(slug)
+  }
 
   if (filters.minPrice !== undefined) { conditions.push('price >= ?'); params.push(filters.minPrice) }
   if (filters.maxPrice !== undefined) { conditions.push('price <= ?'); params.push(filters.maxPrice) }
   if (filters.type && filters.type !== 'Any type') { conditions.push('ptype = ?'); params.push(filters.type) }
   if (filters.moveIn) { conditions.push('(avail_from IS NULL OR avail_from <= ?)'); params.push(filters.moveIn) }
 
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const offset = (page - 1) * limit
+
+  const [{ total }] = await d1Query<{ total: number }>(
+    `SELECT COUNT(*) as total FROM partner_listings ${where}`, params
+  )
   const rows = await d1Query<{ raw_json: string }>(
-    `SELECT raw_json FROM partner_listings WHERE ${conditions.join(' AND ')} ORDER BY rank DESC`,
-    params
+    `SELECT raw_json FROM partner_listings ${where} ORDER BY rank DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   )
 
-  const total = rows.length
-  const offset = (page - 1) * limit
-  const listings = rows.slice(offset, offset + limit).map(r => mapListing(JSON.parse(r.raw_json)))
-
+  const listings = rows.map(r => mapListing(JSON.parse(r.raw_json)))
   return { listings, total, hasMore: offset + limit < total }
 }
