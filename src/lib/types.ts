@@ -125,6 +125,8 @@ export interface AuditLogEntry {
   action: string
   targetType: string
   targetId: string
+  targetLabel: string
+  targetHref: string
   note?: string | null
   createdAt: string
 }

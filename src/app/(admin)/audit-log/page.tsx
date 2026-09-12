@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getAuditLog } from '@/lib/data'
 
 export default async function AuditLogPage() {
@@ -22,7 +23,11 @@ export default async function AuditLogPage() {
               <tr key={e.id} style={{ borderBottom: '1px solid #f5f2fa' }}>
                 <td style={{ padding: '13px 16px', color: '#1c1530', fontWeight: 700 }}>{e.adminEmail}</td>
                 <td style={{ padding: '13px 16px', color: '#6d28d9', fontWeight: 700, fontFamily: 'monospace', fontSize: 12.5 }}>{e.action}</td>
-                <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600 }}>{e.targetType} · {e.targetId}</td>
+                <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600 }}>
+                  {e.targetHref === '#'
+                    ? <>{e.targetType} · {e.targetLabel}</>
+                    : <Link href={e.targetHref} style={{ color: '#1c1530', fontWeight: 700, textDecoration: 'none' }}>{e.targetLabel}</Link>}
+                </td>
                 <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600, maxWidth: 320 }}>{e.note ?? '—'}</td>
                 <td style={{ padding: '13px 16px', color: '#9a94a8', fontWeight: 600 }}>{e.createdAt}</td>
               </tr>

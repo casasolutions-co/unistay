@@ -175,6 +175,13 @@ async function reportSummary(targetType: string, targetId: string): Promise<stri
     const row = await d1First<{ name: string | null }>(`SELECT name FROM users WHERE id = ?`, [targetId])
     return row?.name ?? targetId
   }
+  if (targetType === 'verification_doc') {
+    const row = await d1First<{ name: string | null }>(
+      `SELECT u.name FROM verification_docs v JOIN users u ON u.id = v.user_id WHERE v.id = ?`,
+      [targetId]
+    )
+    return row?.name ?? targetId
+  }
   return targetId
 }
 
@@ -186,6 +193,12 @@ async function reportHref(targetType: string, targetId: string): Promise<string>
   if (targetType === 'inquiry') return `/messages?thread=${targetId}`
   if (targetType === 'listing') return `/listings/${targetId}`
   if (targetType === 'user') return `/users/${targetId}`
+  if (targetType === 'verification_doc') {
+    const row = await d1First<{ user_id: string }>(`SELECT user_id FROM verification_docs WHERE id = ?`, [targetId])
+    return row ? `/users/${row.user_id}` : '/documents'
+  }
+  if (targetType === 'setting') return '/settings'
+  if (targetType === 'faq') return '/faqs'
   return '#'
 }
 
@@ -593,15 +606,19 @@ export async function getAuditLog(): Promise<AuditLogEntry[]> {
     note: string | null
     created_at: number | null
   }>(`SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 200`)
-  return rows.map(r => ({
-    id: r.id,
-    adminEmail: r.admin_id,
-    action: r.action,
-    targetType: r.target_type,
-    targetId: r.target_id,
-    note: r.note,
-    createdAt: relativeTime(r.created_at),
-  }))
+  return Promise.all(
+    rows.map(async r => ({
+      id: r.id,
+      adminEmail: r.admin_id,
+      action: r.action,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      targetLabel: await reportSummary(r.target_type, r.target_id),
+      targetHref: await reportHref(r.target_type, r.target_id),
+      note: r.note,
+      createdAt: relativeTime(r.created_at),
+    }))
+  )
 }
 
 interface FaqRow {
