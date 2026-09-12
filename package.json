@@ -26,6 +26,9 @@
     "react-leaflet": "^5.0.0",
     "react-map-gl": "^8.1.1"
   },
+  "overrides": {
+    "jose": "^4.15.9"
+  },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.15.12",
     "@types/node": "^20",
