@@ -824,11 +824,10 @@ export async function _moveFaq(id: string, direction: 'up' | 'down') {
   await d1Run(`UPDATE faqs SET position = ?, updated_at = ? WHERE id = ?`, [row.position, now, neighbor.id])
 }
 
-// Best-effort — admin_audit_log.admin_id FK-references users(id), but an admin
-// session's email/uid isn't necessarily a row in `users` (that table only holds
-// students/landlords), so this can fail with a FOREIGN KEY constraint error for
-// every real admin. Never let a failed audit write undo an already-persisted
-// mutation the caller made just before this.
+// Best-effort — never let a failed audit write undo an already-persisted
+// mutation the caller made just before this. (admin_audit_log.admin_id used to
+// FK-reference users(id) even though it stores the admin's email and admins
+// aren't rows in `users`, which failed every insert — see migrations/001_drop_audit_log_admin_fk.sql.)
 export async function _writeAudit(adminEmail: string, action: string, targetType: string, targetId: string, note?: string | null) {
   try {
     await d1Run(
