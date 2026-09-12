@@ -245,9 +245,9 @@ export async function GET(req: NextRequest) {
 
   const casaListings = [...d1CasaListings, ...staticCasaListings]
 
-  // ── PARTNER (JSON files, paginated) ───────────────────────────
+  // ── PARTNER (D1-backed, paginated) ────────────────────────────
   const partnerResult = source !== 'CASA' && q
-    ? searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT)
+    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT)
     : { listings: [], total: 0, hasMore: false }
 
   // Page 1: HOST + CASA first, then partners. Page 2+: partners only.

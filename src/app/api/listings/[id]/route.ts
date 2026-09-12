@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 import { PROPERTIES } from '@/app/data/properties'
 import { ICON_PATHS } from '@/app/data/properties'
 import { d1Query } from '@/lib/d1'
@@ -22,8 +20,6 @@ function splitStreet(street: string): { streetName: string; houseNumber: string 
   const m = s.match(/^(.*?)[,]?\s+(\d[\w-]*)$/)
   return m ? { streetName: m[1].trim(), houseNumber: m[2].trim() } : { streetName: s, houseNumber: '' }
 }
-
-const CITIES_DIR = path.join(process.cwd(), 'public', 'partner-cities')
 
 function facilityAmenities(facilities: Record<string, { value: string }>) {
   const map: { key: string; label: string; icon: string }[] = [
@@ -207,24 +203,15 @@ export async function GET(
     return NextResponse.json({ listing: { ...p, source: 'casa' } })
   }
 
-  // Partner listing — look up city from index
+  // Partner listing (HousingAnywhere), synced into D1 by
+  // netlify/functions/sync-partner-listings-background.ts
   const rawId = id.replace('partner-', '')
-  const indexPath = path.join(CITIES_DIR, '_index.json')
-  if (!fs.existsSync(indexPath)) {
-    return NextResponse.json({ error: 'Partner index not found' }, { status: 500 })
-  }
+  const [row] = await d1Query<{ raw_json: string }>(
+    'SELECT raw_json FROM partner_listings WHERE remote_id = ?', [rawId]
+  )
+  if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const index: Record<string, string> = JSON.parse(fs.readFileSync(indexPath, 'utf-8'))
-  const citySlug = index[rawId]
-  if (!citySlug) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  const cityFile = path.join(CITIES_DIR, `${citySlug}.json`)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const listings: any[] = JSON.parse(fs.readFileSync(cityFile, 'utf-8'))
-  const listing = listings.find(l => String(l.id) === rawId)
-  if (!listing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  return NextResponse.json({ listing: mapPartnerDetail(listing) })
+  return NextResponse.json({ listing: mapPartnerDetail(JSON.parse(row.raw_json)) })
 }
 
 // PATCH /api/listings/[id]

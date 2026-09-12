@@ -7,3 +7,6 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[functions."sync-partner-listings-background"]
+  schedule = "0 */6 * * *"
