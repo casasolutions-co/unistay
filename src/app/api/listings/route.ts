@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { searchPartnerListings } from '@/lib/listings/partner'
 import { PROPERTIES } from '@/app/data/properties'
 import type { UnifiedListing } from '@/lib/listings/types'
@@ -21,6 +22,29 @@ export async function GET(req: NextRequest) {
   const source    = sp.get('source')    ?? 'all'   // 'all' | 'CASA' | 'PARTNER' | 'PRIVATE'
   const page      = Math.max(1, parseInt(sp.get('page') ?? '1', 10))
 
+  const result = await getCachedListings(city, minPrice, maxPrice, type, moveIn, source, page)
+  return NextResponse.json(result)
+}
+
+// Every filter combo (city/price/type/moveIn/source/page) gets its own cache
+// entry, so the D1 tables get hit once per distinct search rather than once
+// per visitor. Invalidated on writes via revalidateTag('listings', 'max') below
+// and in listings/[id]/route.ts. 5min revalidate keeps it well under the 1h R2
+// signed-URL expiry (see getSignedUrl) so cached cover photos never go stale.
+const getCachedListings = unstable_cache(getListingsData, ['listings'], {
+  tags: ['listings'],
+  revalidate: 300,
+})
+
+async function getListingsData(
+  city: string,
+  minPrice: number | undefined,
+  maxPrice: number | undefined,
+  type: string | undefined,
+  moveIn: string | undefined,
+  source: string,
+  page: number,
+) {
   // Normalise umlauts so 'munich' matches 'München', 'berlin' matches 'Berlin' etc.
   const q = city.trim().toLowerCase()
     .replace(/ü/g, 'u').replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ß/g, 'ss')
@@ -255,7 +279,7 @@ export async function GET(req: NextRequest) {
     ? [...hostListings, ...casaListings, ...partnerResult.listings]
     : partnerResult.listings
 
-  return NextResponse.json({
+  return {
     listings,
     page,
     hostCount: hostListings.length,
@@ -263,7 +287,7 @@ export async function GET(req: NextRequest) {
     partnerTotal: partnerResult.total,
     total: hostListings.length + casaListings.length + partnerResult.total,
     hasMore: partnerResult.hasMore,
-  })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -409,6 +433,7 @@ export async function POST(req: NextRequest) {
       }
     }).catch(err => console.error('[geocode] failed:', err));
 
+    revalidateTag('listings', 'max');
     return NextResponse.json({ listing_id: listingId });
   } catch (err) {
     console.error('[POST /api/listings]', err);

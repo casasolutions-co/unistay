@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { PROPERTIES } from '@/app/data/properties'
 import { ICON_PATHS } from '@/app/data/properties'
 import { d1Query } from '@/lib/d1'
@@ -249,6 +250,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 })
     }
     await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', [status, Date.now(), id])
+    revalidateTag('listings', 'max')
     return NextResponse.json({ ok: true })
   }
 
@@ -353,6 +355,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  revalidateTag('listings', 'max')
   return NextResponse.json({ ok: true, listing_id: id })
 }
 
