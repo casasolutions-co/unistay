@@ -283,6 +283,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'New listing submissions are temporarily paused.' }, { status: 403 });
   }
 
+  // Only an admin-approved landlord may publish — applying (POST
+  // /api/user/apply-landlord) requires identity verification first; the
+  // application itself is reviewed separately in the admin console.
+  const [applicant] = await d1Query<{ landlord_status: string }>(
+    'SELECT landlord_status FROM users WHERE id = ?', [uid]
+  );
+  if (applicant?.landlord_status !== 'approved') {
+    return NextResponse.json(
+      { error: 'You need to apply and be approved as a landlord before publishing a listing.', landlordStatus: applicant?.landlord_status ?? 'none' },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json();
   const {
     listingId: clientListingId,

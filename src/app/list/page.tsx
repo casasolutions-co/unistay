@@ -9,6 +9,7 @@ import { auth } from '@/lib/firebase';
 import { previewUrlFor } from '@/lib/heicPreview';
 import ListMobile from './ListMobile';
 import VerifyIdentity from '../verify/page';
+import ApplyLandlordGate, { LandlordStatus } from './ApplyLandlordGate';
 import { useDraftAutosave } from './useDraftAutosave';
 import styles from './page.module.css';
 
@@ -166,6 +167,8 @@ function ListYourPlaceInner() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [landlordStatus, setLandlordStatus] = useState<LandlordStatus | null>(null);
+  const [landlordNote, setLandlordNote] = useState<string | null>(null);
 
   // Stable listing ID generated once — used as R2 key prefix before publish
   const listingIdRef = useRef(crypto.randomUUID());
@@ -185,6 +188,22 @@ function ListYourPlaceInner() {
           if (!cancelled) setVerificationStatus(d.user?.verification_status ?? 'unverified');
         })
         .catch(() => { if (!cancelled) setVerificationStatus('unverified'); })
+    );
+    return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    user.getIdToken().then(token =>
+      fetch('/api/user/apply-landlord', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then((d: { landlordStatus?: LandlordStatus; landlordNote?: string | null }) => {
+          if (cancelled) return;
+          setLandlordStatus(d.landlordStatus ?? 'none');
+          setLandlordNote(d.landlordNote ?? null);
+        })
+        .catch(() => { if (!cancelled) setLandlordStatus('none'); })
     );
     return () => { cancelled = true; };
   }, [user]);
@@ -488,6 +507,22 @@ function ListYourPlaceInner() {
   }
   if (user && verificationStatus !== 'verified') {
     return <VerifyIdentity />;
+  }
+
+  // Being identity-verified doesn't make you an approved landlord — that's a
+  // separate admin-reviewed application (see /api/user/apply-landlord).
+  if (user && landlordStatus === null) {
+    return null;
+  }
+  if (user && landlordStatus !== 'approved') {
+    return (
+      <ApplyLandlordGate
+        user={user}
+        status={landlordStatus as Exclude<LandlordStatus, 'approved'>}
+        note={landlordNote}
+        onApplied={setLandlordStatus}
+      />
+    );
   }
 
   return (
