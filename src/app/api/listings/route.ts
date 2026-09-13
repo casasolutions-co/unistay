@@ -7,6 +7,7 @@ import { adminAuth } from '@/lib/firebase-admin'
 import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
 import { cityCoords } from '@/lib/city-coords'
+import { cityMatchTerms } from '@/lib/city-aliases'
 import { geocodeAddress } from '@/lib/geocode'
 import { getAppSetting } from '@/lib/settings'
 
@@ -45,20 +46,9 @@ async function getListingsData(
   source: string,
   page: number,
 ) {
-  // Normalise umlauts so 'munich' matches 'München', 'berlin' matches 'Berlin' etc.
-  const q = city.trim().toLowerCase()
-    .replace(/ü/g, 'u').replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ß/g, 'ss')
-
-  // When a query normalises to an English city name, also match the German umlaut form.
-  // e.g. "munich" should match both "munich" AND "münchen" (which normalises to "munchen")
-  const CITY_SEARCH_ALTS: Record<string, string[]> = {
-    'munich':    ['munich', 'munchen'],
-    'cologne':   ['cologne', 'koln'],
-    'nuremberg': ['nuremberg', 'nurnberg'],
-    'dusseldorf': ['dusseldorf'],
-    'frankfurt am main': ['frankfurt am main'],
-  }
-  const cityAlts = CITY_SEARCH_ALTS[q] ?? [q]
+  // Normalise umlauts + English/German aliases so 'munich' matches 'München' etc.
+  const cityAlts = cityMatchTerms(city)
+  const q = cityAlts[0] ?? ''
 
   // ── HOST (user-submitted listings in D1) ──────────────────────
   let hostListings: UnifiedListing[] = []

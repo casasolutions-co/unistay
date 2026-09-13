@@ -319,8 +319,9 @@ export default function DatePickerPanel({ initialMoveIn = '', initialMoveOut = '
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid #efecf5' }}>
+      {/* Footer — sticky so Apply/Clear stay reachable even when the panel
+          above has to scroll (e.g. it doesn't fully fit under the trigger) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid #efecf5', position: 'sticky', bottom: -1, background: '#fff' }}>
         <button
           type="button"
           onClick={handleClear}

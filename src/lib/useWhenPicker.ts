@@ -57,7 +57,11 @@ export function useWhenPicker(initialMoveIn = '', initialMoveOut = '') {
   const [mode, setMode] = useState<WhenMode>('date');
   const [moveIn, setMoveInRaw] = useState(initialMoveIn);
   const [moveOut, setMoveOut] = useState(initialMoveOut);
-  const [noEndDate, setNoEndDate] = useState(false);
+  // A restored search (e.g. from the URL) that has a move-in but no move-out
+  // was only ever produced by an explicit "no end date" apply — an
+  // in-progress pick that hasn't reached move-out yet never gets persisted.
+  // So treat that combination as open-ended, not "still choosing".
+  const [noEndDate, setNoEndDate] = useState(!!initialMoveIn && !initialMoveOut);
   const [flex, setFlex] = useState<'exact' | '1week' | '2weeks'>('exact');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
   const [stayMonths, setStayMonths] = useState(3);

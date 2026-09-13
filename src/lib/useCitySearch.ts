@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getRecentSearches, addRecentSearch, type RecentSearch } from './recentSearches';
+import { foldUmlauts, cityMatchTerms } from './city-aliases';
 
 export type SuggestionKind = 'recent' | 'city' | 'uni';
 export type SuggestionItem = { name: string; sub: string; kind: SuggestionKind };
@@ -51,6 +52,12 @@ function normaliseCity(s: string): string {
     .toLowerCase();
 }
 
+// normaliseCity() only expands abbreviations; also fold umlauts so 'munchen'
+// (ascii) and 'münchen' compare equal for prefix matching.
+function searchKey(s: string): string {
+  return foldUmlauts(normaliseCity(s));
+}
+
 // Module-level cache — fetched once, reused across all hook instances
 let cachedCities: { name: string; sub: string; search: string }[] | null = null;
 let fetchPromise: Promise<void> | null = null;
@@ -64,7 +71,7 @@ function loadCities(onLoad: (cities: { name: string; sub: string; search: string
         cachedCities = data.map(c => ({
           name: c.name,
           sub: 'Germany',
-          search: normaliseCity(c.name),
+          search: searchKey(c.name),
         }));
       })
       .catch(() => { fetchPromise = null; });
@@ -77,12 +84,15 @@ function buildGroups(
   allCities: { name: string; sub: string; search: string }[],
   recent: RecentSearch[],
 ): SuggestionGroup[] {
-  const q = normaliseCity(query.trim());
+  const q = searchKey(query);
   const hasQ = q.length > 0;
 
-  // Prefix match on the normalised form so "neu" only shows cities that START with "neu"
+  // Prefix match on the normalised form so "neu" only shows cities that START with "neu".
+  // cityMatchTerms also expands English/alt spellings ("munich" → "munchen") so
+  // those match the German city list too.
+  const terms = cityMatchTerms(q);
   const match = (it: { name: string; sub: string; search: string }) =>
-    it.search.startsWith(q);
+    terms.some(t => it.search.startsWith(t));
 
   const groups: SuggestionGroup[] = [];
 
@@ -98,7 +108,7 @@ function buildGroups(
   }
 
   const uniMatch = (it: { name: string; sub: string }) =>
-    (it.name + ' ' + it.sub).toLowerCase().includes(q);
+    !hasQ || terms.some(t => foldUmlauts(it.name + ' ' + it.sub).includes(t));
   const unis = UNIS.filter(uniMatch);
   if (unis.length) {
     groups.push({ title: 'Popular universities', items: unis.map(it => ({ ...it, kind: 'uni' as SuggestionKind })) });

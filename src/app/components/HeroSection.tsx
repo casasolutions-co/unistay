@@ -6,6 +6,7 @@ import styles from './HeroSection.module.css';
 import MobileHeroSection from './MobileHeroSection';
 import { useCitySearch } from '@/lib/useCitySearch';
 import DatePickerPanel from './DatePickerPanel';
+import { useKeepPanelVisible } from '@/lib/useKeepPanelVisible';
 
 const TYPES = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
 
@@ -97,6 +98,12 @@ export default function HeroSection() {
     if (open) document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
+
+  // The "when" panel is tall (two calendars + footer) and the search bar sits
+  // low on the page, so it can open mostly below the fold with no indication
+  // Apply is reachable — people pick a date, can't see Apply, and leave.
+  const whenPanelRef = useRef<HTMLDivElement>(null);
+  useKeepPanelVisible(open === 'when', whenPanelRef);
 
 
   /* BUDGET */
@@ -359,7 +366,11 @@ export default function HeroSection() {
             </button>
 
             {open === 'when' && (
-              <div className={styles.dropdown} style={{ width: 700, right: 0, left: 'auto', padding: '22px 24px 24px' }}>
+              <div
+                ref={whenPanelRef}
+                className={styles.dropdown}
+                style={{ width: 700, right: 0, left: 'auto', padding: '22px 24px 24px', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }}
+              >
                 <DatePickerPanel
                   initialMoveIn={moveIn}
                   initialMoveOut={moveOut}

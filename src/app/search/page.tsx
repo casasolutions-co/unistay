@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import styles from './page.module.css';
@@ -12,6 +12,8 @@ import PropertyCard from '../components/PropertyCard';
 import { useCitySearch } from '@/lib/useCitySearch';
 import { useSavedListings } from '@/lib/useSavedListings';
 import { useWhenPicker } from '@/lib/useWhenPicker';
+import { getCachedSearch, setCachedSearch } from '@/lib/searchResultsCache';
+import { useKeepPanelVisible } from '@/lib/useKeepPanelVisible';
 import DatePickerPanel from '../components/DatePickerPanel';
 import MobileWhenFields from '../components/MobileWhenFields';
 
@@ -37,6 +39,7 @@ const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', mi
    HELPERS
 ═══════════════════════════════════════════════════════════════ */
 type OpenPanel = 'search' | 'when' | 'price' | 'type' | 'source' | 'sort' | null;
+type ListingsResponse = { listings: UnifiedListing[]; total: number; hasMore: boolean };
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
 
@@ -74,8 +77,13 @@ function SearchPageInner() {
   const toggle = useCallback((name: OpenPanel) => setOpen(o => o === name ? null : name), []);
   const isOpen = (name: OpenPanel) => open === name;
 
+  // The when panel (two calendars + Apply) can be taller than the viewport
+  // below its trigger — keep it fully in view while open (see HeroSection.tsx).
+  const whenPanelRef = useRef<HTMLDivElement>(null);
+  useKeepPanelVisible(open === 'when', whenPanelRef);
+
   /* ── Nav search ── */
-  const { query, setQuery, groups, selectCity } = useCitySearch(searchParams.get('city') ?? 'Munich');
+  const { query, setQuery, groups, selectCity } = useCitySearch(searchParams.get('city') ?? '');
 
   /* ── Mobile state ── */
   const [mobileSheet,     setMobileSheet]     = useState<'filters' | 'sort' | null>(null);
@@ -151,22 +159,48 @@ function SearchPageInner() {
     if (sourceSet)               params.set('source', filterSource);
     if (moveIn)                  params.set('moveIn', moveIn);
 
+    const cacheKey = params.toString();
+    const cached = getCachedSearch<ListingsResponse>(cacheKey);
+    if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- serves a cached response instead of fetching; same synchronize-from-external-source shape as the fetch path below
+      setListings(prev => page === 1 ? cached.listings : [...prev, ...cached.listings]);
+      setTotal(cached.total);
+      setHasMore(cached.hasMore);
+      return;
+    }
+
     const ctrl = new AbortController();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sets the loading flag before starting the fetch that follows
     if (page === 1) setLoading(true); else setLoadingMore(true);
     fetch(`/api/listings?${params}`, { signal: ctrl.signal })
       .then(r => r.json())
-      .then(data => {
+      .then((data: ListingsResponse) => {
         setListings(prev => page === 1 ? data.listings : [...prev, ...data.listings]);
         setTotal(data.total);
         setHasMore(data.hasMore);
         setLoading(false);
         setLoadingMore(false);
+        setCachedSearch(cacheKey, data);
       })
       .catch(() => { setLoading(false); setLoadingMore(false); });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, page, filterType, filterSource, lo, hi, moveIn]);
+
+  // Keep the address bar in sync with the active filters, so refreshing,
+  // sharing the link, or hitting back restores what's on screen.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (query.trim())  params.set('city', query.trim());
+    if (typeSet)        params.set('type', filterType);
+    if (minVal > 0)     params.set('minPrice', String(lo));
+    if (maxVal < 3000)  params.set('maxPrice', String(hi));
+    if (sourceSet)      params.set('source', filterSource);
+    if (moveIn)         params.set('moveIn', moveIn);
+    if (moveOut)        params.set('moveOut', moveOut);
+    const qs = params.toString();
+    router.replace(qs ? `/search?${qs}` : '/search', { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, filterType, filterSource, lo, hi, moveIn, moveOut]);
 
   let filtered = listings;
   if      (filterSort === 'price_asc')  filtered = [...listings].sort((a, b) => a.price - b.price);
@@ -572,7 +606,11 @@ function SearchPageInner() {
               <IChevW open={isOpen('when')} />
             </button>
             {isOpen('when') && (
-              <div className={styles.whenPanel} style={{ width: 700, padding: '22px 24px 24px' }}>
+              <div
+                ref={whenPanelRef}
+                className={styles.whenPanel}
+                style={{ width: 700, padding: '22px 24px 24px', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }}
+              >
                 <DatePickerPanel
                   initialMoveIn={moveIn}
                   initialMoveOut={moveOut}

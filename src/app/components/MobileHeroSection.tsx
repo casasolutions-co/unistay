@@ -320,7 +320,9 @@ export default function MobileHeroSection() {
             const params = new URLSearchParams();
             params.set('city', location);
             if (type !== 'Any type') params.set('type', type);
-            if (maxRent !== 'Any budget') params.set('maxRent', maxRent);
+            // search page reads this as a plain number — strip the "€"/commas
+            const maxRentNum = maxRent === 'Any budget' ? 0 : parseInt(maxRent.replace(/[^\d]/g, ''), 10) || 0;
+            if (maxRentNum > 0) params.set('maxPrice', String(maxRentNum));
             if (when.resolvedMoveIn) params.set('moveIn', when.resolvedMoveIn);
             if (when.resolvedMoveOut) params.set('moveOut', when.resolvedMoveOut);
             router.push(`/search?${params.toString()}`);

@@ -1,21 +1,10 @@
 import { d1Query } from '../d1'
 import type { UnifiedListing, ListingFilters } from './types'
-
-const CITY_ALIASES: Record<string, string> = {
-  'cologne': 'köln',
-  'koln': 'köln',
-  'nuremberg': 'nürnberg',
-  'nuremburg': 'nürnberg',
-  'nuernberg': 'nürnberg',
-  'munster': 'münster',
-  'muenster': 'münster',
-  'dusseldorf': 'düsseldorf',
-  'duesseldorf': 'düsseldorf',
-}
+import { germanCityName } from '../city-aliases'
 
 export function citySlug(city: string): string {
-  const raw = city.toLowerCase().replace(/[/\\]/g, '-').replace(/\s+/g, '-')
-  return CITY_ALIASES[raw] ?? raw
+  const canonical = germanCityName(city) ?? city
+  return canonical.toLowerCase().replace(/[/\\]/g, '-').replace(/\s+/g, '-')
 }
 
 export function mapType(kindLabel: string, bedrooms: number): string {

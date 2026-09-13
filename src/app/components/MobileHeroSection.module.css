@@ -561,6 +561,12 @@
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+  /* .sheet itself scrolls (max-height: 88vh); on a short viewport the body
+     above can be taller than that, so pin Apply/Clear to the bottom of the
+     visible sheet instead of letting them scroll out of reach. */
+  position: sticky;
+  bottom: -1px;
+  background: #fff;
 }
 
 .sheetClearBtn {
