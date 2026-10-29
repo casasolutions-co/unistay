@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase';
 import styles from '../page.module.css';
 import CompleteProfileMobile from './CompleteProfileMobile';
 import AppNav from '../../components/AppNav';
+import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 
 type Role = 'student' | 'employed' | null;
 
@@ -14,6 +15,8 @@ export default function CompleteProfile() {
   const [role, setRole] = useState<Role>(null);
   const [nationality, setNationality] = useState('');
   const [phone, setPhone] = useState('');
+  const [residenceCountry, setResidenceCountry] = useState('');
+  const [residenceCity, setResidenceCity] = useState('');
   const [university, setUniversity] = useState('');
   const [program, setProgram] = useState('');
   const [startYear, setStartYear] = useState('');
@@ -23,7 +26,7 @@ export default function CompleteProfile() {
   const [error, setError] = useState('');
 
   const studentRequired = role === 'student' ? university.trim() && program.trim() && startYear : true;
-  const canSubmit = nationality && phone.trim() && role && studentRequired;
+  const canSubmit = nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentRequired;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -39,13 +42,13 @@ export default function CompleteProfile() {
         body: JSON.stringify({
           token,
           name: user.displayName,
-          phone, nationality,
+          phone, nationality, residenceCountry, residenceCity,
           role: role === 'employed' ? 'student' : role,
           university, program, startYear, jobTitle, why,
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      router.push('/search');
+      router.push('/register/preferences');
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -64,7 +67,12 @@ export default function CompleteProfile() {
 
       <div className={styles.split}>
         <div className={styles.imagePanel}>
-          <div className={styles.imageBg} />
+          <div
+            className={styles.imageBg}
+            style={{
+              backgroundImage: `linear-gradient(180deg, rgba(20,14,32,.25) 0%, rgba(20,14,32,.1) 45%, rgba(20,14,32,.75) 100%), url('/images/bedroom.jpg')`,
+            }}
+          />
           <div className={styles.imageContent}>
             <div className={styles.imageRule} />
             <h2 className={styles.imageHeadline}>Your profile, your story.</h2>
@@ -92,9 +100,7 @@ export default function CompleteProfile() {
                   <select className={styles.select} value={nationality} onChange={e => setNationality(e.target.value)}
                     style={{ color: nationality ? 'var(--text)' : 'var(--placeholder)' }}>
                     <option value="">Select…</option>
-                    <option>Germany</option><option>France</option><option>Spain</option>
-                    <option>Italy</option><option>Netherlands</option><option>India</option>
-                    <option>China</option><option>United States</option><option>Other</option>
+                    {COUNTRIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                   <span className={styles.selectArrow}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -113,6 +119,29 @@ export default function CompleteProfile() {
                   </span>
                   <input type="tel" className={styles.field} placeholder="+49 …" value={phone} onChange={e => setPhone(e.target.value)} />
                 </div>
+              </div>
+            </div>
+
+            <div className={styles.row}>
+              <div className={styles.rowCol}>
+                <label className={styles.label}>Country of residence <span className={styles.required}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <select className={styles.selectNoIcon} value={residenceCountry} onChange={e => setResidenceCountry(e.target.value)}
+                    style={{ color: residenceCountry ? 'var(--text)' : 'var(--placeholder)' }}>
+                    <option value="">Select…</option>
+                    {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                  <span className={styles.selectArrow}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+              <div className={styles.rowCol}>
+                <label className={styles.label}>City <span className={styles.required}>*</span></label>
+                <input type="text" className={styles.fieldNoIcon} placeholder="Where you live now"
+                  value={residenceCity} onChange={e => setResidenceCity(e.target.value)} />
               </div>
             </div>
 
@@ -156,8 +185,7 @@ export default function CompleteProfile() {
                       <select className={styles.selectNoIcon} value={startYear} onChange={e => setStartYear(e.target.value)}
                         style={{ color: startYear ? 'var(--text)' : 'var(--placeholder)' }}>
                         <option value="">Year…</option>
-                        <option>2026</option><option>2025</option><option>2024</option>
-                        <option>2023</option><option>2022</option><option>2021</option>
+                        {START_YEARS.map(y => <option key={y}>{y}</option>)}
                       </select>
                       <span className={styles.selectArrow}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

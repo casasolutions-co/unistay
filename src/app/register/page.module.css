@@ -316,7 +316,7 @@
 }
 
 .selectNoIcon {
-  composes: fieldNoIcon;
+  composes: field;
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;

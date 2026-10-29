@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './RegisterMobile.module.css';
+import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 
 /* ── Custom picker ──────────────────────────────────────────────── */
 interface CustomPickerProps {
@@ -171,6 +172,8 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
   /* Step 2 */
   const [nationality, setNationality] = useState('');
   const [phone,       setPhone]       = useState('');
+  const [residenceCountry, setResidenceCountry] = useState('');
+  const [residenceCity,    setResidenceCity]    = useState('');
   const [university,  setUniversity]  = useState('');
   const [program,     setProgram]     = useState('');
   const [startYear,   setStartYear]   = useState('');
@@ -180,7 +183,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
   /* ── Derived ── */
   const canNext     = !!(name.trim() && email.trim() && password.length >= 8);
   const studentReq  = role === 'student' ? !!(university.trim() && program.trim() && startYear) : true;
-  const canCreate   = !!(nationality && phone.trim() && role && studentReq);
+  const canCreate   = !!(nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentReq);
   const enabled     = step === 1 ? canNext : canCreate;
 
   const bannerTitle = step === 1
@@ -199,10 +202,10 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
         const token = await cred.user.getIdToken();
         await syncUser(token, role ?? 'student');
         await saveProfile(token, {
-          name, phone, nationality, role: role ?? 'student',
+          name, phone, nationality, residenceCountry, residenceCity, role: role ?? 'student',
           university, program, startYear, jobTitle, why,
         });
-        router.push('/search');
+        router.push('/register/preferences');
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '';
         if (msg.includes('email-already-in-use')) setError('An account with this email already exists.');
@@ -354,7 +357,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                 onChange={setNationality}
                 placeholder="Select nationality…"
                 title="Nationality"
-                options={['Afghanistan','Albania','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bangladesh','Belarus','Belgium','Bolivia','Bosnia and Herzegovina','Brazil','Bulgaria','Cambodia','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Ecuador','Egypt','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Hungary','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Japan','Jordan','Kazakhstan','Kenya','South Korea','Kosovo','Kuwait','Lebanon','Libya','Lithuania','Malaysia','Mexico','Moldova','Morocco','Nepal','Netherlands','New Zealand','Nigeria','North Macedonia','Norway','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Romania','Russia','Saudi Arabia','Serbia','Slovakia','Slovenia','South Africa','Spain','Sri Lanka','Sweden','Switzerland','Syria','Taiwan','Thailand','Tunisia','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States','Uzbekistan','Venezuela','Vietnam','Yemen','Other']}
+                options={COUNTRIES}
               />
 
               {/* Phone */}
@@ -365,6 +368,24 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                 placeholder="+49 …"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
+              />
+
+              {/* Residence */}
+              <label className={styles.label}>Country of residence *</label>
+              <CustomPicker
+                value={residenceCountry}
+                onChange={setResidenceCountry}
+                placeholder="Select country…"
+                title="Country of residence"
+                options={COUNTRIES}
+              />
+              <label className={styles.label}>City *</label>
+              <input
+                type="text"
+                className={styles.field}
+                placeholder="Where you live now"
+                value={residenceCity}
+                onChange={e => setResidenceCity(e.target.value)}
               />
 
               {/* Role */}
@@ -405,13 +426,13 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                     value={program}
                     onChange={e => setProgram(e.target.value)}
                   />
-                  <label className={styles.label}>Expected graduation year *</label>
+                  <label className={styles.label}>Start year *</label>
                   <CustomPicker
                     value={startYear}
                     onChange={setStartYear}
                     placeholder="Select year…"
-                    title="Graduation year"
-                    options={['2024','2025','2026','2027','2028','2029','2030']}
+                    title="Start year"
+                    options={START_YEARS}
                   />
                 </div>
               )}

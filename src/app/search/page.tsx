@@ -16,6 +16,9 @@ import { getCachedSearch, setCachedSearch } from '@/lib/searchResultsCache';
 import { useKeepPanelVisible } from '@/lib/useKeepPanelVisible';
 import DatePickerPanel from '../components/DatePickerPanel';
 import MobileWhenFields from '../components/MobileWhenFields';
+import { HOUSING_TYPES } from '@/lib/profileOptions';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const MapPanel = dynamic(() => import('./MapPanel'), { ssr: false });
 
@@ -29,7 +32,7 @@ const PH_HUES = [
   { a: '#ece4f0', b: '#f4eef7' }, { a: '#e8ebe0', b: '#f1f3ec' },
 ];
 
-const TYPES    = ['Any type', 'Studio', 'Shared flat (WG)', '1-bedroom apartment', '2+ bedrooms'];
+const TYPES    = ['Any type', ...HOUSING_TYPES];
 const SOURCES  = [{ k: 'all', l: 'All listings' }, { k: 'CASA', l: 'Casa only' }, { k: 'PARTNER', l: 'Partner only' }, { k: 'PRIVATE', l: 'Private landlords' }];
 const SORTS    = [{ k: 'featured', l: 'Featured first' }, { k: 'price_asc', l: 'Price: low to high' }, { k: 'price_desc', l: 'Price: high to low' }, { k: 'area_desc', l: 'Largest first' }];
 const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', min: 0, max: 500 }, { label: '≤ €800', min: 0, max: 800 }, { label: '≤ €1,200', min: 0, max: 1200 }, { label: '≤ €2,000', min: 0, max: 2000 }];
@@ -776,10 +779,58 @@ function SearchPageInner() {
   );
 }
 
+type HousingPrefs = { city?: string; types?: string[]; minPrice?: number | null; maxPrice?: number | null; moveIn?: string };
+
+function prefsToQuery(h: HousingPrefs | undefined): string {
+  const params = new URLSearchParams();
+  if (!h) return '';
+  if (h.city)                                  params.set('city', h.city);
+  if (h.types?.length === 1)                   params.set('type', h.types[0]); // filter is single-select
+  if (h.minPrice && h.minPrice > 0)            params.set('minPrice', String(h.minPrice));
+  if (h.maxPrice && h.maxPrice < 3000)         params.set('maxPrice', String(h.maxPrice));
+  if (h.moveIn && h.moveIn >= new Date().toISOString().slice(0, 10)) params.set('moveIn', h.moveIn);
+  return params.toString();
+}
+
+// Logged-in users opening /search with no filters start from their saved
+// housing preferences (set in /register/preferences). Any filter in the URL
+// wins, and logged-out visitors are unaffected.
+function SearchWithPreferences() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [target, setTarget] = useState<string | null>(() => searchParams.toString() || null);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (target !== null) return;
+    return onAuthStateChanged(auth, async u => {
+      let qs = '';
+      if (u) {
+        try {
+          const res = await fetch('/api/user/profile', { headers: { Authorization: `Bearer ${await u.getIdToken()}` } });
+          if (res.ok) qs = prefsToQuery((await res.json()).user?.preferences?.housing);
+        } catch { /* fall through to unfiltered search */ }
+      }
+      if (qs) router.replace(`/search?${qs}`, { scroll: false });
+      setTarget(qs);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mount the page only once the URL holds the starting filters (its state is
+  // initialised from them), then keep it mounted as the page edits the URL.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- latches once the replaced URL is visible
+    if (target !== null && searchParams.toString() === target) setShow(true);
+  }, [target, searchParams]);
+
+  return show ? <SearchPageInner /> : null;
+}
+
 export default function SearchPage() {
   return (
     <Suspense>
-      <SearchPageInner />
+      <SearchWithPreferences />
     </Suspense>
   );
 }

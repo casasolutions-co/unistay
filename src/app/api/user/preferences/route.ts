@@ -11,6 +11,7 @@ const ALLOWED_KEYS = new Set([
   'mutedThreads',
   'blockedUsers',
   'hiddenThreads',
+  'housing', // { city, types[], minPrice, maxPrice, moveIn } from /register/preferences; pre-fills search
 ]);
 const MAX_SERIALIZED_BYTES = 20_000;
 

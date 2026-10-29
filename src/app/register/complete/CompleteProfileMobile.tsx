@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import styles from '../RegisterMobile.module.css';
+import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 
 type Role = 'student' | 'employed' | null;
 
@@ -37,6 +38,8 @@ export default function CompleteProfileMobile() {
   const [role, setRole] = useState<Role>(null);
   const [nationality, setNationality] = useState('');
   const [phone, setPhone] = useState('');
+  const [residenceCountry, setResidenceCountry] = useState('');
+  const [residenceCity, setResidenceCity] = useState('');
   const [university, setUniversity] = useState('');
   const [program, setProgram] = useState('');
   const [startYear, setStartYear] = useState('');
@@ -46,7 +49,7 @@ export default function CompleteProfileMobile() {
   const [error, setError] = useState('');
 
   const studentReq = role === 'student' ? !!(university.trim() && program.trim() && startYear) : true;
-  const canSubmit = !!(nationality && phone.trim() && role && studentReq);
+  const canSubmit = !!(nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentReq);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -62,13 +65,13 @@ export default function CompleteProfileMobile() {
         body: JSON.stringify({
           token,
           name: user.displayName,
-          phone, nationality,
+          phone, nationality, residenceCountry, residenceCity,
           role: role === 'employed' ? 'student' : role,
           university, program, startYear, jobTitle, why,
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      router.push('/search');
+      router.push('/register/preferences');
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -111,15 +114,7 @@ export default function CompleteProfileMobile() {
                   style={{ color: nationality ? 'var(--text)' : 'var(--placeholder)' }}
                 >
                   <option value="">Select…</option>
-                  <option>Germany</option>
-                  <option>France</option>
-                  <option>Spain</option>
-                  <option>Italy</option>
-                  <option>Netherlands</option>
-                  <option>India</option>
-                  <option>China</option>
-                  <option>United States</option>
-                  <option>Other</option>
+                  {COUNTRIES.map(c => <option key={c}>{c}</option>)}
                 </select>
                 <span className={styles.selectArrow}><IChevDown /></span>
               </div>
@@ -132,6 +127,35 @@ export default function CompleteProfileMobile() {
                 placeholder="+49 …"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Residence */}
+          <div className={styles.twoCol}>
+            <div className={styles.twoColItem}>
+              <label className={styles.label}>Country of residence *</label>
+              <div className={styles.selectWrap}>
+                <select
+                  className={styles.select}
+                  value={residenceCountry}
+                  onChange={e => setResidenceCountry(e.target.value)}
+                  style={{ color: residenceCountry ? 'var(--text)' : 'var(--placeholder)' }}
+                >
+                  <option value="">Select…</option>
+                  {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+                <span className={styles.selectArrow}><IChevDown /></span>
+              </div>
+            </div>
+            <div className={styles.twoColItem}>
+              <label className={styles.label}>City *</label>
+              <input
+                type="text"
+                className={styles.fieldMb0}
+                placeholder="Where you live now"
+                value={residenceCity}
+                onChange={e => setResidenceCity(e.target.value)}
               />
             </div>
           </div>
@@ -160,13 +184,12 @@ export default function CompleteProfileMobile() {
                     value={program} onChange={e => setProgram(e.target.value)} />
                 </div>
                 <div className={styles.twoColItem}>
-                  <label className={styles.label}>Year *</label>
+                  <label className={styles.label}>Start year *</label>
                   <div className={styles.selectWrap}>
                     <select className={styles.select} value={startYear} onChange={e => setStartYear(e.target.value)}
                       style={{ color: startYear ? 'var(--text)' : 'var(--placeholder)' }}>
                       <option value="">Year…</option>
-                      <option>2026</option><option>2025</option><option>2024</option>
-                      <option>2023</option><option>2022</option>
+                      {START_YEARS.map(y => <option key={y}>{y}</option>)}
                     </select>
                     <span className={styles.selectArrowBottom}><IChevDown /></span>
                   </div>

@@ -1,0 +1,24 @@
+.chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.skipBtn {
+  width: 100%;
+  margin-top: 12px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+/* One page for both sizes: drop the photo and tighten padding on phones. */
+@media (max-width: 768px) {
+  .hideOnMobile { display: none; }
+  .formPad { padding: 28px 16px 40px; }
+}

@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
   name                 TEXT,
   phone                TEXT,
   nationality          TEXT,
+  residence_country    TEXT,
+  residence_city       TEXT,
   role                 TEXT NOT NULL DEFAULT 'student',
   university           TEXT,
   program              TEXT,

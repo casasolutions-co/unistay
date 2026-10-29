@@ -8,6 +8,7 @@ import { auth } from '@/lib/firebase';
 import styles from './page.module.css';
 import RegisterMobile from './RegisterMobile';
 import LegalModal from '../components/LegalModal';
+import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 
 async function syncUser(token: string, role?: string): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
@@ -97,10 +98,10 @@ export default function RegisterPage() {
       const token = await cred.user.getIdToken();
       await syncUser(token, role ?? 'student');
       await saveProfile(token, {
-        name, phone, nationality, role: role ?? 'student',
+        name, phone, nationality, residenceCountry, residenceCity, role: role ?? 'student',
         university, program, startYear, jobTitle, why,
       });
-      router.push('/search');
+      router.push('/register/preferences');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('email-already-in-use')) {
@@ -138,6 +139,8 @@ export default function RegisterPage() {
   // Step 2 fields
   const [nationality, setNationality] = useState('');
   const [phone, setPhone] = useState('');
+  const [residenceCountry, setResidenceCountry] = useState('');
+  const [residenceCity, setResidenceCity] = useState('');
   const [university, setUniversity] = useState('');
   const [program, setProgram] = useState('');
   const [startYear, setStartYear] = useState('');
@@ -149,7 +152,7 @@ export default function RegisterPage() {
   const studentRequired = role === 'student'
     ? university.trim() && program.trim() && startYear
     : true;
-  const canCreate = nationality && phone.trim() && role && studentRequired;
+  const canCreate = nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentRequired;
 
   const copy = leftCopy[step];
 
@@ -324,15 +327,7 @@ export default function RegisterPage() {
                         style={{ color: nationality ? 'var(--text)' : 'var(--placeholder)' }}
                       >
                         <option value="">Select…</option>
-                        <option>Germany</option>
-                        <option>France</option>
-                        <option>Spain</option>
-                        <option>Italy</option>
-                        <option>Netherlands</option>
-                        <option>India</option>
-                        <option>China</option>
-                        <option>United States</option>
-                        <option>Other</option>
+                        {COUNTRIES.map(c => <option key={c}>{c}</option>)}
                       </select>
                       <span className={styles.selectArrow}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -357,6 +352,39 @@ export default function RegisterPage() {
                         onChange={(e) => setPhone(e.target.value)}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Residence */}
+                <div className={styles.row}>
+                  <div className={styles.rowCol}>
+                    <label className={styles.label}>Country of residence <span className={styles.required}>*</span></label>
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        className={styles.selectNoIcon}
+                        value={residenceCountry}
+                        onChange={(e) => setResidenceCountry(e.target.value)}
+                        style={{ color: residenceCountry ? 'var(--text)' : 'var(--placeholder)' }}
+                      >
+                        <option value="">Select…</option>
+                        {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+                      </select>
+                      <span className={styles.selectArrow}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.rowCol}>
+                    <label className={styles.label}>City <span className={styles.required}>*</span></label>
+                    <input
+                      type="text"
+                      className={styles.fieldNoIcon}
+                      placeholder="Where you live now"
+                      value={residenceCity}
+                      onChange={(e) => setResidenceCity(e.target.value)}
+                    />
                   </div>
                 </div>
 
@@ -427,12 +455,7 @@ export default function RegisterPage() {
                             style={{ color: startYear ? 'var(--text)' : 'var(--placeholder)' }}
                           >
                             <option value="">Year…</option>
-                            <option>2026</option>
-                            <option>2025</option>
-                            <option>2024</option>
-                            <option>2023</option>
-                            <option>2022</option>
-                            <option>2021</option>
+                            {START_YEARS.map(y => <option key={y}>{y}</option>)}
                           </select>
                           <span className={styles.selectArrow}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
