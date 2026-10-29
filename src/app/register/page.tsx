@@ -198,6 +198,11 @@ export default function RegisterPage() {
                 <span className={step === 2 ? styles.stepDot : styles.stepDotInactive}>2</span>
                 <span className={step === 2 ? styles.stepLabel : styles.stepLabelInactive}>Your Details</span>
               </div>
+              <span className={styles.stepLine} />
+              <div className={styles.stepItem}>
+                <span className={styles.stepDotInactive}>3</span>
+                <span className={styles.stepLabelInactive}>Preferences</span>
+              </div>
             </div>
 
             {/* ── Step 1 ── */}

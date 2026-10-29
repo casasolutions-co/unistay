@@ -155,7 +155,7 @@
 .stepper {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 26px;
 }
 
@@ -188,6 +188,7 @@
   font-weight: 700;
   font-size: 14px;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .stepLabelInactive {
@@ -196,7 +197,8 @@
 }
 
 .stepLine {
-  width: 46px;
+  flex: 1;
+  min-width: 16px;
   height: 2px;
   border-radius: 999px;
   background: #e6e2ef;

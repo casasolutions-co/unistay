@@ -251,7 +251,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
           <div className={styles.logoRow}>
             <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 36, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
           </div>
-          <span className={styles.stepPill}>Step {step} of 2</span>
+          <span className={styles.stepPill}>Step {step} of 3</span>
         </div>
 
         {/* Headline */}
@@ -271,6 +271,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
           <div className={styles.progressRow}>
             <div className={styles.progressFilled} />
             <div className={step === 2 ? styles.progressFilled : styles.progressEmpty} />
+            <div className={styles.progressEmpty} />
           </div>
           <div className={styles.progressLabels}>
             <span className={styles.labelDone}>
@@ -280,6 +281,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
             <span className={step === 2 ? styles.labelDone : styles.labelPending}>
               Your details
             </span>
+            <span className={styles.labelPending}>Preferences</span>
           </div>
         </div>
 

@@ -5,16 +5,28 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { HOUSING_TYPES } from '@/lib/profileOptions';
+import { useCitySearch } from '@/lib/useCitySearch';
 import AppNav from '../../components/AppNav';
 import styles from '../page.module.css';
 import p from './page.module.css';
 
-// Optional step after registration: what the user is looking for. Stored as
+const Check = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
+// Step 3 of registration: what the user is looking for. Stored as
 // users.preferences.housing and used by /search to pre-fill its filters.
 export default function HousingPreferences() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  // City must come from the suggestion list so it's the canonical spelling
+  // search matches on ("München", not "Munich"); typing clears the pick.
+  const { query: cityQuery, setQuery: setCityQuery, groups } = useCitySearch();
   const [city, setCity] = useState('');
+  const [cityOpen, setCityOpen] = useState(false);
+  const citySuggestions = groups.flatMap(g => g.items).filter(it => it.kind !== 'uni').slice(0, 8);
   const [types, setTypes] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -41,7 +53,7 @@ export default function HousingPreferences() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           housing: {
-            city: city.trim(),
+            city,
             types,
             minPrice: minPrice ? Number(minPrice) : null,
             maxPrice: maxPrice ? Number(maxPrice) : null,
@@ -79,13 +91,50 @@ export default function HousingPreferences() {
 
         <div className={`${styles.formPanel} ${p.formPad}`}>
           <div className={styles.formInner}>
+            <div className={styles.stepper}>
+              <div className={styles.stepItem}>
+                <span className={styles.stepDot}><Check /></span>
+                <span className={styles.stepLabel}>Account</span>
+              </div>
+              <span className={styles.stepLineActive} />
+              <div className={styles.stepItem}>
+                <span className={styles.stepDot}><Check /></span>
+                <span className={styles.stepLabel}>Your Details</span>
+              </div>
+              <span className={styles.stepLineActive} />
+              <div className={styles.stepItem}>
+                <span className={styles.stepDot}>3</span>
+                <span className={styles.stepLabel}>Preferences</span>
+              </div>
+            </div>
+
             <p className={styles.eyebrow}>Almost done</p>
             <h1 className={styles.headline}>What are you looking for?</h1>
             <p className={styles.subline}>All optional — you can change this any time.</p>
 
             <label className={styles.label}>Where in Germany?</label>
-            <input type="text" className={styles.fieldNoIcon} placeholder="e.g. Munich"
-              value={city} onChange={e => setCity(e.target.value)} style={{ marginBottom: 18 }} />
+            <div className={p.cityWrap}>
+              <input type="text" className={styles.fieldNoIcon} placeholder="Start typing, e.g. München"
+                role="combobox" aria-controls="pref-city-list" aria-expanded={cityOpen} aria-autocomplete="list" autoComplete="off"
+                value={cityQuery}
+                onChange={e => { setCityQuery(e.target.value); setCity(''); setCityOpen(true); }}
+                onFocus={() => setCityOpen(true)}
+                onBlur={() => setTimeout(() => setCityOpen(false), 150)} />
+              {cityOpen && citySuggestions.length > 0 && (
+                <ul id="pref-city-list" className={p.cityList} role="listbox">
+                  {citySuggestions.map(it => (
+                    <li key={it.kind + it.name} role="option" aria-selected={it.name === city}>
+                      <button type="button" className={p.cityOption}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => { setCity(it.name); setCityQuery(it.name); setCityOpen(false); }}>
+                        {it.name} <span>{it.sub}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {cityQuery && !city && !cityOpen && <p className={p.cityHint}>Pick a city from the list</p>}
+            </div>
 
             <label className={styles.label}>Type of place</label>
             <div className={p.chips}>
