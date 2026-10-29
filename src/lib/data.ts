@@ -40,6 +40,7 @@ interface ListingRow {
   size_sqm: number | null
   utilities: number | null
   deposit: number | null
+  admin_fee?: number | null
   source?: string | null
 }
 
@@ -120,6 +121,7 @@ function mapListing(r: ListingRow, amenities?: string[], photoKeys?: string[]): 
     coldRent: r.cold_rent,
     utilities: r.utilities,
     deposit: r.deposit,
+    adminFee: r.admin_fee ?? null,
     amenities,
     photoKeys,
     source: r.source === 'casa' ? 'casa' : 'private',
@@ -919,6 +921,7 @@ export interface CasaListingInput {
   rent: number
   utilities: number
   deposit: number
+  adminFee: number
   availFrom: string | null
   availTo: string | null
   openEnded: boolean
@@ -950,18 +953,18 @@ export async function createCasaListing(input: CasaListingInput): Promise<string
       id, landlord_id, ptype, title,
       street, city, postcode,
       bedrooms, bathrooms, size_sqm, room_size_sqm,
-      cold_rent, utilities, deposit,
+      cold_rent, utilities, deposit, admin_fee,
       avail_from, avail_to, open_ended,
       min_period, max_period,
       description,
       mate_count, mate_gender, pref_gender, mate_notes,
       status, source, created_at, updated_at
-    ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 'casa', ?, ?)`,
+    ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 'casa', ?, ?)`,
     [
       id, input.ptype, input.title,
       input.street, input.city, input.postcode,
       input.bedrooms, input.bathrooms, input.aptSize, input.roomSize,
-      input.rent, input.utilities, input.deposit,
+      input.rent, input.utilities, input.deposit, input.adminFee,
       input.availFrom, input.availTo, input.openEnded ? 1 : 0,
       input.minPeriod, input.maxPeriod,
       input.desc,

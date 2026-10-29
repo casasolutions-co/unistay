@@ -151,6 +151,7 @@ export default function ListCasaApartment() {
   const [rent, setRent] = useState('');
   const [utilities, setUtilities] = useState('');
   const [deposit, setDeposit] = useState('');
+  const [adminFee, setAdminFee] = useState('');
   const [availFrom, setAvailFrom] = useState('');
   const [availTo, setAvailTo] = useState('');
   const [openEnded, setOpenEnded] = useState(false);
@@ -270,7 +271,7 @@ export default function ListCasaApartment() {
           bedrooms, bathrooms, roomSize, aptSize,
           amenities,
           desc, mates, numMates, mateGender, prefGender,
-          rent, utilities, deposit,
+          rent, utilities, deposit, adminFee,
           availFrom, availTo, openEnded,
           minPeriod, maxPeriod,
           photos: uploadedPhotos.map((p, i) => ({
@@ -535,6 +536,16 @@ export default function ListCasaApartment() {
                   className={styles.usField} style={{ padding: '0 14px 0 34px', maxWidth: 240 }} />
               </div>
               <p style={{ fontSize: 12, color: NEUTRAL, fontWeight: 600, margin: '7px 0 0' }}>{depositHint}</p>
+            </div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label className={styles.usLab}>Admin fee</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--brand)', fontWeight: 800, fontSize: 16 }}>€</span>
+                <input type="text" inputMode="numeric" placeholder="0" value={adminFee} onChange={e => setAdminFee(e.target.value)}
+                  className={styles.usField} style={{ padding: '0 14px 0 34px', maxWidth: 240 }} />
+              </div>
+              <p style={{ fontSize: 12, color: NEUTRAL, fontWeight: 600, margin: '7px 0 0' }}>One-time, shown as &quot;CASA administrative fees&quot; and added to the move-in total</p>
             </div>
 
             <div style={{ borderTop: '1px solid #f1eef7', paddingTop: 18, marginBottom: 18 }}>

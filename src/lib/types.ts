@@ -38,6 +38,7 @@ export interface Listing {
   coldRent?: number | null
   utilities?: number | null
   deposit?: number | null
+  adminFee?: number | null
   amenities?: string[]
   photoKeys?: string[]
   source?: 'private' | 'casa'

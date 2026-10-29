@@ -120,6 +120,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                 ['Cold rent', listing.coldRent != null ? `€${listing.coldRent}` : '—'],
                 ['Utilities', listing.utilities != null ? `€${listing.utilities}` : '—'],
                 ['Deposit', listing.deposit != null ? `€${listing.deposit}` : '—'],
+                ...(isCasa ? [['CASA administrative fees', `€${listing.adminFee ?? 0}`]] : []),
               ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#9a94a8' }}>{label}</span><span>{val}</span>
