@@ -64,6 +64,7 @@ interface DocRow {
   rejection_reason: string | null
   created_at: number | null
   r2_key: string | null
+  content_type?: string | null
 }
 
 interface ReportRow {
@@ -151,6 +152,7 @@ function mapDoc(r: DocRow): Document {
     status: r.status as Document['status'],
     rejectionReason: r.rejection_reason,
     r2Key: r.r2_key,
+    contentType: r.content_type ?? null,
   }
 }
 
@@ -179,7 +181,7 @@ async function reportSummary(targetType: string, targetId: string): Promise<stri
   }
   if (targetType === 'verification_doc') {
     const row = await d1First<{ name: string | null }>(
-      `SELECT u.name FROM verification_docs v JOIN users u ON u.id = v.user_id WHERE v.id = ?`,
+      `SELECT u.name FROM user_documents v JOIN users u ON u.id = v.user_id WHERE v.id = ?`,
       [targetId]
     )
     return row?.name ?? targetId
@@ -196,7 +198,7 @@ async function reportHref(targetType: string, targetId: string): Promise<string>
   if (targetType === 'listing') return `/listings/${targetId}`
   if (targetType === 'user') return `/users/${targetId}`
   if (targetType === 'verification_doc') {
-    const row = await d1First<{ user_id: string }>(`SELECT user_id FROM verification_docs WHERE id = ?`, [targetId])
+    const row = await d1First<{ user_id: string }>(`SELECT user_id FROM user_documents WHERE id = ?`, [targetId])
     return row ? `/users/${row.user_id}` : '/documents'
   }
   if (targetType === 'setting') return '/settings'
@@ -224,7 +226,7 @@ export async function getDashboardCounts(): Promise<DashboardCounts> {
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM users WHERE verification_status IN ('unverified','pending')`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM listings WHERE status = 'pending_review'`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM reports WHERE target_type = 'message' AND status = 'open'`),
-    d1First<{ n: number }>(`SELECT COUNT(*) as n FROM verification_docs WHERE status = 'pending'`),
+    d1First<{ n: number }>(`SELECT COUNT(*) as n FROM user_documents WHERE status = 'pending'`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM reports WHERE status = 'open'`),
     d1First<{ n: number }>(`SELECT COUNT(*) as n FROM users WHERE landlord_status = 'pending'`),
   ])
@@ -309,10 +311,13 @@ export async function getLandlordApplications(opts: { filter?: string } = {}): P
   return rows.map(mapLandlordApplication)
 }
 
-export async function _setLandlordStatus(id: string, status: 'approved' | 'rejected', note: string | null, adminId: string) {
+// The *_by reviewer columns all FK to users(id), but admins aren't rows in
+// users (Firebase-only) — writing an admin uid there fails the FK check and
+// throws. They're left NULL; who did it is recorded in admin_audit_log.
+export async function _setLandlordStatus(id: string, status: 'approved' | 'rejected', note: string | null) {
   await d1Run(
-    `UPDATE users SET landlord_status = ?, landlord_note = ?, landlord_reviewed_at = ?, landlord_reviewed_by = ? WHERE id = ?`,
-    [status, note, nowSeconds(), adminId, id]
+    `UPDATE users SET landlord_status = ?, landlord_note = ?, landlord_reviewed_at = ?, landlord_reviewed_by = NULL WHERE id = ?`,
+    [status, note, nowSeconds(), id]
   )
 }
 
@@ -521,7 +526,7 @@ export async function getDocuments(opts: { filter?: string } = {}): Promise<Docu
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   const rows = await d1All<DocRow>(
-    `SELECT v.*, u.name as user_name FROM verification_docs v JOIN users u ON u.id = v.user_id ${where} ORDER BY v.created_at DESC`,
+    `SELECT v.*, u.name as user_name FROM user_documents v JOIN users u ON u.id = v.user_id ${where} ORDER BY v.created_at DESC`,
     params
   )
   return rows.map(mapDoc)
@@ -529,7 +534,7 @@ export async function getDocuments(opts: { filter?: string } = {}): Promise<Docu
 
 export async function getDocument(id: string): Promise<Document | null> {
   const row = await d1First<DocRow>(
-    `SELECT v.*, u.name as user_name FROM verification_docs v JOIN users u ON u.id = v.user_id WHERE v.id = ?`,
+    `SELECT v.*, u.name as user_name FROM user_documents v JOIN users u ON u.id = v.user_id WHERE v.id = ?`,
     [id]
   )
   return row ? mapDoc(row) : null
@@ -537,7 +542,7 @@ export async function getDocument(id: string): Promise<Document | null> {
 
 export async function getDocsByUser(userId: string): Promise<Document[]> {
   const rows = await d1All<DocRow>(
-    `SELECT v.*, u.name as user_name FROM verification_docs v JOIN users u ON u.id = v.user_id WHERE v.user_id = ? ORDER BY v.created_at DESC`,
+    `SELECT v.*, u.name as user_name FROM user_documents v JOIN users u ON u.id = v.user_id WHERE v.user_id = ? ORDER BY v.created_at DESC`,
     [userId]
   )
   return rows.map(mapDoc)
@@ -701,21 +706,21 @@ export async function getFaqs(): Promise<Faq[]> {
 export async function _setUserStatus(
   id: string,
   status: User['status'],
-  extra: { verificationNote?: string | null; banReason?: string | null; banExpiresAt?: string | null; bannedAt?: boolean; adminId?: string } = {}
+  extra: { verificationNote?: string | null; banReason?: string | null; banExpiresAt?: string | null; bannedAt?: boolean } = {}
 ) {
   const now = nowSeconds()
   if (status === 'banned') {
     await d1Run(
-      `UPDATE users SET verification_status = ?, banned_at = ?, banned_by = ?, ban_reason = ?, ban_expires_at = ? WHERE id = ?`,
-      [status, now, extra.adminId ?? null, extra.banReason ?? null, extra.banExpiresAt ? Math.floor(new Date(extra.banExpiresAt).getTime() / 1000) : null, id]
+      `UPDATE users SET verification_status = ?, banned_at = ?, banned_by = NULL, ban_reason = ?, ban_expires_at = ? WHERE id = ?`,
+      [status, now, extra.banReason ?? null, extra.banExpiresAt ? Math.floor(new Date(extra.banExpiresAt).getTime() / 1000) : null, id]
     )
     return
   }
   const verificationNote = status === 'rejected' ? extra.verificationNote ?? null : null
   await d1Run(
-    `UPDATE users SET verification_status = ?, verification_note = ?, verified_at = ?, verified_by = ?,
+    `UPDATE users SET verification_status = ?, verification_note = ?, verified_at = ?, verified_by = NULL,
        banned_at = NULL, banned_by = NULL, ban_reason = NULL, ban_expires_at = NULL WHERE id = ?`,
-    [status, verificationNote, status === 'verified' ? now : null, status === 'verified' ? extra.adminId ?? null : null, id]
+    [status, verificationNote, status === 'verified' ? now : null, id]
   )
 }
 
@@ -729,15 +734,15 @@ export async function _setListingStatus(id: string, status: Listing['status'], r
   ])
 }
 
-export async function _setDocStatus(id: string, status: Document['status'], rejectionReason: string | null = null, adminId?: string) {
+export async function _setDocStatus(id: string, status: Document['status'], rejectionReason: string | null = null) {
   await d1Run(
-    `UPDATE verification_docs SET status = ?, rejection_reason = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?`,
-    [status, status === 'rejected' ? rejectionReason : null, adminId ?? null, nowSeconds(), id]
+    `UPDATE user_documents SET status = ?, rejection_reason = ?, reviewed_at = ? WHERE id = ?`,
+    [status, status === 'rejected' ? rejectionReason : null, nowSeconds(), id]
   )
 }
 
-export async function _redactMessage(id: string, adminId: string) {
-  await d1Run(`UPDATE messages SET deleted_at = ?, deleted_by = ? WHERE id = ?`, [nowSeconds(), adminId, id])
+export async function _redactMessage(id: string) {
+  await d1Run(`UPDATE messages SET deleted_at = ?, deleted_by = NULL WHERE id = ?`, [nowSeconds(), id])
 }
 
 // Admin sends into a conversation directly — as support, or standing in as
@@ -772,7 +777,10 @@ export async function _setTicketStatus(inquiryId: string, status: 'open' | 'reso
 export async function _deleteUserAccount(userId: string): Promise<void> {
   const [listingRows, docRows] = await Promise.all([
     d1All<{ id: string }>(`SELECT id FROM listings WHERE landlord_id = ?`, [userId]),
-    d1All<{ r2_key: string | null }>(`SELECT r2_key FROM verification_docs WHERE user_id = ?`, [userId]),
+    d1All<{ r2_key: string | null }>(
+      `SELECT r2_key FROM user_documents WHERE user_id = ? UNION ALL SELECT r2_key FROM verification_docs WHERE user_id = ?`,
+      [userId, userId]
+    ),
   ])
   const listingIds = listingRows.map(l => l.id)
 
@@ -818,7 +826,8 @@ export async function _deleteUserAccount(userId: string): Promise<void> {
     await d1Run(`DELETE FROM listings WHERE landlord_id = ?`, [userId])
   }
 
-  await d1Run(`DELETE FROM verification_docs WHERE user_id = ?`, [userId])
+  await d1Run(`DELETE FROM user_documents WHERE user_id = ?`, [userId])
+  await d1Run(`DELETE FROM verification_docs WHERE user_id = ?`, [userId]) // legacy table, no longer written
   await d1Run(`DELETE FROM user_inbox_counts WHERE user_id = ?`, [userId])
   await d1Run(`DELETE FROM users WHERE id = ?`, [userId])
 
@@ -829,18 +838,18 @@ export async function _deleteUserAccount(userId: string): Promise<void> {
   ])
 }
 
-export async function _setReportStatus(id: string, status: Report['status'], resolutionNote: string | null = null, adminId?: string) {
+export async function _setReportStatus(id: string, status: Report['status'], resolutionNote: string | null = null) {
   await d1Run(
-    `UPDATE reports SET status = ?, resolved_by = ?, resolved_at = ?, resolution_note = ? WHERE id = ?`,
-    [status, adminId ?? null, nowSeconds(), resolutionNote, id]
+    `UPDATE reports SET status = ?, resolved_by = NULL, resolved_at = ?, resolution_note = ? WHERE id = ?`,
+    [status, nowSeconds(), resolutionNote, id]
   )
 }
 
-export async function _setAppSetting(key: string, enabled: boolean, adminId?: string) {
+export async function _setAppSetting(key: string, enabled: boolean) {
   await d1Run(
-    `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
-    [key, enabled ? 'true' : 'false', adminId ?? null, nowSeconds()]
+    `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?, ?, NULL, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = NULL, updated_at = excluded.updated_at`,
+    [key, enabled ? 'true' : 'false', nowSeconds()]
   )
 }
 

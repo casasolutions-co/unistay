@@ -107,6 +107,7 @@ export interface Document {
   status: DocStatus
   rejectionReason?: string | null
   r2Key: string | null
+  contentType?: string | null
 }
 
 export interface Report {

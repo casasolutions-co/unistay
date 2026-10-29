@@ -44,8 +44,12 @@ export default function DocModal({ document, onApprove, onReject }: DocModalProp
         <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
           {document.r2Key ? (
             <a href={`/api/admin-photo?key=${encodeURIComponent(document.r2Key)}`} target="_blank" rel="noopener noreferrer" style={{ width: 260, height: 320, borderRadius: 14, overflow: 'hidden', display: 'block', background: '#eee' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/admin-photo?key=${encodeURIComponent(document.r2Key)}`} alt={document.type} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              {document.contentType === 'application/pdf' ? (
+                <iframe src={`/api/admin-photo?key=${encodeURIComponent(document.r2Key)}`} title={document.type} style={{ width: '100%', height: '100%', border: 0, pointerEvents: 'none' }} />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/api/admin-photo?key=${encodeURIComponent(document.r2Key)}`} alt={document.type} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              )}
             </a>
           ) : (
             <div style={{ width: 260, height: 320, border: '1.5px dashed #ddd0f6', borderRadius: 14, background: 'repeating-linear-gradient(135deg,#f3effe 0 10px,#ede4fd 10px 20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
