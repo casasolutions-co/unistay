@@ -911,7 +911,14 @@ export async function _writeAudit(adminEmail: string, action: string, targetType
       [crypto.randomUUID(), adminEmail, action, targetType, targetId, note ?? null, nowSeconds()]
     )
   } catch (err) {
-    console.error(`[_writeAudit] failed to log ${action}:`, err)
+    // Stays best-effort (a failed log must not undo the mutation), but logged as
+    // CRITICAL with the full context so it's alertable — a silent audit gap means
+    // destructive admin actions go unrecorded. If these fire in prod, confirm
+    // migrations/001_drop_audit_log_admin_fk.sql has actually been applied.
+    console.error(
+      `[_writeAudit] CRITICAL: audit log write failed — action=${action} admin=${adminEmail} target=${targetType}:${targetId}`,
+      err
+    )
   }
 }
 

@@ -9,6 +9,13 @@ export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get('key')
   if (!key) return new NextResponse('Missing key', { status: 400 })
 
+  // Only the object namespaces the admin UI actually renders — listing photos and
+  // user-uploaded documents. Prevents this authenticated proxy from being used to
+  // read arbitrary objects in the bucket, and blocks path traversal in the key.
+  if (key.includes('..') || !/^(listings|documents)\/[A-Za-z0-9._/-]+$/.test(key)) {
+    return new NextResponse('Invalid key', { status: 400 })
+  }
+
   const photo = await getPhoto(key)
   if (!photo) return new NextResponse('Not found', { status: 404 })
 
