@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1077.0",
-    "firebase-admin": "^14.5.0",
+    "firebase-admin": "^13.10.0",
     "jose": "^6.2.3",
     "next": "^16.4.3",
     "react": "19.2.4",

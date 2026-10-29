@@ -3,7 +3,7 @@
   publish = ".next"
 
 [build.environment]
-  # firebase-admin 14 requires Node >= 22
+  # Match the unistay site; Next 16 needs Node >= 20.9
   NODE_VERSION = "22"
 
 [[plugins]]
