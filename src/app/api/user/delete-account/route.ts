@@ -36,6 +36,25 @@ export async function POST(req: NextRequest) {
   ));
   await d1Query('DELETE FROM user_documents WHERE user_id = ?', [uid]);
 
+  // Purge R2 objects for the user's listing photos and any chat attachments they
+  // sent. The DB rows may survive (listings become 'archived'; chat messages
+  // belong to the conversation), but the stored files must actually be gone.
+  const listingPhotos = await d1Query<{ r2_key: string }>(
+    'SELECT r2_key FROM listing_photos WHERE listing_id IN (SELECT id FROM listings WHERE landlord_id = ?)', [uid]
+  );
+  const attachments = await d1Query<{ metadata: string | null }>(
+    `SELECT metadata FROM messages WHERE sender_id = ? AND msg_type = 'file'`, [uid]
+  );
+  const attachmentKeys = attachments
+    .map(a => { try { return a.metadata ? (JSON.parse(a.metadata).r2Key as string) : null; } catch { return null; } })
+    .filter((k): k is string => !!k);
+  await Promise.all([
+    ...listingPhotos.map(p => deleteFromR2(p.r2_key).catch(err =>
+      console.error('[delete-account] failed to delete listing photo', p.r2_key, err))),
+    ...attachmentKeys.map(k => deleteFromR2(k).catch(err =>
+      console.error('[delete-account] failed to delete chat attachment', k, err))),
+  ]);
+
   // email has a NOT NULL constraint (it's how Firebase auth records link back
   // to the row) — replace with a per-user placeholder on the reserved
   // .invalid TLD instead of leaving the real address in place.

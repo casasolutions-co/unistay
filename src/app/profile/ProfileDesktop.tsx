@@ -68,11 +68,15 @@ export default function ProfileDesktop() {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
-    phone: '+49 151 234 5678',
-    org: 'LMU München',
-    role: 'M.Sc. Computer Science',
-    graduation: '2026',
+    phone: '',
+    org: '',
+    role: '',
+    graduation: '',
   });
+  // Fields the profile form doesn't show but must round-trip on save, so a save
+  // doesn't null them out (the profile POST rewrites the whole row).
+  const [extra, setExtra] = useState({ nationality: '', accountRole: 'student', jobTitle: '', why: '' });
+  const [saving, setSaving] = useState(false);
   const [docs, setDocs] = useState<Record<DocKey, DocState>>({
     enrolment: { status: 'not_started', fileName: null },
     income: { status: 'not_started', fileName: null },
@@ -96,13 +100,60 @@ export default function ProfileDesktop() {
     user.getIdToken().then(token =>
       fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
-        .then((d: { user?: { verification_status?: string } }) => {
-          if (!cancelled && d.user?.verification_status) setVerificationStatus(d.user.verification_status);
+        .then((d: { user?: {
+          name?: string; phone?: string; university?: string; program?: string;
+          start_year?: string; nationality?: string; role?: string; job_title?: string;
+          why?: string; verification_status?: string;
+        } }) => {
+          if (cancelled || !d.user) return;
+          const u = d.user;
+          setForm(prev => ({
+            ...prev,
+            fullName: u.name ?? prev.fullName,
+            phone: u.phone ?? '',
+            org: u.university ?? '',
+            role: u.program ?? '',
+            graduation: u.start_year ?? '',
+          }));
+          setExtra({
+            nationality: u.nationality ?? '',
+            accountRole: u.role ?? 'student',
+            jobTitle: u.job_title ?? '',
+            why: u.why ?? '',
+          });
+          if (u.verification_status) setVerificationStatus(u.verification_status);
         })
         .catch(() => {})
     );
     return () => { cancelled = true; };
   }, [user]);
+
+  const handleSave = async () => {
+    if (!user || saving) return;
+    setSaving(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          name: form.fullName,
+          phone: form.phone,
+          nationality: extra.nationality,
+          role: extra.accountRole,
+          university: form.org,
+          program: form.role,
+          startYear: form.graduation,
+          jobTitle: extra.jobTitle,
+          why: extra.why,
+        }),
+      });
+      if (res.ok) setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -112,11 +163,14 @@ export default function ProfileDesktop() {
   const userInitials = user ? initials(user) : '?';
   const userName = user ? displayName(user) : 'Account';
 
+  const emailVerified = !!user?.emailVerified;
   const fields: { label: string; key: keyof typeof form; verified?: boolean }[] = [
     { label: 'Full name', key: 'fullName' },
-    { label: 'Email address', key: 'email', verified: true },
-    { label: 'Phone', key: 'phone', verified: true },
-    { label: 'University', key: 'org', verified: true },
+    // Only the email carries a real verification signal (Firebase). Phone and
+    // university are self-entered and were never verified — no badge for them.
+    { label: 'Email address', key: 'email', verified: emailVerified },
+    { label: 'Phone', key: 'phone' },
+    { label: 'University', key: 'org' },
     { label: 'Programme', key: 'role' },
     { label: 'Expected graduation', key: 'graduation' },
   ];
@@ -127,8 +181,10 @@ export default function ProfileDesktop() {
 
   const docKeys: DocKey[] = ['enrolment', 'income', 'address'];
   const verifiedDocCount = docKeys.filter(k => docs[k].status === 'verified').length;
-  const verifiedCount = 2 + (idVerified ? 1 : 0) + verifiedDocCount;
-  const totalCount = 2 + 1 + docKeys.length;
+  // Counted checks: student email (real, Firebase) + government ID + the docs.
+  // Phone is not a verifiable check in this app, so it isn't counted.
+  const verifiedCount = (emailVerified ? 1 : 0) + (idVerified ? 1 : 0) + verifiedDocCount;
+  const totalCount = 2 + docKeys.length;
 
   const openModal = (key: DocKey) => { setModalDoc(key); setPendingFileName(null); };
   const closeModal = () => { setModalDoc(null); setPendingFileName(null); };
@@ -165,7 +221,7 @@ export default function ProfileDesktop() {
                 </button>
               </div>
               <p className={styles.identityName}>{userName}</p>
-              <p className={styles.identityOrg}>LMU München · Munich</p>
+              <p className={styles.identityOrg}>{form.org || '—'}</p>
               {idVerified ? (
                 <span className={styles.identityBadge}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
@@ -240,8 +296,8 @@ export default function ProfileDesktop() {
                 ))}
               </div>
               {editing && (
-                <button type="button" className={styles.saveBtn} onClick={() => setEditing(false)}>
-                  Save changes
+                <button type="button" className={styles.saveBtn} onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save changes'}
                 </button>
               )}
             </div>
@@ -258,25 +314,26 @@ export default function ProfileDesktop() {
 
               <div className={styles.verifyList}>
                 <div className={styles.verifyRow}>
-                  <span className={styles.verifyIcon} style={{ background: '#e9f6ef', color: '#1f8a5b' }}>
+                  <span className={styles.verifyIcon} style={{ background: emailVerified ? '#e9f6ef' : '#f3effe', color: emailVerified ? '#1f8a5b' : '#6d28d9' }}>
                     <Icon d="M22 10 12 5 2 10l10 5 10-5ZM6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" size={18} />
                   </span>
                   <div className={styles.verifyBody}>
                     <div className={styles.verifyRowLabel}>Student email</div>
                     <div className={styles.verifyRowSub}>{user?.email || 'Not set'}</div>
                   </div>
-                  <span className={styles.chipVerified}>Verified</span>
+                  {emailVerified
+                    ? <span className={styles.chipVerified}>Verified</span>
+                    : <span className={styles.chipPending}>Unverified</span>}
                 </div>
 
                 <div className={styles.verifyRow}>
-                  <span className={styles.verifyIcon} style={{ background: '#e9f6ef', color: '#1f8a5b' }}>
+                  <span className={styles.verifyIcon} style={{ background: '#f3effe', color: '#6d28d9' }}>
                     <Icon d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92Z" size={18} />
                   </span>
                   <div className={styles.verifyBody}>
                     <div className={styles.verifyRowLabel}>Phone number</div>
-                    <div className={styles.verifyRowSub}>Verified by SMS</div>
+                    <div className={styles.verifyRowSub}>{form.phone || 'Not set'}</div>
                   </div>
-                  <span className={styles.chipVerified}>Verified</span>
                 </div>
 
                 <div className={styles.verifyRow}>

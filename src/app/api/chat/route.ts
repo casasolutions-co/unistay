@@ -56,7 +56,12 @@ export async function GET(req: NextRequest) {
        CASE WHEN i.type = 'support' THEN NULL
             ELSE CASE WHEN i.student_id = ? THEN l.landlord_id ELSE i.student_id END END AS other_id,
        CASE WHEN i.type = 'support' THEN 'UniStay Support' ELSE ou.name END AS other_name,
-       CASE WHEN i.type = 'support' THEN 'support' ELSE ou.role END AS other_role,
+       -- Role is relative to THIS conversation, not the other user's global
+       -- account role: whoever owns the listing is the host, the inquirer is the
+       -- student. (Global users.role defaults to 'student', which mislabelled hosts.)
+       CASE WHEN i.type = 'support' THEN 'support'
+            WHEN i.student_id = ? THEN 'landlord'
+            ELSE 'student' END AS other_role,
        m.body        AS last_body,
        m.msg_type    AS last_type,
        m.sender_id   AS last_sender_id,
@@ -71,7 +76,8 @@ export async function GET(req: NextRequest) {
      )
      WHERE i.student_id = ? OR l.landlord_id = ?
      ORDER BY COALESCE(m.created_at, i.created_at) DESC`,
-    [uid, uid, uid, uid, uid]
+    // other_id CASE, other_role CASE, unread_count, users JOIN, WHERE student, WHERE landlord
+    [uid, uid, uid, uid, uid, uid]
   );
 
   // Fill in listing info for static/partner listings that aren't in D1

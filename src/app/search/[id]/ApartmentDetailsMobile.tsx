@@ -45,7 +45,8 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
 
   const photos = p.photos ?? [];
   const warmRent = p.price;
-  const dueTotal = warmRent + (p.deposit ?? 0);
+  const adminFee = p.adminFee ?? 0; // CASA-only; the API sends 0 for everything else
+  const dueTotal = warmRent + (p.deposit ?? 0) + adminFee;
   const isPartner = !!p.externalLink;
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -310,6 +311,15 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
                 </div>
                 <span className={styles.costValue}>€{fmtN(p.deposit)}</span>
               </div>
+              {adminFee > 0 && (
+                <div className={styles.costRowDashed}>
+                  <div>
+                    <div className={styles.costLabel}>CASA administrative fees</div>
+                    <div className={styles.costSub}>One-time</div>
+                  </div>
+                  <span className={styles.costValue}>€{fmtN(adminFee)}</span>
+                </div>
+              )}
               <div className={styles.costDueRow}>
                 <span className={styles.costDueLabel}>Due at move-in</span>
                 <span className={styles.costDueValue}>€{fmtN(dueTotal)}</span>

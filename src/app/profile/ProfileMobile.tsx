@@ -50,11 +50,15 @@ export default function ProfileMobile() {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
-    phone: '+49 151 234 5678',
-    org: 'LMU München',
-    role: 'M.Sc. Computer Science',
-    graduation: '2026',
+    phone: '',
+    org: '',
+    role: '',
+    graduation: '',
   });
+  // Round-tripped on save so the profile POST (which rewrites the whole row)
+  // doesn't null out fields the form doesn't display.
+  const [extra, setExtra] = useState({ nationality: '', accountRole: 'student', jobTitle: '', why: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
@@ -75,13 +79,60 @@ export default function ProfileMobile() {
     user.getIdToken().then(token =>
       fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
-        .then((d: { user?: { verification_status?: string } }) => {
-          if (!cancelled && d.user?.verification_status) setVerificationStatus(d.user.verification_status);
+        .then((d: { user?: {
+          name?: string; phone?: string; university?: string; program?: string;
+          start_year?: string; nationality?: string; role?: string; job_title?: string;
+          why?: string; verification_status?: string;
+        } }) => {
+          if (cancelled || !d.user) return;
+          const u = d.user;
+          setForm(prev => ({
+            ...prev,
+            fullName: u.name ?? prev.fullName,
+            phone: u.phone ?? '',
+            org: u.university ?? '',
+            role: u.program ?? '',
+            graduation: u.start_year ?? '',
+          }));
+          setExtra({
+            nationality: u.nationality ?? '',
+            accountRole: u.role ?? 'student',
+            jobTitle: u.job_title ?? '',
+            why: u.why ?? '',
+          });
+          if (u.verification_status) setVerificationStatus(u.verification_status);
         })
         .catch(() => {})
     );
     return () => { cancelled = true; };
   }, [user]);
+
+  const handleSave = async () => {
+    if (!user || saving) return;
+    setSaving(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          name: form.fullName,
+          phone: form.phone,
+          nationality: extra.nationality,
+          role: extra.accountRole,
+          university: form.org,
+          program: form.role,
+          startYear: form.graduation,
+          jobTitle: extra.jobTitle,
+          why: extra.why,
+        }),
+      });
+      if (res.ok) setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -91,11 +142,14 @@ export default function ProfileMobile() {
   const userInitials = user ? initials(user) : '?';
   const userName = user ? displayName(user) : 'Account';
 
+  const emailVerified = !!user?.emailVerified;
   const fields = [
     { label: 'Full name', key: 'fullName' as const },
-    { label: 'Email address', key: 'email' as const, verified: true },
-    { label: 'Phone', key: 'phone' as const, verified: true },
-    { label: 'University', key: 'org' as const, verified: true },
+    // Only the email carries a real verification signal; phone/university are
+    // self-entered and were never verified.
+    { label: 'Email address', key: 'email' as const, verified: emailVerified },
+    { label: 'Phone', key: 'phone' as const },
+    { label: 'University', key: 'org' as const },
     { label: 'Programme', key: 'role' as const },
     { label: 'Expected graduation', key: 'graduation' as const },
   ];
@@ -104,18 +158,11 @@ export default function ProfileMobile() {
     {
       label: 'Student email',
       sub: form.email || 'Not set',
-      iconBg: '#e9f6ef',
-      iconColor: '#1f8a5b',
-      done: true,
+      iconBg: emailVerified ? '#e9f6ef' : '#f3effe',
+      iconColor: emailVerified ? '#1f8a5b' : '#6d28d9',
+      done: emailVerified,
+      infoChip: emailVerified ? null : 'Unverified',
       icon: 'M22 10 12 5 2 10l10 5 10-5ZM6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5',
-    },
-    {
-      label: 'Phone number',
-      sub: 'Verified by SMS',
-      iconBg: '#e9f6ef',
-      iconColor: '#1f8a5b',
-      done: true,
-      icon: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92Z',
     },
     {
       label: 'Government ID',
@@ -178,7 +225,7 @@ export default function ProfileMobile() {
             </button>
           </div>
           <p className={styles.identityName}>{userName}</p>
-          <p className={styles.identityOrg}>LMU München · Munich</p>
+          <p className={styles.identityOrg}>{form.org || '—'}</p>
           {verificationStatus === 'verified' ? (
             <span className={styles.badge}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
@@ -232,8 +279,8 @@ export default function ProfileMobile() {
             ))}
           </div>
           {editing && (
-            <button type="button" className={styles.saveBtn} onClick={() => setEditing(false)}>
-              Save changes
+            <button type="button" className={styles.saveBtn} onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
             </button>
           )}
         </div>
@@ -256,6 +303,8 @@ export default function ProfileMobile() {
                   <span className={styles.verifyDone}><DoneIcon /></span>
                 ) : v.pending ? (
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: '#b45309', background: '#fff7ed', padding: '5px 10px', borderRadius: 999 }}>In review</span>
+                ) : v.infoChip ? (
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6d28d9', background: '#f3effe', padding: '5px 10px', borderRadius: 999 }}>{v.infoChip}</span>
                 ) : v.label === 'Government ID' ? (
                   <Link href="/verify" className={styles.verifyBtn}>Verify</Link>
                 ) : (

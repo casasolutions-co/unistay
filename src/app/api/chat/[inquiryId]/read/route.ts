@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
+import { verifyParticipant } from '@/lib/chat';
 
 function bearerToken(req: NextRequest): string | null {
   const h = req.headers.get('authorization') ?? '';
@@ -25,6 +26,13 @@ export async function POST(
   }
 
   const { inquiryId } = await params;
+
+  // Only a participant may mark this conversation read — every other chat route
+  // enforces this; without it any authed user can tamper with others' read state.
+  if (!(await verifyParticipant(uid, inquiryId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const now = Date.now();
 
   // Count how many we're about to mark read so we can decrement accurately

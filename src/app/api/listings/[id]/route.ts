@@ -6,6 +6,7 @@ import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
 import { cityCoords } from '@/lib/city-coords'
 import { adminAuth } from '@/lib/firebase-admin'
+import { getAppSetting } from '@/lib/settings'
 
 function bearerUid(req: NextRequest): Promise<string | null> {
   const authHeader = req.headers.get('authorization') ?? ''
@@ -80,6 +81,29 @@ function mapPartnerDetail(l: any) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Map stored amenity keys → a representative single-path icon + display label,
+// so the detail page doesn't render every amenity with the Wi-Fi glyph.
+// ponytail: single-path approximations reusing ICON_PATHS; swap for the
+// multi-path AMEN_DEFS set (src/app/list/page.tsx) if exact glyphs matter.
+const AMENITY_META: Record<string, { label: string; icon: string }> = {
+  wifi:       { label: 'Wi-Fi',        icon: ICON_PATHS.wifi },
+  furnished:  { label: 'Furnished',    icon: ICON_PATHS.furnished },
+  kitchen:    { label: 'Kitchen',      icon: ICON_PATHS.kitchen },
+  washer:     { label: 'Washer',       icon: ICON_PATHS.washer },
+  heating:    { label: 'Heating',      icon: ICON_PATHS.heating },
+  balcony:    { label: 'Balcony',      icon: ICON_PATHS.balcony },
+  parking:    { label: 'Parking',      icon: ICON_PATHS.park },
+  elevator:   { label: 'Elevator',     icon: ICON_PATHS.floor },
+  dishwasher: { label: 'Dishwasher',   icon: ICON_PATHS.washer },
+  tv:         { label: 'TV',           icon: ICON_PATHS.floor },
+  desk:       { label: 'Study desk',   icon: ICON_PATHS.furnished },
+  bikes:      { label: 'Bike storage', icon: ICON_PATHS.bike },
+  garden:     { label: 'Garden',       icon: ICON_PATHS.park },
+  accessible: { label: 'Accessible',   icon: ICON_PATHS.transit },
+  petsok:     { label: 'Pets OK',      icon: ICON_PATHS.park },
+  security:   { label: 'Secure entry', icon: ICON_PATHS.floor },
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -92,7 +116,7 @@ export async function GET(
       id: string; ptype: string; title: string;
       street: string; city: string; postcode: string;
       bedrooms: number; bathrooms: number; size_sqm: number; room_size_sqm: number;
-      cold_rent: number; utilities: number; deposit: number;
+      cold_rent: number; utilities: number; deposit: number; admin_fee: number | null;
       avail_from: string | null; avail_to: string | null; open_ended: number;
       min_period: number | null; max_period: number | null;
       description: string;
@@ -135,6 +159,12 @@ export async function GET(
 
     const isCasa = row.source === 'casa'
 
+    // Real count of this host's live listings (was hardcoded '1').
+    const [hostCount] = await d1Query<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM listings WHERE landlord_id = ? AND status = 'published'",
+      [row.landlord_id]
+    )
+
     const listing = {
       id: row.id,
       source: isCasa ? 'casa' : 'private',
@@ -150,6 +180,7 @@ export async function GET(
       coldRent: row.cold_rent,
       utilities: row.utilities,
       deposit: row.deposit,
+      adminFee: isCasa ? (row.admin_fee ?? 0) : 0,
       serviceFee: 0,
       type: row.ptype,
       avail: availFrom <= today ? 'Available now' : `From ${availFrom}`,
@@ -160,11 +191,14 @@ export async function GET(
       lng: (row.lng && row.lng !== 0) ? row.lng : (cityCoords(row.city)?.[1] ?? 0),
       description: row.description,
       photos: photoRows.map((p, i) => ({ r2_key: p.r2_key, label: `photo ${i + 1}`, url: getSignedUrl(p.r2_key) })),
-      amenities: amenityRows.map(a => ({ label: a.amenity, icon: ICON_PATHS.wifi })),
+      amenities: amenityRows.map(a => {
+        const meta = AMENITY_META[a.amenity]
+        return { label: meta?.label ?? a.amenity, icon: meta?.icon ?? ICON_PATHS.wifi }
+      }),
       nearby: [],
       hostName: isCasa ? 'UniStay CASA' : (row.landlord_name ?? 'Private landlord'),
       hostType: isCasa ? 'CASA' : 'Private',
-      hostListings: '1',
+      hostListings: String(Math.max(1, hostCount?.n ?? 1)),
       landlord_id: row.landlord_id,
       status: row.status,
     }
@@ -225,6 +259,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const uid = await bearerUid(req)
   if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Only an admin-approved landlord may create or edit listings — the same gate
+  // POST /api/listings enforces. The List Your Place UI already blocks unapproved
+  // users, but the API must enforce it too (otherwise this endpoint's create path
+  // lets any logged-in user spawn draft rows and upload photos).
+  const [applicant] = await d1Query<{ landlord_status: string }>(
+    'SELECT landlord_status FROM users WHERE id = ?', [uid]
+  )
+  if (applicant?.landlord_status !== 'approved') {
+    return NextResponse.json(
+      { error: 'You need to be an approved landlord to manage listings.', landlordStatus: applicant?.landlord_status ?? 'none' },
+      { status: 403 }
+    )
+  }
+
   const [existing] = await d1Query<{ landlord_id: string; status: string }>(
     'SELECT landlord_id, status FROM listings WHERE id = ?', [id]
   )
@@ -265,8 +313,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } = body
 
   const now = Date.now()
+  let contentChanged = false
 
   if (!existing) {
+    // Creating a brand-new listing row (autosave draft) — respect the admin
+    // "pause new submissions" kill switch, same as POST /api/listings.
+    if (!(await getAppSetting('listing_submission_enabled'))) {
+      return NextResponse.json({ error: 'New listing submissions are temporarily paused.' }, { status: 403 })
+    }
     const street = [streetName?.trim(), houseNumber?.trim()].filter(Boolean).join(' ')
     try {
       await d1Query(
@@ -325,6 +379,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (mates !== undefined) setCol('mate_notes', mates?.trim() || null)
 
     if (sets.length > 0) {
+      contentChanged = true
       sets.push('updated_at = ?')
       sqlParams.push(now, id)
       try {
@@ -337,6 +392,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (amenities !== undefined) {
+    contentChanged = true
     const selectedAmenities: string[] = Object.entries(amenities ?? {}).filter(([, v]) => v).map(([k]) => k)
     await d1Query('DELETE FROM listing_amenities WHERE listing_id = ?', [id])
     for (const amenity of selectedAmenities) {
@@ -345,6 +401,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (photos !== undefined) {
+    contentChanged = true
     const photoList: { r2Key: string; position: number; isCover: boolean }[] = Array.isArray(photos) ? photos : []
     await d1Query('DELETE FROM listing_photos WHERE listing_id = ?', [id])
     for (const photo of photoList) {
@@ -353,6 +410,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         [crypto.randomUUID(), id, photo.r2Key, photo.position, photo.isCover ? 1 : 0]
       )
     }
+  }
+
+  // Editing an already-published listing sends it back through moderation —
+  // otherwise an approved listing could be rewritten (price/address/photos)
+  // after review with no re-check (bait-and-switch).
+  if (existing && existing.status === 'published' && contentChanged) {
+    await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', ['pending_review', now, id])
   }
 
   revalidateTag('listings', 'max')

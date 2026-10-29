@@ -8,6 +8,12 @@ import { sniffMime } from '@/lib/sniff-mime';
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const HEIC_TYPES = ['image/heic', 'image/heif'];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB per photo
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Extension is derived from the sniffed content type, never the client filename,
+// so it can't be used for path traversal in the R2 key.
+const EXT_FOR_TYPE: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+};
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
@@ -35,6 +41,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'file and listingId required' }, { status: 400 });
   }
 
+  // listingId becomes part of the R2 key — must be a plain UUID, never a path.
+  if (!UUID_RE.test(listingId)) {
+    return NextResponse.json({ error: 'invalid listingId' }, { status: 400 });
+  }
+
+  // Only an admin-approved landlord may upload listing photos — same gate as the
+  // listing create/edit routes, so an unapproved user can't push objects to R2.
+  const [applicant] = await d1Query<{ landlord_status: string }>(
+    'SELECT landlord_status FROM users WHERE id = ?', [uid]
+  );
+  if (applicant?.landlord_status !== 'approved') {
+    return NextResponse.json({ error: 'You need to be an approved landlord to upload photos.' }, { status: 403 });
+  }
+
   // Same ownership rule as every other listing-mutating route. A brand-new
   // draft's id is a client-generated UUID with no row yet — that's fine,
   // only an existing listing owned by someone else is rejected.
@@ -52,7 +72,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Photo must be under 10 MB' }, { status: 400 });
   }
 
-  let ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
   let buffer = Buffer.from(await file.arrayBuffer());
 
   // The declared file.type is whatever the browser/client claims — sniff the
@@ -62,6 +81,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File content does not match its declared type' }, { status: 400 });
   }
   let contentType = sniffed;
+  let ext = EXT_FOR_TYPE[contentType] ?? 'jpg';
 
   // Browsers can't render HEIC/HEIF natively — convert to JPEG so uploaded
   // photos actually display once stored, instead of ever hitting R2 as HEIC.

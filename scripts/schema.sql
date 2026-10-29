@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS user_documents (
   r2_key       TEXT NOT NULL,
   content_type TEXT NOT NULL,
   size_bytes   INTEGER NOT NULL,
-  created_at   INTEGER NOT NULL
+  created_at   INTEGER NOT NULL,
+  status           TEXT DEFAULT 'pending', -- set by admin review
+  rejection_reason TEXT,
+  reviewed_at      INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_documents_user ON user_documents(user_id, created_at);
@@ -69,6 +72,7 @@ CREATE TABLE IF NOT EXISTS listings (
   cold_rent      INTEGER,
   utilities      INTEGER,
   deposit        INTEGER,
+  admin_fee      INTEGER DEFAULT 0, -- CASA only, set in the admin panel
   avail_from     TEXT,
   avail_to       TEXT,
   open_ended     INTEGER,

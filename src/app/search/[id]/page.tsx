@@ -164,6 +164,8 @@ export default function DetailsPage({ params }: PageProps) {
   const warmRent = coldRent + utilities;
   const deposit = coldRent * 2;
   const serviceFee = property.serviceFee;
+  // CASA-only one-time fee from the admin panel; the API sends 0 for everything else.
+  const adminFee = property.adminFee ?? 0;
   const totalDue = warmRent + deposit + serviceFee;
 
   // Actions
@@ -578,9 +580,15 @@ export default function DetailsPage({ params }: PageProps) {
                   <span>Deposit <span className={styles.langMuted}>· Refundable</span></span>
                   <span className={styles.breakdownVal}>€{fmtN(deposit)}</span>
                 </div>
+                {adminFee > 0 && (
+                  <div className={styles.breakdownRow}>
+                    <span>CASA administrative fees <span className={styles.langMuted}>· One-time</span></span>
+                    <span className={styles.breakdownVal}>€{fmtN(adminFee)}</span>
+                  </div>
+                )}
                 <div className={styles.breakdownTotalRow}>
                   <span>Due at move-in</span>
-                  <span>€{fmtN(warmRent + deposit)}</span>
+                  <span>€{fmtN(warmRent + deposit + adminFee)}</span>
                 </div>
               </div>
             </div>
