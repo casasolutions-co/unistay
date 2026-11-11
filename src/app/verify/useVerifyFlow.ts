@@ -55,7 +55,8 @@ export function useVerifyFlow() {
       const res = await fetch('/api/kyc/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        // Page the user came from (?next=); the server validates it before handing it to Didit.
+        body: JSON.stringify({ token, next: new URLSearchParams(window.location.search).get('next') }),
       });
       const data = await res.json() as { url?: string; error?: string; details?: string };
       if (!res.ok || !data.url) {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
-import { APP_URL } from '@/lib/emails/layout';
 
 // Terminal statuses where Didit considers the session over — a fresh one is required.
 // Expired: TTL elapsed before the user opened the link.
@@ -9,7 +8,7 @@ import { APP_URL } from '@/lib/emails/layout';
 const EXPIRED_STATUSES = new Set(['Expired', 'Kyc Expired', 'Abandoned']);
 
 export async function POST(req: NextRequest) {
-  const { token } = await req.json();
+  const { token, next } = await req.json();
 
   if (!token) {
     return NextResponse.json({ error: 'No token provided' }, { status: 400 });
@@ -42,10 +41,10 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       workflow_id: process.env.DIDIT_WORKFLOW_ID,
-      // Uses the same app-URL convention as outbound emails (NEXT_PUBLIC_APP_URL,
-      // falling back to the production domain) instead of a hardcoded host, so
-      // staging/preview deploys send users back to the right place after KYC.
-      callback: `${APP_URL}/verify?kyc=callback`,
+      // Send the user back to the host they started on (not the NEXT_PUBLIC_APP_URL
+      // fallback, which pointed localhost/preview users at unistay.com) and to the page
+      // they came from. `next` must be a same-origin path to avoid an open redirect.
+      callback: callbackUrl(req.nextUrl.origin, next),
       vendor_data: decoded.uid,
       contact_details: { email: decoded.email },
     }),
@@ -67,6 +66,14 @@ export async function POST(req: NextRequest) {
   );
 
   return NextResponse.json({ url: session.url, session_id: session.session_id });
+}
+
+function callbackUrl(origin: string, next: unknown): string {
+  if (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) {
+    const url = new URL(next, origin);
+    if (url.origin === origin && url.pathname !== '/verify') return url.href;
+  }
+  return `${origin}/verify?kyc=callback`;
 }
 
 // Checks whether an existing Didit session is still usable and, if so, returns its

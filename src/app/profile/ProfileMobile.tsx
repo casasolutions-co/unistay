@@ -236,7 +236,7 @@ export default function ProfileMobile() {
           ) : verificationStatus === 'pending' ? (
             <span className={styles.badge} style={{ background: '#fff7ed', color: '#b45309' }}>In review</span>
           ) : (
-            <Link href="/verify" className={styles.badge} style={{ background: '#f3effe', color: '#6d28d9' }}>Not verified — verify now</Link>
+            <Link href="/verify?next=/profile" className={styles.badge} style={{ background: '#f3effe', color: '#6d28d9' }}>Not verified — verify now</Link>
           )}
         </div>
 
@@ -306,7 +306,7 @@ export default function ProfileMobile() {
                 ) : v.infoChip ? (
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6d28d9', background: '#f3effe', padding: '5px 10px', borderRadius: 999 }}>{v.infoChip}</span>
                 ) : v.label === 'Government ID' ? (
-                  <Link href="/verify" className={styles.verifyBtn}>Verify</Link>
+                  <Link href="/verify?next=/profile" className={styles.verifyBtn}>Verify</Link>
                 ) : (
                   <button type="button" className={styles.verifyBtn}>Verify</button>
                 )}

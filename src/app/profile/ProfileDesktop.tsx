@@ -232,7 +232,7 @@ export default function ProfileDesktop() {
               ) : idPending ? (
                 <span className={styles.identityBadge} style={{ background: '#fff7ed', color: '#b45309' }}>In review</span>
               ) : (
-                <Link href="/verify" className={styles.identityBadge} style={{ background: '#f3effe', color: '#6d28d9' }}>Not verified — verify now</Link>
+                <Link href="/verify?next=/profile" className={styles.identityBadge} style={{ background: '#f3effe', color: '#6d28d9' }}>Not verified — verify now</Link>
               )}
 
               <div className={styles.strengthBlock}>
@@ -349,7 +349,7 @@ export default function ProfileDesktop() {
                   ) : idPending ? (
                     <span className={styles.chipPending}>Pending review</span>
                   ) : (
-                    <Link href="/verify" className={styles.verifyNowBtn}>Verify with Didit</Link>
+                    <Link href="/verify?next=/profile" className={styles.verifyNowBtn}>Verify with Didit</Link>
                   )}
                 </div>
 

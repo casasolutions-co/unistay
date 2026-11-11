@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from './AppNav.module.css';
@@ -72,6 +72,7 @@ interface AppNavProps {
 
 export default function AppNav({ centerSlot }: AppNavProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
@@ -180,7 +181,7 @@ export default function AppNav({ centerSlot }: AppNavProps) {
                   </div>
 
                   <Link
-                    href="/verify"
+                    href={`/verify?next=${encodeURIComponent(pathname)}`}
                     className={`${styles.verifyBanner} ${verificationStatus === 'verified' ? styles.verifyBannerVerified : ''}`}
                     onClick={() => setOpen(false)}
                   >
