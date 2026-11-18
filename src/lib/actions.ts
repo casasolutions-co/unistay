@@ -53,8 +53,10 @@ export async function rejectUser(id: string, note: string) {
 export async function banUser(id: string, reason: string, expiresAt: string | null) {
   const email = await adminEmail()
   await _setUserStatus(id, 'banned', { banReason: reason, banExpiresAt: expiresAt })
-  // users.id is the Firebase uid (see src/app/api/auth/sync/route.ts in the student app) — revoke
-  // so a still-valid ID token can't keep authenticating past this point.
+  // users.id is the Firebase uid (see src/app/api/auth/sync/route.ts in the student app).
+  // Disabling makes Firebase itself refuse every new sign-in; revoking ends existing sessions.
+  // Temporary bans are lifted by the student app's hourly enforce-bans function.
+  await adminAuth.updateUser(id, { disabled: true })
   await adminAuth.revokeRefreshTokens(id)
   await _writeAudit(email, 'user.ban', 'user', id, `${reason}${expiresAt ? ` (until ${expiresAt})` : ' (permanent)'}`)
   revalidatePath('/users')
@@ -64,6 +66,7 @@ export async function banUser(id: string, reason: string, expiresAt: string | nu
 export async function unbanUser(id: string) {
   const email = await adminEmail()
   await _setUserStatus(id, 'verified')
+  await adminAuth.updateUser(id, { disabled: false })
   await _writeAudit(email, 'user.unban', 'user', id)
   revalidatePath('/users')
   revalidatePath('/')
