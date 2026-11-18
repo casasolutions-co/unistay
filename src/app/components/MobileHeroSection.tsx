@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './MobileHeroSection.module.css';
-import { useCitySearch } from '@/lib/useCitySearch';
+import { useCitySearch, placeSearchParams, type SuggestionItem } from '@/lib/useCitySearch';
 import { useWhenPicker } from '@/lib/useWhenPicker';
 import MobileTabBar from './MobileTabBar';
 import MobileWhenFields from './MobileWhenFields';
@@ -62,7 +62,7 @@ function IconClock() {
 /* ── Component ──────────────────────────────────────────────── */
 export default function MobileHeroSection() {
   const router = useRouter();
-  const { query, setQuery, groups, selectCity } = useCitySearch();
+  const { query, setQuery, groups, selectCity, placeFor } = useCitySearch();
   const [location, setLocation] = useState('');
   const [openWhere, setOpenWhere] = useState(false);
   const [type, setType] = useState('Any type');
@@ -92,8 +92,8 @@ export default function MobileHeroSection() {
     return () => document.removeEventListener('mousedown', handle);
   }, []);
 
-  function selectLocation(name: string, sub = 'Germany', kind: 'recent' | 'city' | 'uni' = 'city') {
-    selectCity(name, sub, kind);
+  function selectLocation({ name, sub, kind, place }: SuggestionItem) {
+    selectCity(name, sub, kind, place);
     setLocation(name);
     setQuery('');
     setOpenWhere(false);
@@ -154,7 +154,7 @@ export default function MobileHeroSection() {
           <span className={styles.inputIcon}><IconSearch /></span>
           <input
             type="text"
-            placeholder={location || 'City or university…'}
+            placeholder={location || 'City, address or university…'}
             value={query}
             onChange={e => { setQuery(e.target.value); setOpenWhere(true); }}
             onFocus={() => setOpenWhere(true)}
@@ -189,7 +189,7 @@ export default function MobileHeroSection() {
                       key={item.name}
                       type="button"
                       className={styles.whereRow}
-                      onMouseDown={e => { e.preventDefault(); selectLocation(item.name, item.sub, item.kind); }}
+                      onMouseDown={e => { e.preventDefault(); selectLocation(item); }}
                     >
                       <span
                         className={styles.whereIconTile}
@@ -200,7 +200,7 @@ export default function MobileHeroSection() {
                       >
                         {item.kind === 'uni' && <IconUni />}
                         {item.kind === 'recent' && <IconClock />}
-                        {item.kind === 'city' && <IconPin />}
+                        {(item.kind === 'city' || item.kind === 'place') && <IconPin />}
                       </span>
                       <span className={styles.whereRowText}>
                         <span className={styles.whereRowName}>{item.name}</span>
@@ -318,7 +318,7 @@ export default function MobileHeroSection() {
           onClick={() => {
             if (!location.trim()) return;
             const params = new URLSearchParams();
-            params.set('city', location);
+            placeSearchParams(params, location, placeFor(location));
             if (type !== 'Any type') params.set('type', type);
             // search page reads this as a plain number — strip the "€"/commas
             const maxRentNum = maxRent === 'Any budget' ? 0 : parseInt(maxRent.replace(/[^\d]/g, ''), 10) || 0;

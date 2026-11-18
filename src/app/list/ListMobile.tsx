@@ -6,6 +6,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { previewUrlFor } from '@/lib/heicPreview';
 import { useDraftAutosave } from './useDraftAutosave';
+import StreetAutocomplete from './StreetAutocomplete';
 import styles from './ListMobile.module.css';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
@@ -81,8 +82,8 @@ function CityPicker({ value, onChange }: { value: string; onChange: (v: string) 
     cityFetch.then(() => { if (cityCache) setCities(cityCache); });
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local input display when the parent-controlled value is cleared
-  useEffect(() => { if (!value) setQuery(''); }, [value]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors the parent-controlled value (cleared, restored from a draft, or filled by address autocomplete)
+  useEffect(() => { setQuery(value); }, [value]);
 
   const q = normaliseCityName(query.trim());
   const suggestions = q.length > 0
@@ -486,7 +487,8 @@ function ListMobileInner() {
                       <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" />
                     </svg>
                   </span>
-                  <input type="text" placeholder="Street name" value={streetName} onChange={e => setStreetName(e.target.value)}
+                  <StreetAutocomplete value={streetName} city={city} onChange={setStreetName}
+                    onPick={p => { setStreetName(p.street); if (p.houseNumber) setHouseNumber(p.houseNumber); setCity(p.city); if (p.postcode) setPostcode(p.postcode); }}
                     className={styles.field} style={{ padding: '0 14px 0 38px' }} />
                 </div>
                 <input type="text" placeholder="No." value={houseNumber} onChange={e => setHouseNumber(e.target.value)}

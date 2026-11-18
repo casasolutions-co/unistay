@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './HeroSection.module.css';
 import MobileHeroSection from './MobileHeroSection';
-import { useCitySearch } from '@/lib/useCitySearch';
+import { useCitySearch, placeSearchParams } from '@/lib/useCitySearch';
 import DatePickerPanel from './DatePickerPanel';
 import { useKeepPanelVisible } from '@/lib/useKeepPanelVisible';
 
@@ -67,7 +67,7 @@ export default function HeroSection() {
   const [moveIn, setMoveIn] = useState('');
   const [moveOut, setMoveOut] = useState('');
   const [whenLabel, setWhenLabel] = useState('');
-  const { query, setQuery, groups, selectCity } = useCitySearch();
+  const { query, setQuery, groups, selectCity, placeFor } = useCitySearch();
 
   const toggle = useCallback((name: 'where' | 'type' | 'budget' | 'when') => {
     setOpen(prev => prev === name ? null : name);
@@ -78,14 +78,14 @@ export default function HeroSection() {
     if (!city) return;
     setOpen(null);
     const params = new URLSearchParams();
-    params.set('city', city);
+    placeSearchParams(params, city, placeFor(city));
     if (type !== 'Any type') params.set('type', type);
     if (minVal > 0) params.set('minPrice', String(minVal));
     if (maxVal < 3000) params.set('maxPrice', String(maxVal));
     if (moveIn) params.set('moveIn', moveIn);
     if (moveOut) params.set('moveOut', moveOut);
     router.push(`/search?${params.toString()}`);
-  }, [router, location, query, type, minVal, maxVal, moveIn, moveOut]);
+  }, [router, location, query, placeFor, type, minVal, maxVal, moveIn, moveOut]);
 
   // close on outside click
   const barRef = useRef<HTMLDivElement>(null);
@@ -156,7 +156,7 @@ export default function HeroSection() {
                   <IconSearch color="#6d28d9" />
                   <input
                     type="text"
-                    placeholder="Search city or university…"
+                    placeholder="Search city, address or university…"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -205,7 +205,7 @@ export default function HeroSection() {
                           type="button"
                           className={styles.dropdownRow}
                           onClick={() => {
-                            selectCity(item.name, item.sub, item.kind);
+                            selectCity(item.name, item.sub, item.kind, item.place);
                             setLocation(item.name); setQuery(''); setOpen(null);
                           }}
                         >
@@ -218,7 +218,7 @@ export default function HeroSection() {
                           >
                             {item.kind === 'uni' && <IconUni />}
                             {item.kind === 'recent' && <IconClock />}
-                            {item.kind === 'city' && <IconPin />}
+                            {(item.kind === 'city' || item.kind === 'place') && <IconPin />}
                           </span>
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span className={styles.rowName}>{item.name}</span>

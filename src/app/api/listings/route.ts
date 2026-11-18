@@ -22,8 +22,13 @@ export async function GET(req: NextRequest) {
   const moveIn    = sp.get('moveIn')    ?? undefined
   const source    = sp.get('source')    ?? 'all'   // 'all' | 'CASA' | 'PARTNER' | 'PRIVATE'
   const page      = Math.max(1, parseInt(sp.get('page') ?? '1', 10))
+  // near=lat,lng — set when the user picked an address/neighbourhood; results
+  // stay scoped to `city` but come back nearest-first.
+  const nearParts = (sp.get('near') ?? '').split(',').map(Number)
+  const near: [number, number] | null =
+    nearParts.length === 2 && nearParts.every(Number.isFinite) ? [nearParts[0], nearParts[1]] : null
 
-  const result = await getCachedListings(city, minPrice, maxPrice, type, moveIn, source, page)
+  const result = await getCachedListings(city, minPrice, maxPrice, type, moveIn, source, page, near)
   return NextResponse.json(result)
 }
 
@@ -45,6 +50,7 @@ async function getListingsData(
   moveIn: string | undefined,
   source: string,
   page: number,
+  near: [number, number] | null = null,
 ) {
   // Normalise umlauts + English/German aliases so 'munich' matches 'München' etc.
   const cityAlts = cityMatchTerms(city)
@@ -261,13 +267,19 @@ async function getListingsData(
 
   // ── PARTNER (D1-backed, paginated; city optional — browses all when empty) ──
   const partnerResult = source === 'all' || source === 'PARTNER'
-    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT)
+    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT, near)
     : { listings: [], total: 0, hasMore: false }
 
   // Page 1: HOST + CASA first, then partners. Page 2+: partners only.
+  // With `near`, page 1 is re-sorted nearest-first (partners already arrive in distance order).
   const listings = page === 1
     ? [...hostListings, ...casaListings, ...partnerResult.listings]
     : partnerResult.listings
+  if (near && page === 1) {
+    const k = Math.cos(near[0] * Math.PI / 180)
+    const d2 = (l: UnifiedListing) => (l.lat - near[0]) ** 2 + ((l.lng - near[1]) * k) ** 2
+    listings.sort((a, b) => d2(a) - d2(b))
+  }
 
   return {
     listings,

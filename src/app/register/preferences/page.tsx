@@ -23,10 +23,10 @@ export default function HousingPreferences() {
   const [user, setUser] = useState<User | null>(null);
   // City must come from the suggestion list so it's the canonical spelling
   // search matches on ("München", not "Munich"); typing clears the pick.
-  const { query: cityQuery, setQuery: setCityQuery, groups } = useCitySearch();
+  const { query: cityQuery, setQuery: setCityQuery, groups } = useCitySearch('', null, false);
   const [city, setCity] = useState('');
   const [cityOpen, setCityOpen] = useState(false);
-  const citySuggestions = groups.flatMap(g => g.items).filter(it => it.kind !== 'uni').slice(0, 8);
+  const citySuggestions = groups.flatMap(g => g.items).filter(it => it.kind === 'city' || (it.kind === 'recent' && !it.place)).slice(0, 8);
   const [types, setTypes] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');

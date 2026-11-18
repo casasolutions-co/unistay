@@ -64,7 +64,8 @@ export async function searchPartnerListings(
   city: string,
   filters: ListingFilters,
   page: number,
-  limit: number
+  limit: number,
+  near: [number, number] | null = null,
 ): Promise<{ listings: UnifiedListing[]; total: number; hasMore: boolean }> {
   const conditions: string[] = []
   const params: (string | number)[] = []
@@ -92,9 +93,20 @@ export async function searchPartnerListings(
   const [{ total }] = await d1Query<{ total: number }>(
     `SELECT COUNT(*) as total FROM partner_listings ${where}`, params
   )
+  // Nearest-first when the user picked an address: equirectangular squared
+  // distance (lng scaled by cos(lat)) — exact enough for ordering within a city.
+  let orderBy = 'rank DESC'
+  const orderParams: number[] = []
+  if (near) {
+    const lat = "CAST(json_extract(raw_json, '$.location.coordinates.latitude') AS REAL)"
+    const lng = "CAST(json_extract(raw_json, '$.location.coordinates.longitude') AS REAL)"
+    const k = Math.cos(near[0] * Math.PI / 180)
+    orderBy = `(${lat} - ?) * (${lat} - ?) + (${lng} - ?) * (${lng} - ?) * ?`
+    orderParams.push(near[0], near[0], near[1], near[1], k * k)
+  }
   const rows = await d1Query<{ raw_json: string }>(
-    `SELECT raw_json FROM partner_listings ${where} ORDER BY rank DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    `SELECT raw_json FROM partner_listings ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+    [...params, ...orderParams, limit, offset]
   )
 
   const listings = rows.map(r => mapListing(JSON.parse(r.raw_json)))

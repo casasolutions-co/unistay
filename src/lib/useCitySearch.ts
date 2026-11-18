@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react';
 import { getRecentSearches, addRecentSearch, type RecentSearch } from './recentSearches';
 import { foldUmlauts, cityMatchTerms } from './city-aliases';
+import { usePlaceSearch, type Place } from './usePlaceSearch';
 
-export type SuggestionKind = 'recent' | 'city' | 'uni';
-export type SuggestionItem = { name: string; sub: string; kind: SuggestionKind };
+export type { Place };
+export type SuggestionKind = 'recent' | 'city' | 'uni' | 'place';
+// `place` is set for addresses/streets/neighbourhoods: search that place's
+// city, nearest-first from its coordinates (see placeSearchParams).
+export type SuggestionItem = { name: string; sub: string; kind: SuggestionKind; place?: Place };
 export type SuggestionGroup = { title: string; items: SuggestionItem[] };
 
 const POPULAR_CITIES = [
@@ -79,10 +83,35 @@ function loadCities(onLoad: (cities: { name: string; sub: string; search: string
   fetchPromise.then(() => { if (cachedCities) onLoad(cachedCities); });
 }
 
+const PLACE_SUB: Record<Place['kind'], string> = {
+  address: 'Address', street: 'Street', area: 'Neighbourhood', city: 'City',
+};
+
+/** URL/API params for a search: a picked place searches its city, nearest-first. */
+export function placeSearchParams(params: URLSearchParams, text: string, place: Place | null) {
+  if (place) {
+    params.set('city', place.city);
+    params.set('near', `${place.lat.toFixed(5)},${place.lng.toFixed(5)}`);
+    params.set('place', place.label);
+  } else if (text.trim()) {
+    params.set('city', text.trim());
+  }
+}
+
+/** Inverse of placeSearchParams, for restoring a search from the URL. */
+export function placeFromParams(sp: URLSearchParams): Place | null {
+  const [lat, lng] = (sp.get('near') ?? '').split(',').map(Number);
+  const label = sp.get('place');
+  const city = sp.get('city');
+  if (!label || !city || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { label, kind: 'area', street: '', houseNumber: '', postcode: '', city, lat, lng };
+}
+
 function buildGroups(
   query: string,
   allCities: { name: string; sub: string; search: string }[],
   recent: RecentSearch[],
+  places: Place[],
 ): SuggestionGroup[] {
   const q = searchKey(query);
   const hasQ = q.length > 0;
@@ -101,10 +130,19 @@ function buildGroups(
   }
 
   const cities = hasQ
-    ? allCities.filter(match).slice(0, 10)
+    ? allCities.filter(match).slice(0, places.length ? 4 : 10)
     : POPULAR_CITIES.map(c => ({ ...c, search: c.name.toLowerCase() }));
   if (cities.length) {
     groups.push({ title: hasQ ? 'Cities in Germany' : 'Popular cities', items: cities.map(it => ({ name: it.name, sub: it.sub, kind: 'city' as SuggestionKind })) });
+  }
+
+  // Cities are already covered by the list above.
+  const placeItems = places.filter(p => p.kind !== 'city');
+  if (hasQ && placeItems.length) {
+    groups.push({
+      title: 'Addresses & neighbourhoods',
+      items: placeItems.map(p => ({ name: p.label, sub: PLACE_SUB[p.kind], kind: 'place' as SuggestionKind, place: p })),
+    });
   }
 
   const uniMatch = (it: { name: string; sub: string }) =>
@@ -117,8 +155,9 @@ function buildGroups(
   return groups;
 }
 
-export function useCitySearch(initialQuery = '') {
-  const [query, setQuery] = useState(initialQuery);
+export function useCitySearch(initialQuery = '', initialPlace: Place | null = null, withPlaces = true) {
+  const [query, setQuery] = useState(initialPlace?.label ?? initialQuery);
+  const [place, setPlace] = useState<Place | null>(initialPlace);
   const [allCities, setAllCities] = useState<{ name: string; sub: string; search: string }[]>(cachedCities ?? []);
   const [recent, setRecent] = useState<RecentSearch[]>([]);
 
@@ -128,14 +167,20 @@ export function useCitySearch(initialQuery = '') {
     loadCities(setAllCities);
   }, []);
 
-  const groups = buildGroups(query, allCities, recent);
+  // Don't look up places for the text of a place the user already picked.
+  const places = usePlaceSearch(query, 'any', withPlaces && query !== place?.label);
+  const groups = buildGroups(query, allCities, recent, places);
 
-  function selectCity(name: string, sub: string, kind: SuggestionKind) {
+  function selectCity(name: string, sub: string, kind: SuggestionKind, picked?: Place) {
+    setPlace(picked ?? null);
     if (kind !== 'recent') {
-      addRecentSearch(name, sub);
+      addRecentSearch(name, sub, picked);
       setRecent(getRecentSearches());
     }
   }
 
-  return { query, setQuery, groups, selectCity };
+  /** The picked place, if `text` is still exactly its label (i.e. not edited since). */
+  const placeFor = (text: string) => (place && place.label === text ? place : null);
+
+  return { query, setQuery, groups, selectCity, placeFor };
 }

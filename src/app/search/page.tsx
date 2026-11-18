@@ -9,7 +9,7 @@ import type { UnifiedListing } from '@/lib/listings/types';
 import AppNav from '../components/AppNav';
 import MobileTabBar from '../components/MobileTabBar';
 import PropertyCard from '../components/PropertyCard';
-import { useCitySearch } from '@/lib/useCitySearch';
+import { useCitySearch, placeSearchParams, placeFromParams } from '@/lib/useCitySearch';
 import { useSavedListings } from '@/lib/useSavedListings';
 import { useWhenPicker } from '@/lib/useWhenPicker';
 import { getCachedSearch, setCachedSearch } from '@/lib/searchResultsCache';
@@ -86,7 +86,8 @@ function SearchPageInner() {
   useKeepPanelVisible(open === 'when', whenPanelRef);
 
   /* ── Nav search ── */
-  const { query, setQuery, groups, selectCity } = useCitySearch(searchParams.get('city') ?? '');
+  const { query, setQuery, groups, selectCity, placeFor } = useCitySearch(searchParams.get('city') ?? '', placeFromParams(searchParams));
+  const place = placeFor(query);
 
   /* ── Mobile state ── */
   const [mobileSheet,     setMobileSheet]     = useState<'filters' | 'sort' | null>(null);
@@ -150,12 +151,12 @@ function SearchPageInner() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets pagination when a filter changes, before the fetch-effect below re-runs on the new page
     setPage(1);
     setListings([]);
-  }, [query, filterType, filterSource, minVal, maxVal, moveIn]);
+  }, [query, place, filterType, filterSource, minVal, maxVal, moveIn]);
 
   useEffect(() => {
     // Always fetch — HOST listings don't require a city. Partner/CASA skip themselves server-side when city is empty.
     const params = new URLSearchParams({ page: String(page) });
-    if (query.trim())            params.set('city', query.trim());
+    placeSearchParams(params, query, place);
     if (minVal > 0)              params.set('minPrice', String(lo));
     if (maxVal < 3000)           params.set('maxPrice', String(hi));
     if (typeSet)                 params.set('type', filterType);
@@ -187,13 +188,13 @@ function SearchPageInner() {
       .catch(() => { setLoading(false); setLoadingMore(false); });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, page, filterType, filterSource, lo, hi, moveIn]);
+  }, [query, place, page, filterType, filterSource, lo, hi, moveIn]);
 
   // Keep the address bar in sync with the active filters, so refreshing,
   // sharing the link, or hitting back restores what's on screen.
   useEffect(() => {
     const params = new URLSearchParams();
-    if (query.trim())  params.set('city', query.trim());
+    placeSearchParams(params, query, place);
     if (typeSet)        params.set('type', filterType);
     if (minVal > 0)     params.set('minPrice', String(lo));
     if (maxVal < 3000)  params.set('maxPrice', String(hi));
@@ -203,7 +204,7 @@ function SearchPageInner() {
     const qs = params.toString();
     router.replace(qs ? `/search?${qs}` : '/search', { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, filterType, filterSource, lo, hi, moveIn, moveOut]);
+  }, [query, place, filterType, filterSource, lo, hi, moveIn, moveOut]);
 
   let filtered = listings;
   if      (filterSort === 'price_asc')  filtered = [...listings].sort((a, b) => a.price - b.price);
@@ -218,6 +219,7 @@ function SearchPageInner() {
 
 
   const cityName = query.trim();
+  const inOrNear = place && place.kind !== 'city' ? 'near' : 'in';
 
   const resetFilters = () => {
     setFilterType('Any type'); setFilterSource('all');
@@ -241,7 +243,7 @@ function SearchPageInner() {
               <input
                 type="text"
                 className={styles.mobileSearchInput}
-                placeholder="City or university…"
+                placeholder="City, address or university…"
                 value={query}
                 onChange={e => { setQuery(e.target.value); setOpen('search'); }}
                 onFocus={() => setOpen('search')}
@@ -316,7 +318,7 @@ function SearchPageInner() {
                   {group.items.map(item => (
                     <button key={item.name} type="button" className={styles.suggestRow}
                       onClick={() => {
-                        selectCity(item.name, item.sub, item.kind);
+                        selectCity(item.name, item.sub, item.kind, item.place);
                         setQuery(item.name); setOpen(null);
                       }}>
                       <span className={styles.suggestIcon} style={{
@@ -325,7 +327,7 @@ function SearchPageInner() {
                       }}>
                         {item.kind === 'uni'    && <IUni />}
                         {item.kind === 'recent' && <IClock />}
-                        {item.kind === 'city'   && <IPin />}
+                        {(item.kind === 'city' || item.kind === 'place') && <IPin />}
                       </span>
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span className={styles.suggestName}>{item.name}</span>
@@ -345,7 +347,7 @@ function SearchPageInner() {
           <div className={styles.mobileResultsBar}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
               <span className={styles.mobileResultCount}>{total}</span>
-              <span className={styles.mobileResultSub}>stays{cityName ? ` in ${cityName}` : ''}</span>
+              <span className={styles.mobileResultSub}>stays{cityName ? ` ${inOrNear} ${cityName}` : ''}</span>
             </div>
             <button type="button" className={styles.mobileSortBtn} onClick={() => setMobileSheet('sort')}>
               <ISort />
@@ -539,7 +541,7 @@ function SearchPageInner() {
             <input
               type="text"
               className={styles.navSearchInput}
-              placeholder="Search city or university…"
+              placeholder="Search city, address or university…"
               value={query}
               onChange={e => { setQuery(e.target.value); setOpen('search'); }}
               onFocus={() => setOpen('search')}
@@ -568,7 +570,7 @@ function SearchPageInner() {
                     {group.items.map(item => (
                       <button key={item.name} type="button" className={styles.suggestRow}
                         onClick={() => {
-                          selectCity(item.name, item.sub, item.kind);
+                          selectCity(item.name, item.sub, item.kind, item.place);
                           setQuery(item.name); setOpen(null);
                         }}>
                         <span className={styles.suggestIcon} style={{
@@ -577,7 +579,7 @@ function SearchPageInner() {
                         }}>
                           {item.kind === 'uni'    && <IUni />}
                           {item.kind === 'recent' && <IClock />}
-                          {item.kind === 'city'   && <IPin />}
+                          {(item.kind === 'city' || item.kind === 'place') && <IPin />}
                         </span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span className={styles.suggestName}>{item.name}</span>
@@ -726,7 +728,7 @@ function SearchPageInner() {
             <div className={styles.resultsHeader}>
               <span className={styles.resultCount}>{total}</span>
               <span className={styles.resultSub}>
-                properties{cityName ? ` in ${cityName}` : ''}
+                properties{cityName ? ` ${inOrNear} ${cityName}` : ''}
               </span>
             </div>
 
