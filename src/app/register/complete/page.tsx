@@ -1,17 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from '../page.module.css';
 import CompleteProfileMobile from './CompleteProfileMobile';
 import AppNav from '../../components/AppNav';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
-
-type Role = 'student' | 'employed' | null;
+import {
+  type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
+  landlordPayload, Spinner, RoleCards, LandlordFields, useNeedsName,
+} from '../signupShared';
 
 export default function CompleteProfile() {
   const router = useRouter();
+  const needsName = useNeedsName();
+  const [name, setName] = useState('');
+  const [landlord, setLandlord] = useState<LandlordInfo>(EMPTY_LANDLORD);
   const [role, setRole] = useState<Role>(null);
   const [nationality, setNationality] = useState('');
   const [phone, setPhone] = useState('');
@@ -25,8 +31,12 @@ export default function CompleteProfile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const studentRequired = role === 'student' ? university.trim() && program.trim() && startYear : true;
-  const canSubmit = nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentRequired;
+  const missing = missingFields({
+    name: needsName ? name : undefined, nationality, phone, residenceCountry, residenceCity, role, university, program, startYear,
+  });
+  const canSubmit = missing.length === 0;
+
+  useEffect(() => { router.prefetch(afterSignupPath(role)); }, [router, role]);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -41,14 +51,15 @@ export default function CompleteProfile() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
-          name: user.displayName,
+          name: needsName ? name.trim() : user.displayName,
           phone, nationality, residenceCountry, residenceCity,
           role: role === 'employed' ? 'student' : role,
-          university, program, startYear, jobTitle, why,
+          university, program, startYear, jobTitle, why, ...landlordPayload(role, landlord),
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      router.push('/register/preferences');
+      if (needsName) await updateProfile(user, { displayName: name.trim() });
+      router.push(afterSignupPath(role));
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -84,9 +95,20 @@ export default function CompleteProfile() {
           <div className={styles.formInner}>
             <p className={styles.eyebrow}>One more step</p>
             <h1 className={styles.headline}>Tell us about you</h1>
-            <p className={styles.subline}>This helps landlords understand your situation.</p>
+            <p className={styles.subline}>
+              {role === 'landlord' ? 'So tenants know who they’re renting from.' : 'This helps landlords understand your situation.'}
+            </p>
 
-            <div className={styles.sectionLabel}>Required</div>
+            <label className={styles.label}>I am a <span className={styles.required}>*</span></label>
+            <RoleCards role={role} onChange={setRole} styles={styles} />
+
+            {needsName && (
+              <>
+                <label className={styles.label}>Full name <span className={styles.required}>*</span></label>
+                <input type="text" className={styles.fieldStack} placeholder="Jane Smith" autoComplete="name"
+                  value={name} onChange={e => setName(e.target.value)} />
+              </>
+            )}
 
             <div className={styles.row}>
               <div className={styles.rowCol}>
@@ -145,22 +167,6 @@ export default function CompleteProfile() {
               </div>
             </div>
 
-            <label className={styles.label}>I am a <span className={styles.required}>*</span></label>
-            <div className={styles.roleRow}>
-              <button type="button" className={role === 'student' ? styles.roleBtnActive : styles.roleBtn} onClick={() => setRole('student')}>
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 10 12 5 2 10l10 5 10-5Z" /><path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" />
-                </svg>
-                Student
-              </button>
-              <button type="button" className={role === 'employed' ? styles.roleBtnActive : styles.roleBtn} onClick={() => setRole('employed')}>
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                Employed
-              </button>
-            </div>
-
             {role === 'student' && (
               <div>
                 <label className={styles.label}>University <span className={styles.required}>*</span></label>
@@ -213,7 +219,11 @@ export default function CompleteProfile() {
               </div>
             )}
 
-            {role && (
+            {role === 'landlord' && (
+              <LandlordFields value={landlord} onChange={setLandlord} styles={styles} fieldClass={styles.fieldStack} />
+            )}
+
+            {role && role !== 'landlord' && (
               <div>
                 <div className={styles.optionalLabel}>Optional</div>
                 <label className={styles.label}>Why UniStay?</label>
@@ -222,15 +232,18 @@ export default function CompleteProfile() {
               </div>
             )}
 
-            {error && <p style={{ fontSize: 13, fontWeight: 600, color: '#c2557a', margin: '8px 0', textAlign: 'center' }}>{error}</p>}
+            {error && <p className={styles.errorBox} role="alert" style={{ marginTop: 16 }}>{error}</p>}
 
             <button type="button" className={styles.createBtn} disabled={!canSubmit || loading} onClick={handleSubmit}
               style={{ marginTop: 20, width: '100%' }}>
-              {loading ? 'Saving…' : 'Complete Profile'}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
+              {loading ? <>Saving… <Spinner styles={styles} /></> : <>
+                Complete Profile
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </>}
             </button>
+            {role ? <MissingHint missing={missing} styles={styles} /> : <p className={styles.hint}>Pick who you are to continue</p>}
           </div>
         </div>
       </div>

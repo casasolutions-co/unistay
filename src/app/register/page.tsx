@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppNav from '../components/AppNav';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -10,28 +10,22 @@ import RegisterMobile from './RegisterMobile';
 import LegalModal from '../components/LegalModal';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 import { suspendedMessage } from '@/lib/authErrors';
+import {
+  type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
+  landlordPayload, PasswordMeter, Spinner, RoleCards, LandlordFields,
+} from './signupShared';
 
-async function syncUser(token: string, role?: string): Promise<boolean> {
+// Creates the D1 user row; with `profile`, also saves the profile in the same request.
+async function syncUser(token: string, role?: string, profile?: Record<string, unknown>): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, role }),
+    body: JSON.stringify({ token, role, profile }),
   });
   if (!res.ok) throw new Error('Sync failed');
   const { user } = await res.json();
   return !!user?.profile_complete;
 }
-
-async function saveProfile(token: string, data: Record<string, string | null>) {
-  const res = await fetch('/api/user/profile', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, ...data }),
-  });
-  if (!res.ok) throw new Error('Profile save failed');
-}
-
-type Role = 'student' | 'employed' | null;
 
 const EyeIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -71,6 +65,10 @@ const leftCopy = {
     title: 'Your profile, your story.',
     sub: 'A complete profile helps landlords say yes — faster.',
   },
+  landlord: {
+    title: 'Rent to verified tenants.',
+    sub: 'Every UniStay renter is ID-verified before they can reach you.',
+  },
 };
 
 export default function RegisterPage() {
@@ -95,14 +93,16 @@ export default function RegisterPage() {
     setError('');
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(cred.user, { displayName: name });
       const token = await cred.user.getIdToken();
-      await syncUser(token, role ?? 'student');
-      await saveProfile(token, {
-        name, phone, nationality, residenceCountry, residenceCity, role: role ?? 'student',
-        university, program, startYear, jobTitle, why,
-      });
-      router.push('/register/preferences');
+      // Firebase displayName and the D1 row (account + profile in one request) in parallel.
+      await Promise.all([
+        updateProfile(cred.user, { displayName: name }),
+        syncUser(token, role ?? 'student', {
+          name, phone, nationality, residenceCountry, residenceCity, role: role ?? 'student',
+          university, program, startYear, jobTitle, why, ...landlordPayload(role, landlord),
+        }),
+      ]);
+      router.push(afterSignupPath(role));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('email-already-in-use')) {
@@ -147,15 +147,24 @@ export default function RegisterPage() {
   const [startYear, setStartYear] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [why, setWhy] = useState('');
+  const [landlord, setLandlord] = useState<LandlordInfo>(EMPTY_LANDLORD);
 
-  const canNext = name.trim() && email.trim() && password.length >= 8;
+  const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+  const step1Missing = [
+    !name.trim() && 'full name',
+    !emailValid && (email.trim() ? 'a valid email' : 'email'),
+    password.length < 8 && 'password (8+ characters)',
+  ].filter(Boolean) as string[];
+  const canNext = step1Missing.length === 0;
 
-  const studentRequired = role === 'student'
-    ? university.trim() && program.trim() && startYear
-    : true;
-  const canCreate = nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentRequired;
+  const missing = missingFields({ nationality, phone, residenceCountry, residenceCity, role, university, program, startYear });
+  const canCreate = missing.length === 0;
 
-  const copy = leftCopy[step];
+  // Warm the next pages so each step change is instant.
+  useEffect(() => { router.prefetch('/register/complete'); router.prefetch('/search'); }, [router]);
+  useEffect(() => { router.prefetch(afterSignupPath(role)); }, [router, role]);
+
+  const copy = step === 2 && role === 'landlord' ? leftCopy.landlord : leftCopy[step];
 
   return (
     <>
@@ -202,13 +211,13 @@ export default function RegisterPage() {
               <span className={styles.stepLine} />
               <div className={styles.stepItem}>
                 <span className={styles.stepDotInactive}>3</span>
-                <span className={styles.stepLabelInactive}>Preferences</span>
+                <span className={styles.stepLabelInactive}>{role === 'landlord' ? 'Done' : 'Preferences'}</span>
               </div>
             </div>
 
             {/* ── Step 1 ── */}
             {step === 1 && (
-              <div>
+              <div key="step1" className={styles.stepFade}>
                 <p className={styles.eyebrow}>Join UniStay</p>
                 <h1 className={styles.headline}>Let&apos;s get started</h1>
                 <p className={styles.subline}>Create your free account.</p>
@@ -280,6 +289,7 @@ export default function RegisterPage() {
                     {pwVisible ? <EyeIcon /> : <EyeOffIcon />}
                   </button>
                 </div>
+                <PasswordMeter password={password} styles={styles} />
 
                 <p className={styles.legalText}>
                   By registering you agree to our{' '}
@@ -298,6 +308,7 @@ export default function RegisterPage() {
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
                 </button>
+                {(name || email || password) && <MissingHint missing={step1Missing} styles={styles} />}
 
                 <p className={styles.footerText}>
                   Already have an account?{' '}
@@ -308,12 +319,15 @@ export default function RegisterPage() {
 
             {/* ── Step 2 ── */}
             {step === 2 && (
-              <div>
+              <div key="step2" className={styles.stepFade}>
                 <p className={styles.eyebrow}>Your details</p>
                 <h1 className={styles.headline}>Tell us about you</h1>
-                <p className={styles.subline}>This helps landlords understand your situation.</p>
+                <p className={styles.subline}>
+                  {role === 'landlord' ? 'So tenants know who they’re renting from.' : 'This helps landlords understand your situation.'}
+                </p>
 
-                <div className={styles.sectionLabel}>Required</div>
+                <label className={styles.label}>I am a <span className={styles.required}>*</span></label>
+                <RoleCards role={role} onChange={setRole} styles={styles} />
 
                 {/* Nationality + Phone */}
                 <div className={styles.row}>
@@ -394,33 +408,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                {/* Role */}
-                <label className={styles.label}>I am a <span className={styles.required}>*</span></label>
-                <div className={styles.roleRow}>
-                  <button
-                    type="button"
-                    className={role === 'student' ? styles.roleBtnActive : styles.roleBtn}
-                    onClick={() => setRole('student')}
-                  >
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 10 12 5 2 10l10 5 10-5Z" />
-                      <path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" />
-                    </svg>
-                    Student
-                  </button>
-                  <button
-                    type="button"
-                    className={role === 'employed' ? styles.roleBtnActive : styles.roleBtn}
-                    onClick={() => setRole('employed')}
-                  >
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="7" width="18" height="13" rx="2" />
-                      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                    Employed
-                  </button>
-                </div>
-
                 {/* Student fields */}
                 {role === 'student' && (
                   <div>
@@ -499,8 +486,12 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {/* Optional why */}
-                {role && (
+                {role === 'landlord' && (
+                  <LandlordFields value={landlord} onChange={setLandlord} styles={styles} fieldClass={styles.fieldStack} />
+                )}
+
+                {/* Optional why — tenant-facing, so not for landlords */}
+                {role && role !== 'landlord' && (
                   <div>
                     <div className={styles.optionalLabel}>Optional</div>
                     <label className={styles.label}>Why UniStay?</label>
@@ -515,9 +506,7 @@ export default function RegisterPage() {
                 )}
 
                 {/* Back + Create */}
-                {error && (
-                  <p style={{ fontSize: 13, fontWeight: 600, color: '#c2557a', margin: '0 0 12px', textAlign: 'center' }}>{error}</p>
-                )}
+                {error && <p className={styles.errorBox} role="alert">{error}</p>}
                 <div className={styles.buttonRow}>
                   <button type="button" className={styles.backBtn} onClick={() => setStep(1)} disabled={loading}>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -531,12 +520,15 @@ export default function RegisterPage() {
                     disabled={!canCreate || loading}
                     onClick={() => !legalAgreed ? openLegal('terms') : handleCreateAccount()}
                   >
-                    {loading ? 'Creating…' : 'Create Account'}
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14M13 6l6 6-6 6" />
-                    </svg>
+                    {loading ? <>Creating your account… <Spinner styles={styles} /></> : <>
+                      Create Account
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M13 6l6 6-6 6" />
+                      </svg>
+                    </>}
                   </button>
                 </div>
+                {role ? <MissingHint missing={missing} styles={styles} /> : <p className={styles.hint}>Pick who you are to continue</p>}
               </div>
             )}
 

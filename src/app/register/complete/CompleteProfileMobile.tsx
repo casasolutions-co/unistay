@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from '../RegisterMobile.module.css';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
-
-type Role = 'student' | 'employed' | null;
+import {
+  type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
+  landlordPayload, Spinner, RoleCards, LandlordFields, useNeedsName,
+} from '../signupShared';
 
 const IArrow = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -21,20 +24,11 @@ const IChevDown = () => (
   </svg>
 );
 
-const IStudent = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 10 12 5 2 10l10 5 10-5Z" /><path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" />
-  </svg>
-);
-
-const IEmployed = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </svg>
-);
-
 export default function CompleteProfileMobile() {
   const router = useRouter();
+  const needsName = useNeedsName();
+  const [name, setName] = useState('');
+  const [landlord, setLandlord] = useState<LandlordInfo>(EMPTY_LANDLORD);
   const [role, setRole] = useState<Role>(null);
   const [nationality, setNationality] = useState('');
   const [phone, setPhone] = useState('');
@@ -48,8 +42,12 @@ export default function CompleteProfileMobile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const studentReq = role === 'student' ? !!(university.trim() && program.trim() && startYear) : true;
-  const canSubmit = !!(nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentReq);
+  const missing = missingFields({
+    name: needsName ? name : undefined, nationality, phone, residenceCountry, residenceCity, role, university, program, startYear,
+  });
+  const canSubmit = missing.length === 0;
+
+  useEffect(() => { router.prefetch(afterSignupPath(role)); }, [router, role]);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -64,14 +62,15 @@ export default function CompleteProfileMobile() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
-          name: user.displayName,
+          name: needsName ? name.trim() : user.displayName,
           phone, nationality, residenceCountry, residenceCity,
           role: role === 'employed' ? 'student' : role,
-          university, program, startYear, jobTitle, why,
+          university, program, startYear, jobTitle, why, ...landlordPayload(role, landlord),
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      router.push('/register/preferences');
+      if (needsName) await updateProfile(user, { displayName: name.trim() });
+      router.push(afterSignupPath(role));
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -88,7 +87,7 @@ export default function CompleteProfileMobile() {
           <div className={styles.logoRow}>
             <Image src="/primary-logo.png" alt="UniStay" width={2049} height={1772} style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
           </div>
-          <h1 className={styles.bannerTitle}>Your profile, your story.</h1>
+          <h1 className={styles.bannerTitle}>{role === 'landlord' ? 'Rent to verified tenants.' : 'Your profile, your story.'}</h1>
         </div>
       </div>
 
@@ -100,7 +99,20 @@ export default function CompleteProfileMobile() {
 
         <div className={styles.scrollContent}>
           <h2 className={styles.step2Title}>One more step</h2>
-          <p className={styles.step2Sub}>This helps landlords understand your situation.</p>
+          <p className={styles.step2Sub}>
+            {role === 'landlord' ? 'So tenants know who they’re renting from.' : 'This helps landlords understand your situation.'}
+          </p>
+
+          <label className={styles.label}>I am a *</label>
+          <RoleCards role={role} onChange={setRole} styles={styles} />
+
+          {needsName && (
+            <>
+              <label className={styles.label}>Full name *</label>
+              <input type="text" className={styles.field} placeholder="Jane Smith" autoComplete="name"
+                value={name} onChange={e => setName(e.target.value)} />
+            </>
+          )}
 
           {/* Nationality + Phone */}
           <div className={styles.twoCol}>
@@ -160,17 +172,6 @@ export default function CompleteProfileMobile() {
             </div>
           </div>
 
-          {/* Role */}
-          <label className={styles.label}>I am a *</label>
-          <div className={styles.roleRow}>
-            <button type="button" className={role === 'student' ? styles.roleBtnActive : styles.roleBtn} onClick={() => setRole('student')}>
-              <IStudent /> Student
-            </button>
-            <button type="button" className={role === 'employed' ? styles.roleBtnActive : styles.roleBtn} onClick={() => setRole('employed')}>
-              <IEmployed /> Employed
-            </button>
-          </div>
-
           {/* Student fields */}
           {role === 'student' && (
             <div>
@@ -207,8 +208,12 @@ export default function CompleteProfileMobile() {
             </div>
           )}
 
-          {/* Optional why */}
-          {role && (
+          {role === 'landlord' && (
+            <LandlordFields value={landlord} onChange={setLandlord} styles={styles} fieldClass={styles.field} />
+          )}
+
+          {/* Optional why — tenant-facing, so not for landlords */}
+          {role && role !== 'landlord' && (
             <div>
               <label className={styles.label}>Why UniStay? <span className={styles.optional}>(optional)</span></label>
               <textarea className={styles.textarea} placeholder="Tell us what you're looking for…"
@@ -219,11 +224,11 @@ export default function CompleteProfileMobile() {
 
         {/* Sticky CTA */}
         <div className={styles.ctaArea}>
-          {error && <p style={{ fontSize: 13, fontWeight: 600, color: '#c2557a', margin: '0 0 10px', textAlign: 'center' }}>{error}</p>}
+          {error && <p className={styles.errorBox} role="alert">{error}</p>}
           <button type="button" className={styles.ctaBtn} disabled={!canSubmit || loading} onClick={handleSubmit}>
-            {loading ? 'Saving…' : 'Complete Profile'}
-            <IArrow />
+            {loading ? <>Saving… <Spinner styles={styles} /></> : <>Complete Profile <IArrow /></>}
           </button>
+          {!canSubmit && !loading && (role ? <MissingHint missing={missing} styles={styles} /> : <p className={styles.hint}>Pick who you are to continue</p>)}
         </div>
       </div>
     </div>

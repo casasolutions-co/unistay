@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -8,6 +8,10 @@ import { auth } from '@/lib/firebase';
 import styles from './RegisterMobile.module.css';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 import { suspendedMessage } from '@/lib/authErrors';
+import {
+  type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
+  landlordPayload, PasswordMeter, Spinner, RoleCards, LandlordFields,
+} from './signupShared';
 
 /* ── Custom picker ──────────────────────────────────────────────── */
 interface CustomPickerProps {
@@ -69,27 +73,17 @@ function CustomPicker({ value, onChange, placeholder, title, options }: CustomPi
   );
 }
 
-async function syncUser(token: string, role?: string): Promise<boolean> {
+// Creates the D1 user row; with `profile`, also saves the profile in the same request.
+async function syncUser(token: string, role?: string, profile?: Record<string, unknown>): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, role }),
+    body: JSON.stringify({ token, role, profile }),
   });
   if (!res.ok) throw new Error('Sync failed');
   const { user } = await res.json();
   return !!user?.profile_complete;
 }
-
-async function saveProfile(token: string, data: Record<string, string | null>) {
-  const res = await fetch('/api/user/profile', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, ...data }),
-  });
-  if (!res.ok) throw new Error('Profile save failed');
-}
-
-type Role = 'student' | 'employed' | null;
 
 /* ── Icons ──────────────────────────────────────────────────────── */
 const IBack = () => (
@@ -126,18 +120,6 @@ const ICheck = () => (
 const IChevDown = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
     <path d="m6 9 6 6 6-6" />
-  </svg>
-);
-
-const IStudent = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 10 12 5 2 10l10 5 10-5Z" /><path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" />
-  </svg>
-);
-
-const IEmployed = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
 );
 
@@ -180,16 +162,27 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
   const [startYear,   setStartYear]   = useState('');
   const [jobTitle,    setJobTitle]    = useState('');
   const [why,         setWhy]         = useState('');
+  const [landlord,    setLandlord]    = useState<LandlordInfo>(EMPTY_LANDLORD);
 
   /* ── Derived ── */
-  const canNext     = !!(name.trim() && email.trim() && password.length >= 8);
-  const studentReq  = role === 'student' ? !!(university.trim() && program.trim() && startYear) : true;
-  const canCreate   = !!(nationality && phone.trim() && residenceCountry && residenceCity.trim() && role && studentReq);
+  const emailValid  = /^\S+@\S+\.\S+$/.test(email.trim());
+  const step1Missing = [
+    !name.trim() && 'full name',
+    !emailValid && (email.trim() ? 'a valid email' : 'email'),
+    password.length < 8 && 'password (8+ characters)',
+  ].filter(Boolean) as string[];
+  const canNext     = step1Missing.length === 0;
+  const missing     = missingFields({ nationality, phone, residenceCountry, residenceCity, role, university, program, startYear });
+  const canCreate   = missing.length === 0;
   const enabled     = step === 1 ? canNext : canCreate;
+
+  // Warm the next pages so each step change is instant.
+  useEffect(() => { router.prefetch('/register/complete'); router.prefetch('/search'); }, [router]);
+  useEffect(() => { router.prefetch(afterSignupPath(role)); }, [router, role]);
 
   const bannerTitle = step === 1
     ? 'Find your home in Germany.'
-    : 'Your profile, your story.';
+    : role === 'landlord' ? 'Rent to verified tenants.' : 'Your profile, your story.';
 
   const handlePrimary = async () => {
     if (step === 1 && canNext) { setStep(2); return; }
@@ -199,14 +192,16 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
       setError('');
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(cred.user, { displayName: name });
         const token = await cred.user.getIdToken();
-        await syncUser(token, role ?? 'student');
-        await saveProfile(token, {
-          name, phone, nationality, residenceCountry, residenceCity, role: role ?? 'student',
-          university, program, startYear, jobTitle, why,
-        });
-        router.push('/register/preferences');
+        // Firebase displayName and the D1 row (account + profile in one request) in parallel.
+        await Promise.all([
+          updateProfile(cred.user, { displayName: name }),
+          syncUser(token, role ?? 'student', {
+            name, phone, nationality, residenceCountry, residenceCity, role: role ?? 'student',
+            university, program, startYear, jobTitle, why, ...landlordPayload(role, landlord),
+          }),
+        ]);
+        router.push(afterSignupPath(role));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '';
         if (msg.includes('email-already-in-use')) setError('An account with this email already exists.');
@@ -244,7 +239,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
           <button
             type="button"
             className={styles.backBtn}
-            onClick={() => step === 2 ? setStep(1) : undefined}
+            onClick={() => step === 2 ? setStep(1) : router.back()}
             aria-label="Back"
           >
             <IBack />
@@ -282,7 +277,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
             <span className={step === 2 ? styles.labelDone : styles.labelPending}>
               Your details
             </span>
-            <span className={styles.labelPending}>Preferences</span>
+            <span className={styles.labelPending}>{role === 'landlord' ? 'Done' : 'Preferences'}</span>
           </div>
         </div>
 
@@ -291,7 +286,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
 
           {/* ── STEP 1 ── */}
           {step === 1 && (
-            <div>
+            <div key="step1" className={styles.stepFade}>
               <button type="button" className={styles.googleBtn} onClick={handleGoogle} disabled={loading}>
                 <GoogleIcon />
                 Continue with Google
@@ -338,6 +333,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                   {pwVisible ? <IEye /> : <IEyeOff />}
                 </button>
               </div>
+              <PasswordMeter password={password} styles={styles} />
 
               <p className={styles.terms} style={{ marginTop: 8 }}>
                 By registering you agree to our{' '}
@@ -349,9 +345,14 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
 
           {/* ── STEP 2 ── */}
           {step === 2 && (
-            <div>
+            <div key="step2" className={styles.stepFade}>
               <h2 className={styles.step2Title}>Tell us about you</h2>
-              <p className={styles.step2Sub}>This helps landlords understand your situation.</p>
+              <p className={styles.step2Sub}>
+                {role === 'landlord' ? 'So tenants know who they’re renting from.' : 'This helps landlords understand your situation.'}
+              </p>
+
+              <label className={styles.label}>I am a *</label>
+              <RoleCards role={role} onChange={setRole} styles={styles} />
 
               {/* Nationality */}
               <label className={styles.label}>Nationality *</label>
@@ -390,25 +391,6 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                 value={residenceCity}
                 onChange={e => setResidenceCity(e.target.value)}
               />
-
-              {/* Role */}
-              <label className={styles.label}>I am a *</label>
-              <div className={styles.roleRow}>
-                <button
-                  type="button"
-                  className={role === 'student' ? styles.roleBtnActive : styles.roleBtn}
-                  onClick={() => setRole('student')}
-                >
-                  <IStudent /> Student
-                </button>
-                <button
-                  type="button"
-                  className={role === 'employed' ? styles.roleBtnActive : styles.roleBtn}
-                  onClick={() => setRole('employed')}
-                >
-                  <IEmployed /> Employed
-                </button>
-              </div>
 
               {/* Student fields */}
               {role === 'student' && (
@@ -456,8 +438,12 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
                 </div>
               )}
 
-              {/* Optional why */}
-              {role && (
+              {role === 'landlord' && (
+                <LandlordFields value={landlord} onChange={setLandlord} styles={styles} fieldClass={styles.field} />
+              )}
+
+              {/* Optional why — tenant-facing, so not for landlords */}
+              {role && role !== 'landlord' && (
                 <div>
                   <label className={styles.label}>
                     Why UniStay? <span className={styles.optional}>(optional)</span>
@@ -477,16 +463,20 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
 
         {/* ── Sticky CTA ── */}
         <div className={styles.ctaArea}>
-          {error && <p style={{ fontSize: 13, fontWeight: 600, color: '#c2557a', margin: '0 0 10px', textAlign: 'center' }}>{error}</p>}
+          {error && <p className={styles.errorBox} role="alert">{error}</p>}
           <button
             type="button"
             className={styles.ctaBtn}
             disabled={!enabled || loading}
             onClick={handlePrimary}
           >
-            {loading ? (step === 1 ? 'Loading…' : 'Creating…') : (step === 1 ? 'Continue' : 'Create Account')}
-            <IArrow />
+            {loading
+              ? <>{step === 1 ? 'Signing in…' : 'Creating your account…'} <Spinner styles={styles} /></>
+              : <>{step === 1 ? 'Continue' : 'Create Account'} <IArrow /></>}
           </button>
+          {!enabled && !loading && (step === 2 && !role
+            ? <p className={styles.hint}>Pick who you are to continue</p>
+            : (step === 2 || name || email || password) && <MissingHint missing={step === 1 ? step1Missing : missing} styles={styles} />)}
           <p className={styles.ctaFooter}>
             {step === 1 ? (
               <>Already have an account?{' '}

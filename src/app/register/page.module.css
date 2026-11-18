@@ -403,28 +403,115 @@
 
 .roleBtn {
   flex: 1;
-  height: 54px;
-  border-radius: 13px;
+  min-width: 0;
+  padding: 14px 10px 12px;
+  border-radius: 14px;
   border: 1.5px solid var(--border);
   background: var(--page);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 15px;
-  font-weight: 700;
   color: var(--text-body);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
-  transition: all .14s;
+  gap: 5px;
+  text-align: center;
+  transition: border-color .14s, background .14s, color .14s, transform .14s, box-shadow .14s;
 }
+.roleBtn:hover { border-color: #cfc8dd; transform: translateY(-1px); }
+.roleBtn:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(109,40,217,.18); }
 
 .roleBtnActive {
   composes: roleBtn;
   border-color: var(--brand);
   background: #f3effe;
   color: var(--brand);
+  box-shadow: 0 6px 16px -8px rgba(109,40,217,.45);
 }
+
+.roleTitle { font-size: 14.5px; font-weight: 800; line-height: 1.2; }
+.roleSub { font-size: 11.5px; font-weight: 600; color: var(--text-muted, #8a8499); line-height: 1.25; }
+.roleBtnActive .roleSub { color: #8b5cf6; }
+
+/* ── Sign-up polish: shared with signupShared.tsx ───────────── */
+.optional { color: #b3adbf; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+.fieldStack {
+  composes: fieldNoIcon;
+  margin-bottom: 16px;
+}
+
+.stepFade { animation: stepIn .28s ease both; }
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .stepFade { animation: none; } }
+
+.hint {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a8499;
+  text-align: center;
+  margin: 10px 0 0;
+}
+
+.errorBox {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b4234f;
+  background: #fdecf2;
+  border: 1px solid #f7c6d6;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  text-align: center;
+}
+
+.spinner {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2.4px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pwMeter { display: flex; align-items: center; gap: 10px; margin: -6px 0 14px; }
+.pwBars { display: flex; gap: 4px; }
+.pwBars span { width: 28px; height: 4px; border-radius: 4px; background: var(--border); transition: background .2s; }
+.pwMeter[data-score="1"] .pwBars span:nth-child(-n+1) { background: #e0457b; }
+.pwMeter[data-score="2"] .pwBars span:nth-child(-n+2) { background: #f59e0b; }
+.pwMeter[data-score="3"] .pwBars span { background: #1f8a5b; }
+.pwLabel { font-size: 12px; font-weight: 600; color: #8a8499; }
+
+.landlordNote {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5b4a86;
+  background: #f6f2ff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0 0 16px;
+}
+
+.chipRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--page);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-body);
+  cursor: pointer;
+  transition: all .14s;
+}
+.chip:hover { border-color: #cfc8dd; }
+.chipActive { composes: chip; border-color: var(--brand); background: #f3effe; color: var(--brand); }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
 .googleBtn {

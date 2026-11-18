@@ -4,9 +4,11 @@ import { d1Query } from '@/lib/d1';
 import { getAppSetting } from '@/lib/settings';
 import { sendEmail } from '@/lib/email';
 import { welcomeEmail } from '@/lib/emails/templates';
+import { normalizeRole, saveProfile, type ProfileInput } from '@/lib/userProfile';
 
 export async function POST(req: NextRequest) {
-  const { token, role } = await req.json();
+  // `profile` is sent by the email sign-up form so account + profile land in one request.
+  const { token, role, profile } = await req.json() as { token?: string; role?: string; profile?: ProfileInput };
 
   if (!token) {
     return NextResponse.json({ error: 'No token provided' }, { status: 400 });
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   const now = Date.now();
-  const userRole = role === 'landlord' ? 'landlord' : 'student';
+  const userRole = normalizeRole(role);
 
   // Only gate brand-new accounts — an existing user logging back in must
   // never be locked out by this switch, it's a signups-only kill switch.
@@ -42,8 +44,11 @@ export async function POST(req: NextRequest) {
     [decoded.uid, decoded.email ?? '', decoded.name ?? null, userRole, now, now]
   );
 
+  if (profile) await saveProfile(decoded.uid, { ...profile, role: userRole });
+
   if (!existing && decoded.email) {
-    const { subject, html } = welcomeEmail({ name: decoded.name, role: userRole });
+    // The token can predate updateProfile(displayName), so prefer the name the form sent.
+    const { subject, html } = welcomeEmail({ name: profile?.name || decoded.name, role: userRole });
     void sendEmail(decoded.email, subject, html);
   }
 

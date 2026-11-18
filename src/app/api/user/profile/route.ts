@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { DIDIT_OWNED_STATUSES, reconcileWithDidit } from '@/lib/didit';
+import { saveProfile } from '@/lib/userProfile';
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { token, name, phone, nationality, residenceCountry, residenceCity, role, university, program, startYear, jobTitle, why } = await req.json();
+  const { token, ...profile } = await req.json();
 
   if (!token) return NextResponse.json({ error: 'No token' }, { status: 400 });
 
@@ -55,23 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const userRole = role === 'landlord' ? 'landlord' : 'student';
-
-  // Residence is only sent by the registration forms; the profile editor
-  // doesn't send it, so COALESCE keeps what's stored instead of nulling it.
-
-  await d1Query(
-    `UPDATE users SET
-      name = ?, phone = ?, nationality = ?,
-      residence_country = COALESCE(?, residence_country), residence_city = COALESCE(?, residence_city), role = ?,
-      university = ?, program = ?, start_year = ?,
-      job_title = ?, why = ?, profile_complete = 1,
-      updated_at = ?
-     WHERE id = ?`,
-    [name ?? null, phone ?? null, nationality ?? null, residenceCountry ?? null, residenceCity ?? null, userRole,
-     university ?? null, program ?? null, startYear ?? null,
-     jobTitle ?? null, why ?? null, Date.now(), decoded.uid]
-  );
+  await saveProfile(decoded.uid, profile);
 
   return NextResponse.json({ ok: true });
 }
