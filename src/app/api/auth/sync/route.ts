@@ -33,12 +33,13 @@ export async function POST(req: NextRequest) {
   // Upsert user into D1 — safe to call on every login
   // Role is only set on INSERT, never overwritten on login
   await d1Query(
-    `INSERT INTO users (id, email, role, verification_status, created_at, updated_at)
-     VALUES (?, ?, ?, 'unverified', ?, ?)
+    `INSERT INTO users (id, email, name, role, verification_status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'unverified', ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        email = excluded.email,
+       name = COALESCE(users.name, excluded.name),
        updated_at = excluded.updated_at`,
-    [decoded.uid, decoded.email ?? '', userRole, now, now]
+    [decoded.uid, decoded.email ?? '', decoded.name ?? null, userRole, now, now]
   );
 
   if (!existing && decoded.email) {
