@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import styles from "./LoginMobile.module.css";
+import { suspendedMessage } from "@/lib/authErrors";
 
 async function syncUser(token: string): Promise<boolean> {
   const res = await fetch("/api/auth/sync", {
@@ -165,8 +166,8 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
       router.push(profileComplete ? "/search" : "/register/complete");
-    } catch {
-      setError("Incorrect email or password.");
+    } catch (e) {
+      setError(suspendedMessage(e) ?? "Incorrect email or password.");
     } finally {
       setLoading(false);
     }
@@ -180,8 +181,8 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
       router.push(profileComplete ? "/search" : "/register/complete");
-    } catch {
-      setError("Google sign-in failed.");
+    } catch (e) {
+      setError(suspendedMessage(e) ?? "Google sign-in failed.");
     } finally {
       setLoading(false);
     }

@@ -58,7 +58,10 @@ export function useVerifyFlow() {
         // Page the user came from (?next=); the server validates it before handing it to Didit.
         body: JSON.stringify({ token, next: new URLSearchParams(window.location.search).get('next') }),
       });
-      const data = await res.json() as { url?: string; error?: string; details?: string };
+      const data = await res.json() as { url?: string; status?: string; error?: string; details?: string };
+      // Didit already decided this user's earlier session (e.g. the webhook was missed).
+      const decided = res.ok ? stageForStatus(data.status) : null;
+      if (decided) { setStage(decided); return; }
       if (!res.ok || !data.url) {
         const reason = data.details ? `${data.error}: ${data.details}` : data.error;
         throw new Error(reason ?? 'Failed to start verification');

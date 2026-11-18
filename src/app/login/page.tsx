@@ -12,6 +12,7 @@ import { auth } from "@/lib/firebase";
 import styles from "./page.module.css";
 import LoginMobile from "./LoginMobile";
 import LegalModal from "../components/LegalModal";
+import { suspendedMessage } from "@/lib/authErrors";
 
 async function syncUser(token: string): Promise<boolean> {
   const res = await fetch("/api/auth/sync", {
@@ -103,7 +104,10 @@ export default function LoginPage() {
       router.push(profileComplete ? "/search" : "/register/complete");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Login failed";
-      if (
+      const suspended = suspendedMessage(e);
+      if (suspended) {
+        setError(suspended);
+      } else if (
         msg.includes("invalid-credential") ||
         msg.includes("wrong-password") ||
         msg.includes("user-not-found")
@@ -125,8 +129,8 @@ export default function LoginPage() {
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
       router.push(profileComplete ? "/search" : "/register/complete");
-    } catch {
-      setError("Google sign-in failed. Please try again.");
+    } catch (e) {
+      setError(suspendedMessage(e) ?? "Google sign-in failed. Please try again.");
     } finally {
       setLoading(false);
     }

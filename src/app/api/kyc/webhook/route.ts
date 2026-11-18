@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { d1Query } from '@/lib/d1';
-import { sendEmail } from '@/lib/email';
-import { kycApprovedEmail, kycRejectedEmail } from '@/lib/emails/templates';
+import { applyVerificationStatus, toVerificationStatus } from '@/lib/didit';
 
 function shortenFloats(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(shortenFloats);
@@ -76,40 +75,20 @@ export async function POST(req: NextRequest) {
   };
 
   // Ignore webhooks for sessions that have been superseded by a newer one.
-  const [user] = await d1Query<{ id: string; didit_session_id: string | null; email: string; name: string | null }>(
-    'SELECT id, didit_session_id, email, name FROM users WHERE id = ?',
+  const [user] = await d1Query<{ id: string; didit_session_id: string | null }>(
+    'SELECT id, didit_session_id FROM users WHERE id = ?',
     [vendor_data ?? '']
   );
   if (!user || user.didit_session_id !== session_id) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  // Only 'In Review' is a genuine pending state (Didit's manual review). Every other
-  // non-terminal status (Not Started, In Progress, Awaiting User, Resubmitted, ...) is just
-  // progress chatter we don't need to reflect — leave verification_status untouched for those.
-  const CANNOT_COMPLETE = new Set(['Declined', 'Abandoned', 'Expired', 'Kyc Expired']);
-
-  let status: string | null = null;
-  if (diditStatus === 'Approved') status = 'verified';
-  else if (diditStatus === 'In Review') status = 'pending';
-  else if (diditStatus && CANNOT_COMPLETE.has(diditStatus)) status = 'unverified';
-
+  const status = toVerificationStatus(diditStatus);
   if (status === null) {
     return NextResponse.json({ ok: true, webhook_type, ignored: true });
   }
 
-  await d1Query(
-    `UPDATE users SET verification_status = ?, didit_decision_json = ?, decision_processed_at = ?, updated_at = ? WHERE id = ?`,
-    [status, JSON.stringify(decision ?? {}), Date.now(), Date.now(), user.id]
-  );
-
-  if (status === 'verified') {
-    const { subject, html } = kycApprovedEmail({ name: user.name });
-    void sendEmail(user.email, subject, html);
-  } else if (status === 'unverified') {
-    const { subject, html } = kycRejectedEmail({ name: user.name });
-    void sendEmail(user.email, subject, html);
-  }
+  await applyVerificationStatus(user.id, status, decision);
 
   return NextResponse.json({ ok: true, webhook_type });
 }

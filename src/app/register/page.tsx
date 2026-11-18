@@ -9,6 +9,7 @@ import styles from './page.module.css';
 import RegisterMobile from './RegisterMobile';
 import LegalModal from '../components/LegalModal';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
+import { suspendedMessage } from '@/lib/authErrors';
 
 async function syncUser(token: string, role?: string): Promise<boolean> {
   const res = await fetch('/api/auth/sync', {
@@ -124,8 +125,8 @@ export default function RegisterPage() {
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token, 'student');
       router.push(profileComplete ? '/search' : '/register/complete');
-    } catch {
-      setError('Google sign-in failed. Please try again.');
+    } catch (e) {
+      setError(suspendedMessage(e) ?? 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }

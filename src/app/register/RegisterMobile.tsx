@@ -7,6 +7,7 @@ import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleA
 import { auth } from '@/lib/firebase';
 import styles from './RegisterMobile.module.css';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
+import { suspendedMessage } from '@/lib/authErrors';
 
 /* ── Custom picker ──────────────────────────────────────────────── */
 interface CustomPickerProps {
@@ -225,8 +226,8 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token, 'student');
       router.push(profileComplete ? '/search' : '/register/complete');
-    } catch {
-      setError('Google sign-in failed. Please try again.');
+    } catch (e) {
+      setError(suspendedMessage(e) ?? 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
