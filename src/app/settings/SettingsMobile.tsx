@@ -109,10 +109,9 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
       fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then((d: { user?: { verification_status?: string } }) => {
-          if (cancelled || !d.user?.verification_status) return;
-          setVerificationStatus(d.user.verification_status);
+          if (!cancelled) setVerificationStatus(d.user?.verification_status ?? 'unverified');
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setVerificationStatus('unverified'); })
     );
     return () => { cancelled = true; };
   }, [user]);
@@ -139,7 +138,7 @@ export default function SettingsMobile({ onOpenLegal }: SettingsMobileProps) {
 
   const userInitials = user ? initials(user) : '?';
   const userName = user ? displayName(user) : 'Account';
-  const verificationLabel = verificationStatus === 'verified' ? 'Verified' : verificationStatus === 'pending' ? 'In review' : 'Not verified';
+  const verificationLabel = verificationStatus === null ? 'Checking…' : verificationStatus === 'verified' ? 'Verified' : verificationStatus === 'pending' ? 'In review' : 'Not verified';
 
   if (user === null) {
     return (

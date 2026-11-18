@@ -46,7 +46,7 @@ export default function ProfileMobile() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [editing, setEditing] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState('unverified');
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -84,7 +84,8 @@ export default function ProfileMobile() {
           start_year?: string; nationality?: string; role?: string; job_title?: string;
           why?: string; verification_status?: string;
         } }) => {
-          if (cancelled || !d.user) return;
+          if (cancelled) return;
+          if (!d.user) { setVerificationStatus('unverified'); return; }
           const u = d.user;
           setForm(prev => ({
             ...prev,
@@ -100,9 +101,9 @@ export default function ProfileMobile() {
             jobTitle: u.job_title ?? '',
             why: u.why ?? '',
           });
-          if (u.verification_status) setVerificationStatus(u.verification_status);
+          setVerificationStatus(u.verification_status ?? 'unverified');
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setVerificationStatus('unverified'); })
     );
     return () => { cancelled = true; };
   }, [user]);
@@ -166,13 +167,15 @@ export default function ProfileMobile() {
     },
     {
       label: 'Government ID',
-      sub: verificationStatus === 'verified' ? 'Verified with Didit'
+      sub: verificationStatus === null ? 'Checking…'
+        : verificationStatus === 'verified' ? 'Verified with Didit'
         : verificationStatus === 'pending' ? 'In review — usually a few minutes'
         : 'Required to list a place',
       iconBg: verificationStatus === 'verified' ? '#e9f6ef' : '#f3effe',
       iconColor: verificationStatus === 'verified' ? '#1f8a5b' : '#6d28d9',
       done: verificationStatus === 'verified',
       pending: verificationStatus === 'pending',
+      loading: verificationStatus === null,
       icon: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 8h4M7 12h6M15 8h2M15 12h2',
     },
     {
@@ -226,7 +229,9 @@ export default function ProfileMobile() {
           </div>
           <p className={styles.identityName}>{userName}</p>
           <p className={styles.identityOrg}>{form.org || '—'}</p>
-          {verificationStatus === 'verified' ? (
+          {verificationStatus === null ? (
+            <span className={styles.badge} style={{ background: '#f3f4f6', color: '#6b7280' }}>Checking…</span>
+          ) : verificationStatus === 'verified' ? (
             <span className={styles.badge}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6 9 17l-5-5" />
@@ -299,7 +304,9 @@ export default function ProfileMobile() {
                   <p className={styles.verifyLabel}>{v.label}</p>
                   <p className={styles.verifySub}>{v.sub}</p>
                 </div>
-                {v.done ? (
+                {'loading' in v && v.loading ? (
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '5px 10px', borderRadius: 999 }}>Checking…</span>
+                ) : v.done ? (
                   <span className={styles.verifyDone}><DoneIcon /></span>
                 ) : v.pending ? (
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: '#b45309', background: '#fff7ed', padding: '5px 10px', borderRadius: 999 }}>In review</span>

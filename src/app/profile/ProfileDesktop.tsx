@@ -64,7 +64,7 @@ export default function ProfileDesktop() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [editing, setEditing] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState('unverified');
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -105,7 +105,8 @@ export default function ProfileDesktop() {
           start_year?: string; nationality?: string; role?: string; job_title?: string;
           why?: string; verification_status?: string;
         } }) => {
-          if (cancelled || !d.user) return;
+          if (cancelled) return;
+          if (!d.user) { setVerificationStatus('unverified'); return; }
           const u = d.user;
           setForm(prev => ({
             ...prev,
@@ -121,9 +122,9 @@ export default function ProfileDesktop() {
             jobTitle: u.job_title ?? '',
             why: u.why ?? '',
           });
-          if (u.verification_status) setVerificationStatus(u.verification_status);
+          setVerificationStatus(u.verification_status ?? 'unverified');
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setVerificationStatus('unverified'); })
     );
     return () => { cancelled = true; };
   }, [user]);
@@ -175,9 +176,10 @@ export default function ProfileDesktop() {
     { label: 'Expected graduation', key: 'graduation' },
   ];
 
+  const idLoading = verificationStatus === null;
   const idVerified = verificationStatus === 'verified';
   const idPending = verificationStatus === 'pending';
-  const idSub = idVerified ? 'Verified with Didit' : idPending ? 'In review — usually a few minutes' : 'Via Didit — ID scan + selfie';
+  const idSub = idLoading ? 'Checking…' : idVerified ? 'Verified with Didit' : idPending ? 'In review — usually a few minutes' : 'Via Didit — ID scan + selfie';
 
   const docKeys: DocKey[] = ['enrolment', 'income', 'address'];
   const verifiedDocCount = docKeys.filter(k => docs[k].status === 'verified').length;
@@ -222,7 +224,9 @@ export default function ProfileDesktop() {
               </div>
               <p className={styles.identityName}>{userName}</p>
               <p className={styles.identityOrg}>{form.org || '—'}</p>
-              {idVerified ? (
+              {idLoading ? (
+                <span className={styles.identityBadge} style={{ background: '#f3f4f6', color: '#6b7280' }}>Checking…</span>
+              ) : idVerified ? (
                 <span className={styles.identityBadge}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6 9 17l-5-5" />
@@ -344,7 +348,9 @@ export default function ProfileDesktop() {
                     <div className={styles.verifyRowLabel}>Government ID</div>
                     <div className={styles.verifyRowSub}>{idSub}</div>
                   </div>
-                  {idVerified ? (
+                  {idLoading ? (
+                    <span className={styles.chipPending} style={{ background: '#f3f4f6', color: '#6b7280' }}>Checking…</span>
+                  ) : idVerified ? (
                     <span className={styles.chipVerified}>Verified</span>
                   ) : idPending ? (
                     <span className={styles.chipPending}>Pending review</span>

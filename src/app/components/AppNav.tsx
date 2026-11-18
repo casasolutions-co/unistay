@@ -94,10 +94,9 @@ export default function AppNav({ centerSlot }: AppNavProps) {
       fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then((d: { user?: { verification_status?: string } }) => {
-          if (cancelled || !d.user?.verification_status) return;
-          setVerificationStatus(d.user.verification_status);
+          if (!cancelled) setVerificationStatus(d.user?.verification_status ?? 'unverified');
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setVerificationStatus('unverified'); })
     );
     return () => { cancelled = true; };
   }, [authUser]);
@@ -186,7 +185,7 @@ export default function AppNav({ centerSlot }: AppNavProps) {
                     onClick={() => setOpen(false)}
                   >
                     {verificationStatus === 'verified' ? <ICheck /> : <IShield />}
-                    {verificationStatus === 'verified' ? 'Verified' : verificationStatus === 'pending' ? 'Verification in review' : 'Not verified — verify now'}
+                    {verificationStatus === null ? 'Checking…' : verificationStatus === 'verified' ? 'Verified' : verificationStatus === 'pending' ? 'Verification in review' : 'Not verified — verify now'}
                   </Link>
 
                   <div className={styles.divider} />
