@@ -66,6 +66,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             >
               View live ↗
             </a>
+            <Link
+              href={`/listings/${listing.id}/edit`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 999, border: '1.5px solid #e6e2ef', background: '#fff', fontSize: 13, fontWeight: 700, color: '#4a3d6b', textDecoration: 'none' }}
+            >
+              Edit
+            </Link>
             {isCasa
               ? (
                 <form action={removeCasa}>

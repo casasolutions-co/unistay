@@ -2,6 +2,7 @@ import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
 import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory, LandlordApplication, LandlordStatus } from './types'
 import { findStaticListing } from './staticListings'
 import { deletePhoto } from './r2'
+import { refreshUserAppListings } from './userApp'
 
 function inClause(n: number): string {
   return Array.from({ length: n }, () => '?').join(',')
@@ -364,6 +365,7 @@ export async function _deleteCasaListing(id: string) {
   await d1Run(`DELETE FROM listing_photos WHERE listing_id = ?`, [id])
   await d1Run(`DELETE FROM listing_amenities WHERE listing_id = ?`, [id])
   await d1Run(`DELETE FROM listings WHERE id = ? AND source = 'casa'`, [id])
+  await refreshUserAppListings()
 }
 
 export async function getListing(id: string): Promise<Listing | null> {
@@ -732,6 +734,7 @@ export async function _setListingStatus(id: string, status: Listing['status'], r
     nowSeconds(),
     id,
   ])
+  await refreshUserAppListings()
 }
 
 export async function _setDocStatus(id: string, status: Document['status'], rejectionReason: string | null = null) {
@@ -1000,5 +1003,65 @@ export async function createCasaListing(input: CasaListingInput): Promise<string
     )
   }
 
+  await refreshUserAppListings()
   return id
+}
+
+// Raw row for the edit form (any listing — CASA or a landlord's).
+export async function getListingForEdit(id: string) {
+  const [row, amenityRows, photoRows] = await Promise.all([
+    d1First<Record<string, string | number | null>>(`SELECT * FROM listings WHERE id = ?`, [id]),
+    d1All<{ amenity: string }>(`SELECT amenity FROM listing_amenities WHERE listing_id = ?`, [id]),
+    d1All<{ r2_key: string }>(`SELECT r2_key FROM listing_photos WHERE listing_id = ? ORDER BY position`, [id]),
+  ])
+  if (!row) return null
+  return { row, amenities: amenityRows.map(a => a.amenity), photoKeys: photoRows.map(p => p.r2_key) }
+}
+
+// Admin edit: overwrites the listing's content, amenities and photos. Status, owner and
+// source are untouched. Photos dropped from the list are deleted from R2.
+export async function updateListing(id: string, input: CasaListingInput) {
+  const now = nowSeconds()
+  await d1Run(
+    `UPDATE listings SET
+      ptype = ?, title = ?, street = ?, city = ?, postcode = ?,
+      bedrooms = ?, bathrooms = ?, size_sqm = ?, room_size_sqm = ?,
+      cold_rent = ?, utilities = ?, deposit = ?, admin_fee = ?,
+      avail_from = ?, avail_to = ?, open_ended = ?, min_period = ?, max_period = ?,
+      description = ?, mate_count = ?, mate_gender = ?, pref_gender = ?, mate_notes = ?,
+      -- old coordinates are wrong once the address changes; 0 = "use the city centre"
+      lat = CASE WHEN street = ? AND city = ? AND postcode = ? THEN lat ELSE 0 END,
+      lng = CASE WHEN street = ? AND city = ? AND postcode = ? THEN lng ELSE 0 END,
+      updated_at = ?
+     WHERE id = ?`,
+    [
+      input.ptype, input.title, input.street, input.city, input.postcode,
+      input.bedrooms, input.bathrooms, input.aptSize, input.roomSize,
+      input.rent, input.utilities, input.deposit, input.adminFee,
+      input.availFrom, input.availTo, input.openEnded ? 1 : 0, input.minPeriod, input.maxPeriod,
+      input.desc, input.mateCount, input.mateGender, input.prefGender, input.mateNotes,
+      input.street, input.city, input.postcode, input.street, input.city, input.postcode,
+      now, id,
+    ]
+  )
+
+  await d1Run(`DELETE FROM listing_amenities WHERE listing_id = ?`, [id])
+  for (const amenity of input.amenities) {
+    await d1Run(`INSERT OR IGNORE INTO listing_amenities (listing_id, amenity) VALUES (?, ?)`, [id, amenity])
+  }
+
+  const oldKeys = (await d1All<{ r2_key: string }>(`SELECT r2_key FROM listing_photos WHERE listing_id = ?`, [id])).map(p => p.r2_key)
+  await d1Run(`DELETE FROM listing_photos WHERE listing_id = ?`, [id])
+  for (const photo of input.photos) {
+    await d1Run(
+      `INSERT INTO listing_photos (id, listing_id, r2_key, position, is_cover) VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), id, photo.r2Key, photo.position, photo.isCover ? 1 : 0]
+    )
+  }
+  const kept = new Set(input.photos.map(p => p.r2Key))
+  for (const key of oldKeys) {
+    if (!kept.has(key)) await deletePhoto(key).catch(err => console.error('[updateListing] R2 delete failed', key, err))
+  }
+
+  await refreshUserAppListings()
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/session'
+import heicConvert from 'heic-convert'
 import { putPhoto } from '@/lib/r2'
+import { shrinkPhoto } from '@/lib/shrink-photo'
 
 const EXT_BY_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -51,10 +53,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Only JPEG, PNG, WebP and HEIC images are allowed' }, { status: 400 })
   }
 
-  const r2Key = `listings/${listingId}/${crypto.randomUUID()}.${EXT_BY_TYPE[sniffedType]}`
+  // Chrome/Firefox can't display HEIC (iPhone photos) — store JPEG instead, like the student app does.
+  let body = buffer
+  let type = sniffedType
+  if (type === 'image/heic') {
+    try {
+      body = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
+      type = 'image/jpeg'
+    } catch (err) {
+      console.error('[POST /api/casa-photos] HEIC conversion failed', err)
+      return NextResponse.json({ error: 'Could not process this HEIC photo. Try converting it to JPEG first.' }, { status: 400 })
+    }
+  }
 
   try {
-    await putPhoto(r2Key, buffer, sniffedType)
+    body = Buffer.from(await shrinkPhoto(body))
+    type = 'image/jpeg'
+  } catch (err) {
+    console.error('[POST /api/casa-photos] resize failed, storing original', err)
+  }
+
+  const r2Key = `listings/${listingId}/${crypto.randomUUID()}.${EXT_BY_TYPE[type]}`
+
+  try {
+    await putPhoto(r2Key, body, type)
   } catch (err) {
     console.error('[POST /api/casa-photos]', err)
     return NextResponse.json({ error: 'Upload to storage failed. Please try again.' }, { status: 500 })
