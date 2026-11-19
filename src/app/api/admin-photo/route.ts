@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/session'
-import { getPhoto } from '@/lib/r2'
+import heicConvert from 'heic-convert'
+import { getPhoto, putPhoto } from '@/lib/r2'
+import { shrinkPhoto } from '@/lib/shrink-photo'
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession()
@@ -18,6 +20,20 @@ export async function GET(req: NextRequest) {
 
   const photo = await getPhoto(key)
   if (!photo) return new NextResponse('Not found', { status: 404 })
+
+  // Photos uploaded before the HEIC converter existed are stored as HEIC, which browsers
+  // can't show. Convert once and overwrite the object in place (same key), so the next
+  // read — here or in the student app — gets the JPEG.
+  if (photo.contentType === 'image/heic') {
+    try {
+      const jpeg = await shrinkPhoto(Buffer.from(await heicConvert({ buffer: Buffer.from(photo.body), format: 'JPEG', quality: 0.9 })))
+      await putPhoto(key, jpeg, 'image/jpeg')
+      photo.body = jpeg
+      photo.contentType = 'image/jpeg'
+    } catch (err) {
+      console.error('[GET /api/admin-photo] HEIC conversion failed', key, err)
+    }
+  }
 
   return new NextResponse(Buffer.from(photo.body), {
     headers: {

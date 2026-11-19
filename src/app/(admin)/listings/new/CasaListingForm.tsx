@@ -254,7 +254,8 @@ export default function CasaListingForm({ initial }: { initial?: ListingFormInit
           const data = await res.json() as { r2Key?: string; error?: string };
           if (!res.ok) throw new Error(data.error ?? 'Upload failed');
           setPhotos(prev => prev.map((p, j) =>
-            j === idx ? { ...p, r2Key: data.r2Key!, uploading: false } : p
+            // Swap the local preview for the stored JPEG — a local HEIC blob won't render in Chrome.
+            j === idx ? { ...p, r2Key: data.r2Key!, previewUrl: `/api/admin-photo?key=${encodeURIComponent(data.r2Key!)}`, uploading: false } : p
           ));
         } catch (err) {
           setPhotos(prev => prev.map((p, j) =>
