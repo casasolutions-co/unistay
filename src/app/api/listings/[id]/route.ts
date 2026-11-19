@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { PROPERTIES } from '@/app/data/properties'
 import { ICON_PATHS } from '@/app/data/properties'
 import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
@@ -233,12 +232,7 @@ export async function GET(
     return NextResponse.json({ listing, formFields })
   }
 
-  // CASA static listing
-  if (!id.startsWith('partner-')) {
-    const p = PROPERTIES.find(prop => prop.id === id)
-    if (!p) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json({ listing: { ...p, source: 'casa' } })
-  }
+  if (!id.startsWith('partner-')) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Partner listing (HousingAnywhere), synced into D1 by
   // netlify/functions/sync-partner-listings-background.ts

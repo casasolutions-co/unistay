@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { defaultStay } from '@/lib/stayDates';
-import { PROPERTIES, Property, PropertyPhoto } from '../../data/properties';
+import { Property, PropertyPhoto } from '../../data/properties';
 import AppNav from '../../components/AppNav';
 import styles from './page.module.css';
 import ApartmentDetailsMobile from './ApartmentDetailsMobile';
@@ -104,13 +104,11 @@ export default function DetailsPage({ params }: PageProps) {
   const [authReady, setAuthReady] = useState(false);
   useEffect(() => onAuthStateChanged(auth, u => { setAuthUser(u); setAuthReady(true); }), []);
 
-  const [listing, setListing] = useState<AnyListing | null>(
-    (PROPERTIES.find(p => p.id === id) as AnyListing) ?? null
-  );
+  const [listing, setListing] = useState<AnyListing | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (listing || !authReady) return; // already found in static array, or still resolving auth
+    if (listing || !authReady) return; // already loaded, or still resolving auth
     (async () => {
       try {
         // Attach the owner's token (if any) so previewing a not-yet-published

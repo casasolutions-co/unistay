@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
-import { PROPERTIES } from '@/app/data/properties';
 
 function bearerToken(req: NextRequest): string | null {
   const h = req.headers.get('authorization') ?? '';
@@ -80,19 +79,6 @@ export async function GET(req: NextRequest) {
     [uid, uid, uid, uid, uid, uid]
   );
 
-  // Fill in listing info for static/partner listings that aren't in D1
-  const enriched = threads.map(t => {
-    if (t.listing_title) return t;
-    const prop = PROPERTIES.find(p => p.id === t.listing_id);
-    if (!prop) return t;
-    return {
-      ...t,
-      listing_title: prop.title,
-      listing_city: prop.city,
-      cold_rent: prop.coldRent,
-    };
-  });
-
   // Hide threads the user has "deleted" — they reappear once a newer message arrives,
   // since there's no per-user archive flag on `inquiries` to hide them permanently.
   const [me] = await d1Query<{ preferences: string | null }>(
@@ -101,7 +87,7 @@ export async function GET(req: NextRequest) {
   );
   const prefs = me?.preferences ? JSON.parse(me.preferences) : {};
   const hiddenThreads: Record<string, number> = prefs.hiddenThreads ?? {};
-  const visible = enriched.filter(t => {
+  const visible = threads.filter(t => {
     const hiddenAt = hiddenThreads[t.inquiry_id];
     return hiddenAt === undefined || (t.last_at ?? 0) > hiddenAt;
   });
