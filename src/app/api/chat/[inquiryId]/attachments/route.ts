@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import heicConvert from 'heic-convert';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
-import { uploadToR2 } from '@/lib/r2';
+import { uploadToR2, attachmentUrls } from '@/lib/r2';
 import { bearerToken, verifyParticipant, resolveRecipient, isBlockedPair, bumpInquiryAndNotify } from '@/lib/chat';
 import { sniffMime } from '@/lib/sniff-mime';
 
@@ -13,6 +13,12 @@ const DOCUMENT_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
+const EXT_FOR_TYPE: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+};
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024; // 15 MB
 
@@ -72,7 +78,6 @@ export async function POST(
     return NextResponse.json({ error: `File must be under ${maxBytes / (1024 * 1024)} MB` }, { status: 400 });
   }
 
-  let ext = file.name.split('.').pop()?.toLowerCase() ?? (kind === 'photo' ? 'jpg' : 'pdf');
   let buffer = Buffer.from(await file.arrayBuffer());
 
   // The declared file.type is whatever the browser/client claims — sniff the
@@ -82,6 +87,9 @@ export async function POST(
     return NextResponse.json({ error: 'File content does not match its declared type' }, { status: 400 });
   }
   let contentType = sniffed;
+  // From the sniffed type, never the filename: a name without a dot ("Lease agreement")
+  // used to become the "extension", putting a space in the R2 key and breaking its link.
+  let ext = EXT_FOR_TYPE[contentType] ?? 'bin';
 
   if (kind === 'photo' && HEIC_TYPES.includes(contentType)) {
     try {
@@ -121,5 +129,6 @@ export async function POST(
   );
   await bumpInquiryAndNotify(inquiryId, recipientId, now);
 
-  return NextResponse.json({ id: messageId, created_at: now, metadata });
+  // Include the links so the sender can open what they just sent without reloading.
+  return NextResponse.json({ id: messageId, created_at: now, metadata: { ...metadata, ...attachmentUrls(r2Key, file.name) } });
 }

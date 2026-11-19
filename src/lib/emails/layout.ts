@@ -1,7 +1,9 @@
 const BRAND = '#6d28d9';
 const INK = '#2a1259';
 
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://unistay.com';
+// Fallback was unistay.com (not our domain), so every email button went nowhere when
+// NEXT_PUBLIC_APP_URL wasn't set.
+export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.casasolutions.co';
 
 export function esc(value: string): string {
   return value

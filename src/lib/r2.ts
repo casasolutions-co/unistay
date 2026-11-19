@@ -14,8 +14,12 @@ function sha256hex(data: Buffer | string): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
-export function getSignedUrl(key: string, expiresIn = 3600): string {
-  const now       = new Date();
+// Signed at the start of the current hour (not "now"), so every request in that hour
+// gets the *same* URL and the browser can cache the image instead of re-downloading it
+// on every page view. expiresIn counts from the hour start, so 2h always leaves ≥1h of
+// validity — enough to outlive the 5-min listings cache.
+export function getSignedUrl(key: string, expiresIn = 7200, extraParams: Record<string, string> = {}): string {
+  const now       = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000);
   const amzDate   = now.toISOString().replace(/[:-]/g, '').replace(/\.\d{3}/, '');
   const dateStamp = amzDate.slice(0, 8);
   const host      = `${ACCOUNT_ID}.r2.cloudflarestorage.com`;
@@ -28,10 +32,15 @@ export function getSignedUrl(key: string, expiresIn = 3600): string {
     ['X-Amz-Date', amzDate],
     ['X-Amz-Expires', String(expiresIn)],
     ['X-Amz-SignedHeaders', 'host'],
+    // e.g. response-content-disposition — R2 echoes it as a response header.
+    ...Object.entries(extraParams),
   ].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)) as [string, string][];
 
+  // SigV4 needs RFC 3986 encoding; encodeURIComponent leaves !'()* alone, which would
+  // break the signature for e.g. a filename with brackets.
+  const enc = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
   const canonicalQS = qp
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .map(([k, v]) => `${enc(k)}=${enc(v)}`)
     .join('&');
 
   const canonicalReq = ['GET', objPath, canonicalQS, `host:${host}\n`, 'host', 'UNSIGNED-PAYLOAD'].join('\n');
@@ -144,4 +153,18 @@ export async function deleteFromR2(key: string): Promise<void> {
     const text = await res.text();
     throw new Error(`R2 delete failed (${res.status}): ${text}`);
   }
+}
+
+/**
+ * Links for a chat attachment: `url` opens it in the browser (PDFs/images display inline),
+ * `downloadUrl` forces a download under the original filename. (The HTML `download`
+ * attribute is ignored for cross-site links like R2's, so the header has to do it.)
+ */
+export function attachmentUrls(key: string, filename: string) {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  const disposition = `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  return {
+    url: getSignedUrl(key),
+    downloadUrl: getSignedUrl(key, 7200, { 'response-content-disposition': disposition }),
+  };
 }

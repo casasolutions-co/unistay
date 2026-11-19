@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { defaultStay } from '@/lib/stayDates';
 import { Property } from '../../data/properties';
 
 const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
@@ -41,6 +42,8 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
 
   const [booking, setBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [moveIn, setMoveIn] = useState('');
+  const [moveOut, setMoveOut] = useState('');
   const [bookError, setBookError] = useState('');
 
   const photos = p.photos ?? [];
@@ -48,6 +51,13 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
   const adminFee = p.adminFee ?? 0; // CASA-only; the API sends 0 for everything else
   const dueTotal = warmRent + (p.deposit ?? 0) + adminFee;
   const isPartner = !!p.externalLink;
+
+  // Same defaults as the desktop page: dates from search, else earliest availability.
+  const urlParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+  const stay = defaultStay(p.availFrom, p.minPeriod ? Number(p.minPeriod) : null,
+    { moveIn: urlParams?.get('moveIn'), moveOut: urlParams?.get('moveOut') });
+  const effMoveIn = moveIn || stay.moveIn;
+  const effMoveOut = moveOut && moveOut > effMoveIn ? moveOut : (moveOut ? '' : stay.moveOut);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +105,7 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listing_id: p.id, price: p.coldRent, deposit: p.deposit }),
+        body: JSON.stringify({ listing_id: p.id, move_in: effMoveIn, move_out: effMoveOut, price: p.coldRent, deposit: p.deposit }),
       });
       if (!res.ok) {
         const text = await res.text();
@@ -326,6 +336,23 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
               </div>
             </div>
           </div>
+
+          {/* ── Your stay (sent with "Request to book") ── */}
+          {!isPartner && (
+            <div className={styles.section}>
+              <h2 className={styles.sectionH2}>Your stay</h2>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {([['Move-in', effMoveIn, setMoveIn, stay.earliest, p.availTo || undefined],
+                   ['Move-out', effMoveOut, setMoveOut, effMoveIn, undefined]] as const).map(([label, value, set, min, max]) => (
+                  <label key={label} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, fontWeight: 700, color: '#6b6577' }}>
+                    {label}
+                    <input type="date" value={value} min={min} max={max} onChange={e => set(e.target.value)}
+                      style={{ height: 44, padding: '0 10px', border: '1.5px solid #e6e2ef', borderRadius: 12, fontSize: 15, fontFamily: 'inherit', color: '#1c1530', background: '#fff' }} />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Host ── */}
           <div className={styles.hostSection}>

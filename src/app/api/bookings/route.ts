@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
+import { stayError } from '@/lib/stayDates';
 import { sendEmail } from '@/lib/email';
 import { bookingRequestEmail } from '@/lib/emails/templates';
 
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
 
   const { listing_id, move_in, move_out } = await req.json();
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });
+  const datesError = stayError(move_in, move_out);
+  if (datesError) return NextResponse.json({ error: datesError }, { status: 400 });
 
   const now = Date.now();
 
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       [listing_id, uid]
     );
 
-    const summary = `Requested to book — move-in ${move_in ?? 'flexible'}`;
+    const summary = `Requested to book — ${move_in} to ${move_out}`;
 
     if (existing) {
       inquiryId = existing.id;

@@ -46,3 +46,6 @@ src/lib/CASASolutions.json
 
 # admin app (lives on the admin branch only)
 /admin
+
+# photo backups from scripts/shrink-existing-photos.mjs
+/backups/

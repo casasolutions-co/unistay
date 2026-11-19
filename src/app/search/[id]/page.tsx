@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { defaultStay } from '@/lib/stayDates';
 import { PROPERTIES, Property, PropertyPhoto } from '../../data/properties';
 import AppNav from '../../components/AppNav';
 import styles from './page.module.css';
@@ -127,8 +128,9 @@ export default function DetailsPage({ params }: PageProps) {
 
   // States — must all be declared before any early returns
   const [saved, setSaved] = useState(false);
-  const [moveIn, setMoveIn] = useState('2026-07-01');
-  const [moveOut, setMoveOut] = useState('2027-06-30');
+  // '' = not touched yet → the computed default below (was hardcoded to Jul 2026–Jun 2027).
+  const [moveIn, setMoveIn] = useState('');
+  const [moveOut, setMoveOut] = useState('');
   const [lightbox, setLightbox] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
   const [msgModal, setMsgModal] = useState(false);
@@ -156,6 +158,13 @@ export default function DetailsPage({ params }: PageProps) {
   if (!listing) return <div style={{ padding: 40, textAlign: 'center' }}>Loading…</div>;
 
   const property = listing;
+
+  // Defaults: dates picked in search (?moveIn/&moveOut), else earliest availability.
+  const urlParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+  const stay = defaultStay(property.availFrom, property.minPeriod ? Number(property.minPeriod) : null,
+    { moveIn: urlParams?.get('moveIn'), moveOut: urlParams?.get('moveOut') });
+  const effMoveIn = moveIn || stay.moveIn;
+  const effMoveOut = moveOut && moveOut > effMoveIn ? moveOut : (moveOut ? '' : stay.moveOut);
 
   // Live calculations
   const fmtN = (n: number) => n.toLocaleString('en-US');
@@ -188,8 +197,8 @@ export default function DetailsPage({ params }: PageProps) {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_id: id,
-          move_in: moveIn,
-          move_out: moveOut,
+          move_in: effMoveIn,
+          move_out: effMoveOut,
           price: coldRent,
           deposit,
         }),
@@ -529,7 +538,9 @@ export default function DetailsPage({ params }: PageProps) {
                     <input
                       type="date"
                       className={styles.nativeDatePicker}
-                      value={moveIn}
+                      value={effMoveIn}
+                      min={stay.earliest}
+                      max={property.availTo || undefined}
                       onChange={e => setMoveIn(e.target.value)}
                     />
                   </div>
@@ -538,7 +549,8 @@ export default function DetailsPage({ params }: PageProps) {
                     <input
                       type="date"
                       className={styles.nativeDatePicker}
-                      value={moveOut}
+                      value={effMoveOut}
+                      min={effMoveIn}
                       onChange={e => setMoveOut(e.target.value)}
                     />
                   </div>

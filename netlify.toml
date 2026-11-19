@@ -13,3 +13,6 @@
 
 [functions."enforce-bans"]
   schedule = "@hourly"
+
+[functions."sync-kyc"]
+  schedule = "*/15 * * * *"

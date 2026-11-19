@@ -6,7 +6,8 @@ import { getAppSetting } from '@/lib/settings';
 // unlike a check inside layout.tsx, which only runs once at build time for
 // any route Next decides to prerender and would never see a live toggle.
 export async function proxy(request: NextRequest) {
-  if (!(await getAppSetting('maintenance_mode'))) {
+  // Third-party callbacks keep working during maintenance, or their results are lost.
+  if (request.nextUrl.pathname === '/api/kyc/webhook' || !(await getAppSetting('maintenance_mode'))) {
     return NextResponse.next();
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
-import { getSignedUrl } from '@/lib/r2';
+import { attachmentUrls } from '@/lib/r2';
 import { bearerToken, verifyParticipant, resolveRecipient, isBlockedPair, bumpInquiryAndNotify } from '@/lib/chat';
 
 type RawMessage = {
@@ -16,7 +16,7 @@ function withSignedUrls(messages: RawMessage[]) {
     if (m.msg_type !== 'file' || !m.metadata) return m;
     const meta = JSON.parse(m.metadata);
     if (!meta.r2Key) return m;
-    return { ...m, metadata: JSON.stringify({ ...meta, url: getSignedUrl(meta.r2Key, 3600) }) };
+    return { ...m, metadata: JSON.stringify({ ...meta, ...attachmentUrls(meta.r2Key, meta.name ?? m.body) }) };
   });
 }
 

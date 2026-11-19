@@ -4,6 +4,7 @@ import { adminAuth } from '@/lib/firebase-admin';
 import { uploadToR2 } from '@/lib/r2';
 import { d1Query } from '@/lib/d1';
 import { sniffMime } from '@/lib/sniff-mime';
+import { shrinkPhoto } from '@/lib/shrink-photo';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const HEIC_TYPES = ['image/heic', 'image/heif'];
@@ -95,6 +96,15 @@ export async function POST(req: NextRequest) {
       console.error('[POST /api/listings/photos] HEIC conversion failed:', err);
       return NextResponse.json({ error: 'Could not process this HEIC photo. Try converting it to JPEG first.' }, { status: 400 });
     }
+  }
+
+  try {
+    buffer = Buffer.from(await shrinkPhoto(buffer));
+    contentType = 'image/jpeg';
+    ext = 'jpg';
+  } catch (err) {
+    // Unusual-but-valid image sharp can't handle — store the original rather than fail.
+    console.error('[POST /api/listings/photos] resize failed, storing original:', err);
   }
 
   const r2Key = `listings/${listingId}/${crypto.randomUUID()}.${ext}`;

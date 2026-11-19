@@ -23,6 +23,8 @@ interface PropertyCardProps {
   saved?: boolean;
   onToggleSave?: (id: string) => void;
   className?: string;
+  /** Appended to the detail link, e.g. "moveIn=…&moveOut=…" so the chosen dates carry over. */
+  query?: string;
 }
 
 const DEFAULT_HUE = { a: '#e9e3f5', b: '#f1ecfa' };
@@ -49,14 +51,17 @@ const IHeart = ({ saved }: { saved: boolean }) => (
   </svg>
 );
 
-export default function PropertyCard({ listing: p, hue = DEFAULT_HUE, saved, onToggleSave, className }: PropertyCardProps) {
+export default function PropertyCard({ listing: p, hue = DEFAULT_HUE, saved, onToggleSave, className, query }: PropertyCardProps) {
   return (
     <div className={`${styles.card} ${className ?? ''}`}>
-      <Link href={`/search/${p.id}`} className={styles.cardLink}>
+      <Link href={query ? `/search/${p.id}?${query}` : `/search/${p.id}`} className={styles.cardLink}>
         <div
           className={styles.cardImg}
-          style={p.coverPhoto ? { backgroundImage: `url(${p.coverPhoto})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}
+          style={p.coverPhoto ? undefined : { background: `repeating-linear-gradient(135deg, ${hue.a} 0 15px, ${hue.b} 15px 30px)` }}
         >
+          {/* Plain <img> (not next/image): R2 signed URLs, and loading="lazy" is all we need. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {p.coverPhoto && <img src={p.coverPhoto} alt="" loading="lazy" decoding="async" className={styles.cardPhoto} />}
           <span className={styles.cardBadge} style={{ background: p.badge === 'PARTNER' ? '#1c1530' : p.badge === 'PRIVATE' ? '#0d7a5f' : '#6d28d9' }}>
             {p.badge}
           </span>

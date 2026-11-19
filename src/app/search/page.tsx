@@ -42,7 +42,7 @@ const BUDGET_P = [{ label: 'Any', min: 0, max: 3000 }, { label: '≤ €500', mi
    HELPERS
 ═══════════════════════════════════════════════════════════════ */
 type OpenPanel = 'search' | 'when' | 'price' | 'type' | 'source' | 'sort' | null;
-type ListingsResponse = { listings: UnifiedListing[]; total: number; hasMore: boolean };
+type ListingsResponse = { listings: UnifiedListing[]; total: number; hasMore: boolean; resolvedPlace?: { label: string } };
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
 
@@ -96,7 +96,7 @@ function SearchPageInner() {
 
   /* ── Filter state ── */
   const [filterType,   setFilterType]   = useState(() => searchParams.get('type') ?? 'Any type');
-  const [filterSource, setFilterSource] = useState('all');
+  const [filterSource, setFilterSource] = useState(() => searchParams.get('source') ?? 'all');
   const [filterSort,   setFilterSort]   = useState('featured');
   const [minVal,       setMinVal]       = useState(() => Number(searchParams.get('minPrice') ?? 0));
   const [maxVal,       setMaxVal]       = useState(() => Number(searchParams.get('maxPrice') ?? 3000));
@@ -146,12 +146,14 @@ function SearchPageInner() {
   const [loading,     setLoading]       = useState(false);
   const [loadingMore, setLoadingMore]   = useState(false);
   const [page, setPage]                 = useState(1);
+  // Set when the server resolved free-typed text to an address (see /api/listings).
+  const [resolvedLabel, setResolvedLabel] = useState<string | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets pagination when a filter changes, before the fetch-effect below re-runs on the new page
     setPage(1);
     setListings([]);
-  }, [query, place, filterType, filterSource, minVal, maxVal, moveIn]);
+  }, [query, place, filterType, filterSource, filterSort, minVal, maxVal, moveIn]);
 
   useEffect(() => {
     // Always fetch — HOST listings don't require a city. Partner/CASA skip themselves server-side when city is empty.
@@ -162,12 +164,15 @@ function SearchPageInner() {
     if (typeSet)                 params.set('type', filterType);
     if (sourceSet)               params.set('source', filterSource);
     if (moveIn)                  params.set('moveIn', moveIn);
+    // Price sorts run server-side so they cover every page, not just what's loaded.
+    if (filterSort.startsWith('price_')) params.set('sort', filterSort);
 
     const cacheKey = params.toString();
     const cached = getCachedSearch<ListingsResponse>(cacheKey);
     if (cached) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- serves a cached response instead of fetching; same synchronize-from-external-source shape as the fetch path below
       setListings(prev => page === 1 ? cached.listings : [...prev, ...cached.listings]);
+      setResolvedLabel(cached.resolvedPlace?.label ?? null);
       setTotal(cached.total);
       setHasMore(cached.hasMore);
       return;
@@ -179,6 +184,7 @@ function SearchPageInner() {
       .then(r => r.json())
       .then((data: ListingsResponse) => {
         setListings(prev => page === 1 ? data.listings : [...prev, ...data.listings]);
+        setResolvedLabel(data.resolvedPlace?.label ?? null);
         setTotal(data.total);
         setHasMore(data.hasMore);
         setLoading(false);
@@ -188,7 +194,7 @@ function SearchPageInner() {
       .catch(() => { setLoading(false); setLoadingMore(false); });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, place, page, filterType, filterSource, lo, hi, moveIn]);
+  }, [query, place, page, filterType, filterSource, filterSort, lo, hi, moveIn]);
 
   // Keep the address bar in sync with the active filters, so refreshing,
   // sharing the link, or hitting back restores what's on screen.
@@ -218,8 +224,9 @@ function SearchPageInner() {
   }));
 
 
-  const cityName = query.trim();
-  const inOrNear = place && place.kind !== 'city' ? 'near' : 'in';
+  const cityName = resolvedLabel ?? query.trim();
+  const stayQuery = moveIn ? new URLSearchParams(moveOut ? { moveIn, moveOut } : { moveIn }).toString() : undefined;
+  const inOrNear = resolvedLabel || (place && place.kind !== 'city') ? 'near' : 'in';
 
   const resetFilters = () => {
     setFilterType('Any type'); setFilterSource('all');
@@ -377,6 +384,7 @@ function SearchPageInner() {
                   hue={PH_HUES[i % PH_HUES.length]}
                   saved={isSaved(p.id)}
                   onToggleSave={toggleSaved}
+                  query={stayQuery}
                 />
               ))}
             </div>
@@ -741,6 +749,7 @@ function SearchPageInner() {
                     hue={PH_HUES[i % PH_HUES.length]}
                     saved={isSaved(p.id)}
                     onToggleSave={toggleSaved}
+                    query={stayQuery}
                   />
                 ))}
               </div>

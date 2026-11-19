@@ -66,6 +66,7 @@ export async function searchPartnerListings(
   page: number,
   limit: number,
   near: [number, number] | null = null,
+  sort?: 'price_asc' | 'price_desc',
 ): Promise<{ listings: UnifiedListing[]; total: number; hasMore: boolean }> {
   const conditions: string[] = []
   const params: (string | number)[] = []
@@ -97,7 +98,9 @@ export async function searchPartnerListings(
   // distance (lng scaled by cos(lat)) — exact enough for ordering within a city.
   let orderBy = 'rank DESC'
   const orderParams: number[] = []
-  if (near) {
+  if (sort) {
+    orderBy = sort === 'price_asc' ? 'price ASC' : 'price DESC'
+  } else if (near) {
     const lat = "CAST(json_extract(raw_json, '$.location.coordinates.latitude') AS REAL)"
     const lng = "CAST(json_extract(raw_json, '$.location.coordinates.longitude') AS REAL)"
     const k = Math.cos(near[0] * Math.PI / 180)

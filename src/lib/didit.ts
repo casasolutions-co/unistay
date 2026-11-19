@@ -38,10 +38,12 @@ export const DIDIT_OWNED_STATUSES = ['unverified', 'pending'];
 export async function applyVerificationStatus(userId: string, status: string, decision: unknown) {
   const now = Date.now();
   const [changed] = await d1Query<{ email: string; name: string | null }>(
-    `UPDATE users SET verification_status = ?, didit_decision_json = ?, decision_processed_at = ?, updated_at = ?
-     WHERE id = ? AND verification_status IN ('unverified', 'pending') AND verification_status != ?
+    `UPDATE users SET verification_status = ?, didit_decision_json = ?, decision_processed_at = ?, updated_at = ?,
+       verified_at = CASE WHEN ? = 'verified' THEN ? ELSE verified_at END
+     WHERE id = ? AND COALESCE(verification_status, 'unverified') IN ('unverified', 'pending') AND COALESCE(verification_status, '') != ?
      RETURNING email, name`,
-    [status, JSON.stringify(decision ?? {}), now, now, userId, status]
+    // verified_at is in seconds, like the admin panel writes it.
+    [status, JSON.stringify(decision ?? {}), now, now, status, Math.floor(now / 1000), userId, status]
   );
   if (!changed) return;
 

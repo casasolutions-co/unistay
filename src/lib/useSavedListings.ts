@@ -31,8 +31,12 @@ export function useSavedListings() {
   const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const syncFromLocal = () => {
-      if (!tokenRef.current) setSavedIds(readLocalIds());
+    // Logged in: the event carries the new ids (every hook instance — cards, nav, the
+    // Saved page — stays in step). Logged out: re-read localStorage.
+    const syncFromLocal = (e?: Event) => {
+      const ids = (e as CustomEvent<string[] | undefined> | undefined)?.detail;
+      if (ids) setSavedIds(ids);
+      else if (!tokenRef.current) setSavedIds(readLocalIds());
     };
     syncFromLocal();
     window.addEventListener(EVENT_NAME, syncFromLocal);
@@ -78,37 +82,40 @@ export function useSavedListings() {
     };
   }, []);
 
-  const persist = useCallback((next: string[]) => {
-    const token = tokenRef.current;
-    if (!token) {
+  const persist = useCallback(async (next: string[]) => {
+    const user = auth.currentUser;
+    if (!tokenRef.current || !user) {
       writeLocalIds(next);
       return;
     }
-    fetch('/api/user/preferences', {
+    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: next }));
+    // getIdToken() refreshes the 1h Firebase token when needed — a token cached at
+    // sign-in made every save after the first hour fail with a silent 401.
+    const token = await user.getIdToken();
+    const res = await fetch('/api/user/preferences', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ savedListingIds: next }),
-    }).catch(() => {});
+    }).catch(() => null);
+    if (!res?.ok) console.error('[saved] could not save to account', res?.status);
   }, []);
 
   const isSaved = useCallback((id: string) => savedIds.includes(id), [savedIds]);
 
   const toggle = useCallback((id: string) => {
-    setSavedIds((current) => {
-      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
-      persist(next);
-      return next;
-    });
-  }, [persist]);
+    // Compute from the current state, then persist outside the updater (updaters must be
+    // pure — React may call them twice, which double-sent the PATCH).
+    const next = savedIds.includes(id) ? savedIds.filter((x) => x !== id) : [...savedIds, id];
+    setSavedIds(next);
+    void persist(next);
+  }, [savedIds, persist]);
 
   const remove = useCallback((id: string) => {
-    setSavedIds((current) => {
-      if (!current.includes(id)) return current;
-      const next = current.filter((x) => x !== id);
-      persist(next);
-      return next;
-    });
-  }, [persist]);
+    if (!savedIds.includes(id)) return;
+    const next = savedIds.filter((x) => x !== id);
+    setSavedIds(next);
+    void persist(next);
+  }, [savedIds, persist]);
 
   return { savedIds, isSaved, toggle, remove };
 }

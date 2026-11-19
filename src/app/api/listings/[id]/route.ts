@@ -185,6 +185,8 @@ export async function GET(
       type: row.ptype,
       avail: availFrom <= today ? 'Available now' : `From ${availFrom}`,
       now: availFrom <= today,
+      // For the booking date pickers' defaults/limits (see lib/stayDates.ts).
+      availFrom: row.avail_from, availTo: row.avail_to, minPeriod: row.min_period,
       incl: false,
       featured: false,
       lat: (row.lat && row.lat !== 0) ? row.lat : (cityCoords(row.city)?.[0] ?? 0),

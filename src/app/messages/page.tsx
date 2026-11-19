@@ -443,7 +443,7 @@ function BookingCard({
             <span className={styles.bookingCardPriceSuffix}>/mo</span>
           </div>
           <div className={styles.bookingCardDetails}>
-            {meta.move_in && `Move-in ${meta.move_in} · `}
+            {meta.move_in && `Move-in ${meta.move_in}${meta.move_out ? ` → move-out ${meta.move_out}` : ""} · `}
             {meta.contract ?? ""}
             {meta.deposit && ` · deposit €${meta.deposit}`}
           </div>
@@ -614,23 +614,35 @@ function MessageBubble({
         className={styles.fileCard}
         style={{ alignSelf: isOut ? "flex-end" : "flex-start" }}
       >
-        <a
-          className={styles.fileCardInner}
-          href={meta.url ?? "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          download={meta.name}
-          style={{ textDecoration: "none", cursor: meta.url ? "pointer" : "default" }}
-        >
-          <div className={styles.fileIcon}>
-            <IFile />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className={styles.fileName}>{meta.name ?? msg.body}</div>
-            <div className={styles.fileMeta}>{meta.size ?? ""}</div>
-          </div>
-          <IDownload />
-        </a>
+        {meta.kind === "photo" && meta.url && (
+          <a href={meta.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: 6 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URL, not optimisable */}
+            <img src={meta.url} alt={meta.name ?? "Photo"} loading="lazy"
+              style={{ display: "block", maxWidth: 260, maxHeight: 260, borderRadius: 12, objectFit: "cover" }} />
+          </a>
+        )}
+        <div className={styles.fileCardInner}>
+          <a
+            href={meta.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open"
+            style={{ display: "flex", alignItems: "center", gap: "inherit", flex: 1, minWidth: 0, textDecoration: "none", color: "inherit", pointerEvents: meta.url ? "auto" : "none" }}
+          >
+            <div className={styles.fileIcon}>
+              <IFile />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className={styles.fileName}>{meta.name ?? msg.body}</div>
+              <div className={styles.fileMeta}>{meta.url ? `${meta.size ?? ""} · Tap to open` : "Link unavailable — reload"}</div>
+            </div>
+          </a>
+          {meta.downloadUrl && (
+            <a href={meta.downloadUrl} title="Download" aria-label={`Download ${meta.name ?? "file"}`} style={{ display: "flex", color: "inherit" }}>
+              <IDownload />
+            </a>
+          )}
+        </div>
         <span className={styles.timeIn}>{fmtMsgTime(msg.created_at)}</span>
       </div>
     );
@@ -997,7 +1009,12 @@ export default function MessagesPage() {
             body: JSON.stringify({ status }),
           },
         );
-        if (!res.ok) return;
+        if (!res.ok) {
+          // Used to fail silently, which looked like the buttons did nothing.
+          const { error } = await res.json().catch(() => ({ error: null }));
+          setAttachError(error ?? "Couldn't send your response. Please try again.");
+          return;
+        }
         const { metadata, confirmation } = await res.json();
         setMessages((prev) => {
           const mapped = prev.map((m) => (m.id === messageId ? { ...m, metadata } : m));
@@ -1042,7 +1059,12 @@ export default function MessagesPage() {
             body: JSON.stringify({ selectedIndex }),
           },
         );
-        if (!res.ok) return;
+        if (!res.ok) {
+          // Used to fail silently, which looked like the buttons did nothing.
+          const { error } = await res.json().catch(() => ({ error: null }));
+          setAttachError(error ?? "Couldn't send your response. Please try again.");
+          return;
+        }
         const { metadata, confirmation } = await res.json();
         setMessages((prev) => {
           const mapped = prev.map((m) => (m.id === messageId ? { ...m, metadata } : m));

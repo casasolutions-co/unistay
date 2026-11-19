@@ -10,8 +10,24 @@ import { cityCoords } from '@/lib/city-coords'
 import { cityMatchTerms } from '@/lib/city-aliases'
 import { geocodeAddress } from '@/lib/geocode'
 import { getAppSetting } from '@/lib/settings'
+import { searchPlaces, type Place } from '@/lib/places'
 
 const LIMIT = 20
+
+// The search "Type" filter uses these labels (HOUSING_TYPES, same as partner listings'
+// mapType()), but private/CASA listings store ptype as studio|room|apartment|house.
+// Comparing the label to ptype directly excluded every private/CASA listing.
+const PTYPE_FILTER: Record<string, string> = {
+  'Studio': "l.ptype = 'studio'",
+  'Shared flat (WG)': "l.ptype = 'room'",
+  '1-bedroom apartment': "l.ptype IN ('apartment', 'house') AND l.bedrooms <= 1",
+  '2+ bedrooms': "l.ptype IN ('apartment', 'house') AND l.bedrooms >= 2",
+}
+function ptypeLabel(ptype: string, bedrooms: number): string {
+  if (ptype === 'studio') return 'Studio'
+  if (ptype === 'room') return 'Shared flat (WG)'
+  return bedrooms >= 2 ? '2+ bedrooms' : '1-bedroom apartment'
+}
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -21,6 +37,8 @@ export async function GET(req: NextRequest) {
   const type      = sp.get('type')      ?? undefined
   const moveIn    = sp.get('moveIn')    ?? undefined
   const source    = sp.get('source')    ?? 'all'   // 'all' | 'CASA' | 'PARTNER' | 'PRIVATE'
+  const sortParam = sp.get('sort')
+  const sort      = sortParam === 'price_asc' || sortParam === 'price_desc' ? sortParam : undefined
   const page      = Math.max(1, parseInt(sp.get('page') ?? '1', 10))
   // near=lat,lng — set when the user picked an address/neighbourhood; results
   // stay scoped to `city` but come back nearest-first.
@@ -28,7 +46,19 @@ export async function GET(req: NextRequest) {
   const near: [number, number] | null =
     nearParts.length === 2 && nearParts.every(Number.isFinite) ? [nearParts[0], nearParts[1]] : null
 
-  const result = await getCachedListings(city, minPrice, maxPrice, type, moveIn, source, page, near)
+  let result: Awaited<ReturnType<typeof getListingsData>> & { resolvedPlace?: Place } =
+    await getCachedListings(city, minPrice, maxPrice, type, moveIn, source, page, near, sort)
+
+  // Typed an address/street/neighbourhood without picking a suggestion: the text matches
+  // no city, so look it up and search that place's city nearest-first instead of
+  // showing 0 results.
+  if (result.total === 0 && city.trim().length >= 3 && !near) {
+    const [place] = await searchPlaces(city, 'any')
+    if (place && place.city.toLowerCase() !== city.trim().toLowerCase()) {
+      const resolved = await getCachedListings(place.city, minPrice, maxPrice, type, moveIn, source, page, [place.lat, place.lng], sort)
+      result = { ...resolved, resolvedPlace: place }
+    }
+  }
   return NextResponse.json(result)
 }
 
@@ -51,6 +81,7 @@ async function getListingsData(
   source: string,
   page: number,
   near: [number, number] | null = null,
+  sort?: 'price_asc' | 'price_desc',
 ) {
   // Normalise umlauts + English/German aliases so 'munich' matches 'München' etc.
   const cityAlts = cityMatchTerms(city)
@@ -79,8 +110,8 @@ async function getListingsData(
       params.push(maxPrice)
     }
     if (type && type !== 'Any type') {
-      conditions.push('l.ptype = ?')
-      params.push(type)
+      const clause = PTYPE_FILTER[type]
+      if (clause) conditions.push(clause)
     }
     if (moveIn) {
       conditions.push('(l.avail_from IS NULL OR l.avail_from <= ?)')
@@ -126,7 +157,7 @@ async function getListingsData(
           area: r.size_sqm,
           beds: r.bedrooms === 1 ? '1 bed' : `${r.bedrooms} beds`,
           price: r.cold_rent + r.utilities,
-          type: r.ptype,
+          type: ptypeLabel(r.ptype, r.bedrooms),
           avail: !r.avail_from || r.avail_from <= today ? 'Available now' : `From ${r.avail_from}`,
           availFrom: r.avail_from,
           now: !r.avail_from || r.avail_from <= today,
@@ -198,8 +229,8 @@ async function getListingsData(
       params.push(maxPrice)
     }
     if (type && type !== 'Any type') {
-      conditions.push('l.ptype = ?')
-      params.push(type)
+      const clause = PTYPE_FILTER[type]
+      if (clause) conditions.push(clause)
     }
     if (moveIn) {
       conditions.push('(l.avail_from IS NULL OR l.avail_from <= ?)')
@@ -245,7 +276,7 @@ async function getListingsData(
           area: r.size_sqm,
           beds: r.bedrooms === 1 ? '1 bed' : `${r.bedrooms} beds`,
           price: r.cold_rent + r.utilities,
-          type: r.ptype,
+          type: ptypeLabel(r.ptype, r.bedrooms),
           avail: !r.avail_from || r.avail_from <= today ? 'Available now' : `From ${r.avail_from}`,
           availFrom: r.avail_from,
           now: !r.avail_from || r.avail_from <= today,
@@ -267,7 +298,7 @@ async function getListingsData(
 
   // ── PARTNER (D1-backed, paginated; city optional — browses all when empty) ──
   const partnerResult = source === 'all' || source === 'PARTNER'
-    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT, near)
+    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT, near, sort)
     : { listings: [], total: 0, hasMore: false }
 
   // Page 1: HOST + CASA first, then partners. Page 2+: partners only.
@@ -275,7 +306,9 @@ async function getListingsData(
   const listings = page === 1
     ? [...hostListings, ...casaListings, ...partnerResult.listings]
     : partnerResult.listings
-  if (near && page === 1) {
+  if (sort && page === 1) {
+    listings.sort((a, b) => sort === 'price_asc' ? a.price - b.price : b.price - a.price)
+  } else if (near && page === 1) {
     const k = Math.cos(near[0] * Math.PI / 180)
     const d2 = (l: UnifiedListing) => (l.lat - near[0]) ** 2 + ((l.lng - near[1]) * k) ** 2
     listings.sort((a, b) => d2(a) - d2(b))
