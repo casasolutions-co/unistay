@@ -166,7 +166,7 @@ async function reportSummary(targetType: string, targetId: string): Promise<stri
        JOIN inquiries i ON i.id = m.inquiry_id
        JOIN listings l ON l.id = i.listing_id
        JOIN users su ON su.id = i.student_id
-       JOIN users lu ON lu.id = l.landlord_id
+       LEFT JOIN users lu ON lu.id = l.landlord_id
        WHERE m.id = ?`,
       [targetId]
     )
@@ -214,7 +214,7 @@ const MESSAGE_SELECT = `
   JOIN inquiries i ON i.id = m.inquiry_id
   JOIN listings l ON l.id = i.listing_id
   JOIN users su ON su.id = i.student_id
-  JOIN users lu ON lu.id = l.landlord_id
+  LEFT JOIN users lu ON lu.id = l.landlord_id
   WHERE m.id IN (
     SELECT m2.id FROM messages m2 WHERE m2.inquiry_id = i.id ORDER BY m2.created_at DESC LIMIT 1
   )
