@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { searchPartnerListings } from '@/lib/listings/partner'
-import { PROPERTIES } from '@/app/data/properties'
 import type { UnifiedListing } from '@/lib/listings/types'
 import { adminAuth } from '@/lib/firebase-admin'
 import { d1Query } from '@/lib/d1'
@@ -13,6 +12,29 @@ import { getAppSetting } from '@/lib/settings'
 import { searchPlaces, type Place } from '@/lib/places'
 
 const LIMIT = 20
+
+// Listings are saved without coordinates on several paths (admin panel Casa create/edit,
+// landlord edits, failed geocodes) and then show at the city centre. Rather than geocode on
+// every write path, searches fill in a few missing ones after responding.
+// ponytail: per-instance throttle + failed-id memory; fine at current volume.
+let lastCoordFill = 0
+const coordFailed = new Set<string>()
+async function fillMissingCoords() {
+  if (Date.now() - lastCoordFill < 10 * 60_000) return
+  lastCoordFill = Date.now()
+  const rows = await d1Query<{ id: string; street: string; city: string; postcode: string }>(
+    `SELECT id, street, city, postcode FROM listings
+     WHERE status = 'published' AND (lat IS NULL OR lat = 0) AND street != '' LIMIT 50`
+  )
+  let fixed = 0
+  for (const r of rows.filter(r => !coordFailed.has(r.id)).slice(0, 5)) {
+    const c = await geocodeAddress(r.street, '', r.city, r.postcode ?? '')
+    if (!c) { coordFailed.add(r.id); continue }
+    await d1Query('UPDATE listings SET lat = ?, lng = ? WHERE id = ?', [c.lat, c.lng, r.id])
+    fixed++
+  }
+  if (fixed) revalidateTag('listings', { expire: 0 })
+}
 
 // The search "Type" filter uses these labels (HOUSING_TYPES, same as partner listings'
 // mapType()), but private/CASA listings store ptype as studio|room|apartment|house.
@@ -30,6 +52,7 @@ function ptypeLabel(ptype: string, bedrooms: number): string {
 }
 
 export async function GET(req: NextRequest) {
+  after(() => fillMissingCoords().catch(err => console.error('[geocode] fill failed:', err)))
   const sp = req.nextUrl.searchParams
   const city      = sp.get('city') ?? ''
   const minPrice  = sp.has('minPrice')  ? parseInt(sp.get('minPrice')!)  : undefined
@@ -175,37 +198,6 @@ async function getListingsData(
     }
   }
 
-  // ── CASA (legacy static entries, kept until fully migrated) ────
-  const staticCasaListings: UnifiedListing[] = source !== 'PARTNER' && source !== 'PRIVATE'
-    ? PROPERTIES
-        .filter(p => p.badge === 'CASA')
-        .filter(p => !q || cityAlts.some(alt => p.city.toLowerCase().replace(/ü/g, 'u').replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ß/g, 'ss').includes(alt)))
-        .filter(p => minPrice === undefined || p.price >= minPrice)
-        .filter(p => maxPrice === undefined || p.price <= maxPrice)
-        .filter(p => !type || type === 'Any type' || p.type === type)
-        .map(p => ({
-          id: p.id,
-          source: 'casa',
-          badge: 'CASA',
-          title: p.title,
-          address: p.address,
-          city: p.city,
-          area: p.area,
-          beds: p.beds,
-          price: p.price,
-          type: p.type,
-          avail: p.avail,
-          availFrom: null,
-          now: p.now,
-          incl: p.incl,
-          featured: p.featured,
-          lat: p.lat,
-          lng: p.lng,
-          coverPhoto: p.photos?.[0]?.url ?? null,
-          externalLink: null,
-          rank: p.featured ? 100 : 80,
-        }))
-    : []
 
   // ── CASA (admin-curated, D1-backed) ────────────────────────────
   let d1CasaListings: UnifiedListing[] = []
@@ -294,7 +286,7 @@ async function getListingsData(
     }
   }
 
-  const casaListings = [...d1CasaListings, ...staticCasaListings]
+  const casaListings = d1CasaListings
 
   // ── PARTNER (D1-backed, paginated; city optional — browses all when empty) ──
   const partnerResult = source === 'all' || source === 'PARTNER'
