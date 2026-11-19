@@ -13,6 +13,6 @@ export async function POST(req: NextRequest) {
   if (!secret || secret !== process.env.INTERNAL_REVALIDATE_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  revalidateTag('listings', 'max')
+  revalidateTag('listings', { expire: 0 })
   return NextResponse.json({ revalidated: true })
 }

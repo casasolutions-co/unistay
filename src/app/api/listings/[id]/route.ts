@@ -300,7 +300,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 })
     }
     await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', [status, Date.now(), id])
-    revalidateTag('listings', 'max')
+    revalidateTag('listings', { expire: 0 })
     return NextResponse.json({ ok: true })
   }
 
@@ -421,7 +421,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', ['pending_review', now, id])
   }
 
-  revalidateTag('listings', 'max')
+  revalidateTag('listings', { expire: 0 })
   return NextResponse.json({ ok: true, listing_id: id })
 }
 

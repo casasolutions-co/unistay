@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
 // Every filter combo (city/price/type/moveIn/source/page) gets its own cache
 // entry, so the D1 tables get hit once per distinct search rather than once
-// per visitor. Invalidated on writes via revalidateTag('listings', 'max') below
+// per visitor. Invalidated on writes via revalidateTag('listings', { expire: 0 }) below
 // and in listings/[id]/route.ts. 5min revalidate keeps it well under the 1h R2
 // signed-URL expiry (see getSignedUrl) so cached cover photos never go stale.
 const getCachedListings = unstable_cache(getListingsData, ['listings'], {
@@ -468,7 +468,7 @@ export async function POST(req: NextRequest) {
       }
     }).catch(err => console.error('[geocode] failed:', err));
 
-    revalidateTag('listings', 'max');
+    revalidateTag('listings', { expire: 0 });
     return NextResponse.json({ listing_id: listingId });
   } catch (err) {
     console.error('[POST /api/listings]', err);
