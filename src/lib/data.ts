@@ -1,5 +1,5 @@
 import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
-import type { User, UserProfile, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory, LandlordApplication, LandlordStatus } from './types'
+import type { User, UserProfile, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory, LandlordApplication, LandlordAnswers, LandlordStatus } from './types'
 import { findStaticListing } from './staticListings'
 import { deletePhoto } from './r2'
 import { refreshUserAppListings } from './userApp'
@@ -333,13 +333,33 @@ interface LandlordRow {
   // for users who applied before the form existed.
   rental_type: string | null; listing_count: string | null; phone: string | null
   company_name: string | null; company_website: string | null
-  declarations: string | null; terms_version: string | null
+  declarations: string | null; terms_version: string | null; submitted_at: number | null
   application_count: number
 }
 
-function mapLandlordApplication(r: LandlordRow): LandlordApplication {
+interface AnswersRow {
+  rental_type: string | null; listing_count: string | null; phone: string | null
+  company_name: string | null; company_website: string | null
+  declarations: string | null; terms_version: string | null; submitted_at: number | null
+}
+
+function mapAnswers(r: AnswersRow): LandlordAnswers | null {
+  if (!r.rental_type) return null
   let declarations: string[] = []
   try { declarations = JSON.parse(r.declarations ?? '[]') } catch { /* leave empty */ }
+  return {
+    rentalType: r.rental_type,
+    listingCount: r.listing_count ?? '',
+    phone: r.phone ?? '',
+    companyName: r.company_name,
+    companyWebsite: r.company_website,
+    declarations,
+    termsVersion: r.terms_version ?? '',
+    submitted: relativeTime(r.submitted_at),
+  }
+}
+
+function mapLandlordApplication(r: LandlordRow): LandlordApplication {
   return {
     id: r.id,
     name: r.name ?? '(no name)',
@@ -347,15 +367,7 @@ function mapLandlordApplication(r: LandlordRow): LandlordApplication {
     applied: relativeTime(r.landlord_applied_at),
     status: r.landlord_status,
     note: r.landlord_note,
-    details: r.rental_type ? {
-      rentalType: r.rental_type,
-      listingCount: r.listing_count ?? '',
-      phone: r.phone ?? '',
-      companyName: r.company_name,
-      companyWebsite: r.company_website,
-      declarations,
-      termsVersion: r.terms_version ?? '',
-    } : null,
+    details: mapAnswers(r),
     applicationCount: r.application_count,
   }
 }
@@ -372,7 +384,7 @@ export async function getLandlordApplications(opts: { filter?: string } = {}): P
   const rows = await d1All<LandlordRow>(
     `SELECT u.id, u.name, u.email, u.landlord_status, u.landlord_note, u.landlord_applied_at,
             la.rental_type, la.listing_count, la.phone, la.company_name, la.company_website,
-            la.declarations, la.terms_version,
+            la.declarations, la.terms_version, la.submitted_at,
             (SELECT COUNT(*) FROM landlord_applications c WHERE c.user_id = u.id) as application_count
        FROM users u
        LEFT JOIN landlord_applications la ON la.id = (
@@ -382,6 +394,29 @@ export async function getLandlordApplications(opts: { filter?: string } = {}): P
     params
   )
   return rows.map(mapLandlordApplication)
+}
+
+// Landlord status plus every application this user submitted, newest first
+// (for the user detail page).
+export async function getLandlordApplicationForUser(userId: string): Promise<{
+  status: LandlordStatus; note: string | null; applied: string; submissions: LandlordAnswers[]
+} | null> {
+  const [user, rows] = await Promise.all([
+    d1First<{ landlord_status: LandlordStatus; landlord_note: string | null; landlord_applied_at: number | null }>(
+      `SELECT landlord_status, landlord_note, landlord_applied_at FROM users WHERE id = ?`, [userId]
+    ),
+    d1All<AnswersRow>(
+      `SELECT rental_type, listing_count, phone, company_name, company_website, declarations, terms_version, submitted_at
+         FROM landlord_applications WHERE user_id = ? ORDER BY submitted_at DESC`, [userId]
+    ),
+  ])
+  if (!user) return null
+  return {
+    status: user.landlord_status,
+    note: user.landlord_note,
+    applied: relativeTime(user.landlord_applied_at),
+    submissions: rows.map(mapAnswers).filter((a): a is LandlordAnswers => a !== null),
+  }
 }
 
 // The *_by reviewer columns all FK to users(id), but admins aren't rows in
@@ -635,6 +670,7 @@ const USER_ACTIVITY: Record<string, { label: string; dot: string }> = {
   'user.reject':      { label: 'Verification rejected',        dot: '#dc2626' },
   'user.ban':         { label: 'Banned',                       dot: '#dc2626' },
   'user.unban':       { label: 'Unbanned',                     dot: '#16a34a' },
+  'landlord_apply':   { label: 'Applied to become a landlord', dot: '#6d28d9' },
   'landlord.approve': { label: 'Landlord approved',            dot: '#16a34a' },
   'landlord.reject':  { label: 'Landlord rejected',            dot: '#dc2626' },
   'doc.approve':      { label: 'Document approved',            dot: '#16a34a' },
@@ -647,6 +683,7 @@ export async function getUserActivity(userId: string): Promise<{ label: string; 
     `SELECT 'created' AS kind, NULL AS detail, NULL AS n, NULL AS admin, created_at AS ts FROM users WHERE id = ?1
      UNION ALL SELECT 'docs', NULL, COUNT(*), NULL, MAX(created_at) FROM user_documents WHERE user_id = ?1 HAVING COUNT(*) > 0
      UNION ALL SELECT 'listing', title, NULL, NULL, created_at FROM listings WHERE landlord_id = ?1
+     UNION ALL SELECT 'landlord_apply', NULL, NULL, NULL, submitted_at FROM landlord_applications WHERE user_id = ?1
      UNION ALL SELECT action, note, NULL, admin_id, created_at FROM admin_audit_log
        WHERE (target_type = 'user' AND target_id = ?1)
           OR (target_type = 'verification_doc' AND target_id IN (SELECT id FROM user_documents WHERE user_id = ?1))`,

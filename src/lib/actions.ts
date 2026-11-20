@@ -79,6 +79,7 @@ export async function approveLandlord(id: string) {
   await _setLandlordStatus(id, 'approved', null)
   await _writeAudit(email, 'landlord.approve', 'user', id)
   revalidatePath('/landlord-requests')
+  revalidatePath(`/users/${id}`)
   revalidatePath('/')
 }
 
@@ -87,6 +88,7 @@ export async function rejectLandlord(id: string, note: string) {
   await _setLandlordStatus(id, 'rejected', note)
   await _writeAudit(email, 'landlord.reject', 'user', id, note)
   revalidatePath('/landlord-requests')
+  revalidatePath(`/users/${id}`)
   revalidatePath('/')
 }
 

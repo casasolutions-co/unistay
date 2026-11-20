@@ -1,13 +1,15 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getUser, getDocsByUser, getListingsByHost, getMessagesByUser, getUserActivity } from '@/lib/data'
-import { verifyUser, rejectUser, banUser, unbanUser, deleteUser, approveDoc, rejectDoc } from '@/lib/actions'
+import { getUser, getDocsByUser, getListingsByHost, getMessagesByUser, getUserActivity, getLandlordApplicationForUser } from '@/lib/data'
+import { verifyUser, rejectUser, banUser, unbanUser, deleteUser, approveDoc, rejectDoc, approveLandlord, rejectLandlord } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal'
 import UserRowActions from '../UserRowActions'
 import DocRowActions from '../../documents/DocRowActions'
-import { userStatus, listingStatus, docStatus, thumbBg, OCC_LABEL } from '@/lib/utils'
+import LandlordRowActions from '../../landlord-requests/LandlordRowActions'
+import { LandlordAnswersFull } from '../../landlord-requests/LandlordAnswers'
+import { userStatus, listingStatus, docStatus, landlordStatus, thumbBg, OCC_LABEL } from '@/lib/utils'
 
 const OCC_HEADING = { student: 'Studies', professional: 'Work', landlord: 'Renting out' } as const
 const MGMT: Record<string, string> = { private: 'Private owner', agency: 'Agency', company: 'Company' }
@@ -35,11 +37,12 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const user = await getUser(id)
   if (!user) notFound()
 
-  const [docs, listings, userMessages, activity] = await Promise.all([
+  const [docs, listings, userMessages, activity, landlord] = await Promise.all([
     getDocsByUser(id),
     getListingsByHost(id),
     getMessagesByUser(id),
     getUserActivity(id),
+    getLandlordApplicationForUser(id),
   ])
   const st = userStatus(user.status)
   const p = user.profile
@@ -161,6 +164,46 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
 
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Landlord application (student app /list → apply form) */}
+          {landlord && (landlord.status !== 'none' || landlord.submissions.length > 0) && (() => {
+            const ls = landlordStatus(landlord.status)
+            const [latest, ...earlier] = landlord.submissions
+            return (
+              <div style={{ background: '#fff', border: `1px solid ${landlord.status === 'pending' ? '#f3d68a' : '#ece8f3'}`, borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1eef7', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 15 }}>Landlord application</span>
+                  <StatusBadge label={ls.label} bg={ls.bg} color={ls.color} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#9a94a8' }}>applied {landlord.applied}</span>
+                  {(landlord.status === 'pending' || landlord.status === 'rejected') && (
+                    <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                      <LandlordRowActions approve={approveLandlord.bind(null, id)} reject={rejectLandlord.bind(null, id)} size="md" />
+                    </span>
+                  )}
+                </div>
+                <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {landlord.status === 'rejected' && landlord.note && (
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#b91c1c', background: '#fdecec', borderRadius: 8, padding: '7px 11px' }}>Rejection note: {landlord.note}</div>
+                  )}
+                  {latest
+                    ? <LandlordAnswersFull a={latest} />
+                    : <div style={{ fontSize: 13, fontWeight: 600, color: '#b0aabf' }}>Applied before the application form existed, so there are no answers.</div>}
+                  {earlier.length > 0 && (
+                    <details style={{ borderTop: '1px solid #f1eef7', paddingTop: 12 }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: '#6d28d9' }}>Earlier applications ({earlier.length})</summary>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                        {earlier.map((a, i) => (
+                          <div key={i} style={{ borderTop: i ? '1px solid #f5f2fa' : 'none', paddingTop: i ? 14 : 0 }}>
+                            <LandlordAnswersFull a={a} />
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Profile (student app /profile) */}
           <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
             <div style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>About me</div>

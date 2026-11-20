@@ -118,16 +118,20 @@ export interface LandlordApplication {
   status: LandlordStatus
   note?: string | null
   // Answers from the latest application form; null if they applied before it existed.
-  details: {
-    rentalType: string        // owner | sublet | agency
-    listingCount: string      // 1 | 2-5 | 6+
-    phone: string
-    companyName: string | null
-    companyWebsite: string | null
-    declarations: string[]    // keys the applicant confirmed
-    termsVersion: string
-  } | null
+  details: LandlordAnswers | null
   applicationCount: number
+}
+
+// One submission of the student app's landlord application form (landlord_applications row).
+export interface LandlordAnswers {
+  rentalType: string        // owner | sublet | agency
+  listingCount: string      // 1 | 2-5 | 6+
+  phone: string
+  companyName: string | null
+  companyWebsite: string | null
+  declarations: string[]    // keys the applicant confirmed
+  termsVersion: string
+  submitted: string
 }
 
 export interface Document {
