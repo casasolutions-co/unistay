@@ -16,6 +16,7 @@ import { getCachedSearch, setCachedSearch } from '@/lib/searchResultsCache';
 import { useKeepPanelVisible } from '@/lib/useKeepPanelVisible';
 import DatePickerPanel from '../components/DatePickerPanel';
 import MobileWhenFields from '../components/MobileWhenFields';
+import PageSpinner from '../components/PageSpinner';
 import { HOUSING_TYPES } from '@/lib/profileOptions';
 import { parseBbox, bboxParam, type Bbox } from '@/lib/mapArea';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -157,7 +158,8 @@ function SearchPageInner() {
   const [listings, setListings]         = useState<UnifiedListing[]>([]);
   const [total, setTotal]               = useState(0);
   const [hasMore, setHasMore]           = useState(false);
-  const [loading,     setLoading]       = useState(false);
+  // true until the first response lands, so the page never shows "no results" before searching.
+  const [loading,     setLoading]       = useState(true);
   const [loadingMore, setLoadingMore]   = useState(false);
   const [page, setPage]                 = useState(1);
   // Set when the server resolved free-typed text to an address (see /api/listings).
@@ -167,6 +169,8 @@ function SearchPageInner() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets pagination when a filter changes, before the fetch-effect below re-runs on the new page
     setPage(1);
     setListings([]);
+    setHasMore(false);
+    setLoading(true);
   }, [query, place, activeBbox, filterType, filterSource, filterSort, minVal, maxVal, moveIn]);
 
   useEffect(() => {
@@ -189,6 +193,7 @@ function SearchPageInner() {
       setResolvedLabel(cached.resolvedPlace?.label ?? null);
       setTotal(cached.total);
       setHasMore(cached.hasMore);
+      setLoading(false);
       return;
     }
 
@@ -205,7 +210,9 @@ function SearchPageInner() {
         setLoadingMore(false);
         setCachedSearch(cacheKey, data);
       })
-      .catch(() => { setLoading(false); setLoadingMore(false); });
+      // A request cancelled because the search changed must not end the loading
+      // state — its replacement is already in flight.
+      .catch(() => { if (ctrl.signal.aborted) return; setLoading(false); setLoadingMore(false); });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, place, activeBbox, page, filterType, filterSource, filterSort, lo, hi, moveIn]);
@@ -369,8 +376,8 @@ function SearchPageInner() {
           {/* count + sort row */}
           <div className={styles.mobileResultsBar}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-              <span className={styles.mobileResultCount}>{total}</span>
-              <span className={styles.mobileResultSub}>stays{cityName ? ` ${inOrNear} ${cityName}` : ''}</span>
+              {!loading && <span className={styles.mobileResultCount}>{total}</span>}
+              <span className={styles.mobileResultSub}>{loading ? 'Searching stays' : 'stays'}{cityName ? ` ${inOrNear} ${cityName}` : ''}</span>
             </div>
             <button type="button" className={styles.mobileSortBtn} onClick={() => setMobileSheet('sort')}>
               <ISort />
@@ -380,17 +387,7 @@ function SearchPageInner() {
 
           {/* cards */}
           {loading ? (
-            <div className={styles.mobileCards}>
-              {[0,1,2,3].map(i => (
-                <div key={i} className={styles.mobileCard} style={{ opacity: 0.5 }}>
-                  <div className={styles.mobileCardImg} style={{ background: '#e9e3f5' }} />
-                  <div className={styles.mobileCardBody}>
-                    <div style={{ height: 14, borderRadius: 6, background: '#e9e3f5', marginBottom: 8, width: '70%' }} />
-                    <div style={{ height: 11, borderRadius: 6, background: '#f0edf7', width: '50%' }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <PageSpinner label="Searching" />
           ) : filtered.length > 0 ? (
             <div className={styles.mobileCards}>
               {filtered.map((p, i) => (
@@ -750,13 +747,15 @@ function SearchPageInner() {
           {/* Results */}
           <div>
             <div className={styles.resultsHeader}>
-              <span className={styles.resultCount}>{total}</span>
+              {!loading && <span className={styles.resultCount}>{total}</span>}
               <span className={styles.resultSub}>
-                properties{cityName ? ` ${inOrNear} ${cityName}` : ''}
+                {loading ? 'Searching properties' : 'properties'}{cityName ? ` ${inOrNear} ${cityName}` : ''}
               </span>
             </div>
 
-            {filtered.length > 0 ? (
+            {loading ? (
+              <PageSpinner label="Searching" />
+            ) : filtered.length > 0 ? (
               <div className={styles.cardsGrid}>
                 {filtered.map((p, i) => (
                   <PropertyCard
