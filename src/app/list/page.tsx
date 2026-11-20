@@ -13,6 +13,7 @@ import ApplyLandlordGate, { LandlordStatus } from './ApplyLandlordGate';
 import { useDraftAutosave } from './useDraftAutosave';
 import StreetAutocomplete from './StreetAutocomplete';
 import styles from './page.module.css';
+import PageSpinner from '@/app/components/PageSpinner';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
 
@@ -497,14 +498,14 @@ function ListYourPlaceInner() {
   // Wait for a resumed draft's data to arrive before rendering, so the form
   // doesn't flash blank fields before the prefill lands.
   if (draftId && !formReady) {
-    return null;
+    return <PageSpinner />;
   }
 
   // Hosts must complete identity verification before they can list a place.
   // Wait until we know the real status before deciding what to render, so the
   // listing form never flashes on screen for an unverified user.
   if (user && verificationStatus === null) {
-    return null;
+    return <PageSpinner />;
   }
   if (user && verificationStatus !== 'verified') {
     return <VerifyIdentity />;
@@ -513,7 +514,7 @@ function ListYourPlaceInner() {
   // Being identity-verified doesn't make you an approved landlord — that's a
   // separate admin-reviewed application (see /api/user/apply-landlord).
   if (user && landlordStatus === null) {
-    return null;
+    return <PageSpinner />;
   }
   if (user && landlordStatus !== 'approved') {
     return (

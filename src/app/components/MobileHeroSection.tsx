@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './MobileHeroSection.module.css';
 import { useCitySearch, placeSearchParams, type SuggestionItem } from '@/lib/useCitySearch';
-import { useWhenPicker } from '@/lib/useWhenPicker';
+import { useWhenPicker, todayStr } from '@/lib/useWhenPicker';
 import MobileTabBar from './MobileTabBar';
 import MobileWhenFields from './MobileWhenFields';
 
@@ -73,7 +73,7 @@ export default function MobileHeroSection() {
   const [navOpen, setNavOpen] = useState(false);
 
   const [openWhen, setOpenWhen] = useState(false);
-  const when = useWhenPicker();
+  const when = useWhenPicker(todayStr()); // default: from today, no end date
 
   const cardRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);

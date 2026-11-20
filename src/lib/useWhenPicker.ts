@@ -85,7 +85,7 @@ export function useWhenPicker(initialMoveIn = '', initialMoveOut = '') {
   const hasMoveIn = !!moveIn;
   const hasMoveOut = !!moveOut && !noEndDate;
 
-  const dateValueText = !hasMoveIn ? 'Add dates'
+  const dateValueText = !hasMoveIn ? 'From today · No end date'
     : noEndDate ? 'From ' + fmtNice(moveIn) + ' · No end date'
     : hasMoveOut ? fmtNice(moveIn) + ' – ' + fmtNice(moveOut)
     : fmtNice(moveIn) + ' · Add move-out';

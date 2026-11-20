@@ -55,7 +55,7 @@ export async function syncPartnerListings(): Promise<SyncResult> {
 
   const now = Date.now()
   for (const batch of chunk(changed, UPSERT_CHUNK)) {
-    const values = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')
+    const values = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')
     const params: (string | number | null)[] = []
     for (const item of batch) {
       const remoteId = String(item.id)
@@ -64,16 +64,18 @@ export async function syncPartnerListings(): Promise<SyncResult> {
         `partner-${remoteId}`, remoteId, item.updated, item.location.city,
         Math.round(item.costs.price / 100), mapType(item.kindLabel, bedrooms),
         item.available?.[0]?.from ?? null, item.rank ?? 0, JSON.stringify(item), now, now,
+        coord(item.location?.coordinates?.latitude), coord(item.location?.coordinates?.longitude),
       )
     }
     await d1Query(
       `INSERT INTO partner_listings
-         (id, remote_id, remote_updated, city, price, ptype, avail_from, rank, raw_json, created_at, updated_at)
+         (id, remote_id, remote_updated, city, price, ptype, avail_from, rank, raw_json, created_at, updated_at, lat, lng)
        VALUES ${values}
        ON CONFLICT(remote_id) DO UPDATE SET
          remote_updated = excluded.remote_updated, city = excluded.city, price = excluded.price,
          ptype = excluded.ptype, avail_from = excluded.avail_from,
-         rank = excluded.rank, raw_json = excluded.raw_json, updated_at = excluded.updated_at`,
+         rank = excluded.rank, raw_json = excluded.raw_json, updated_at = excluded.updated_at,
+         lat = excluded.lat, lng = excluded.lng`,
       params
     )
   }
@@ -95,4 +97,9 @@ export async function syncPartnerListings(): Promise<SyncResult> {
   }
 
   return { fetched: items.length, upserted: changed.length, delisted, skippedDelisting }
+}
+
+function coord(v: unknown): number | null {
+  const n = parseFloat(String(v))
+  return Number.isFinite(n) ? n : null
 }

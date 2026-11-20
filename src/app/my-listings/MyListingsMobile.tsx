@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import MobileTabBar from '../components/MobileTabBar';
 import { useMyListings } from './useMyListings';
 import styles from './MyListingsMobile.module.css';
+import PageSpinner from '@/app/components/PageSpinner';
 
 type Tab = 'published' | 'drafts';
 
@@ -43,7 +44,7 @@ export default function MyListingsMobile() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmUnpublish, setConfirmUnpublish] = useState<string | null>(null);
 
-  if (!authReady) return null;
+  if (!authReady) return <PageSpinner />;
 
   if (!user) {
     return (

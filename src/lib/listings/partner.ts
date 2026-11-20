@@ -1,11 +1,7 @@
 import { d1Query } from '../d1'
 import type { UnifiedListing, ListingFilters } from './types'
-import { germanCityName } from '../city-aliases'
-
-export function citySlug(city: string): string {
-  const canonical = germanCityName(city) ?? city
-  return canonical.toLowerCase().replace(/[/\\]/g, '-').replace(/\s+/g, '-')
-}
+import { matchingCities, inList } from './cities'
+import type { Bbox } from '../mapArea'
 
 export function mapType(kindLabel: string, bedrooms: number): string {
   if (kindLabel === 'shared room' || kindLabel === 'private room') return 'Shared flat (WG)'
@@ -67,6 +63,7 @@ export async function searchPartnerListings(
   limit: number,
   near: [number, number] | null = null,
   sort?: 'price_asc' | 'price_desc',
+  bbox: Bbox | null = null,
 ): Promise<{ listings: UnifiedListing[]; total: number; hasMore: boolean }> {
   const conditions: string[] = []
   const params: (string | number)[] = []
@@ -74,13 +71,17 @@ export async function searchPartnerListings(
   // Unlike the old per-city JSON files, D1 has no cost to searching without a
   // city — so an empty query browses every partner listing instead of
   // silently returning none.
-  const slug = citySlug(city)
-  if (slug) {
-    // city column stores HousingAnywhere's real city name (e.g. "Frankfurt am
-    // Main"); matching on its slugified prefix preserves the old file-based
-    // behaviour where a "frankfurt" search matched "frankfurt-am-main.json".
-    conditions.push("LOWER(REPLACE(city, ' ', '-')) LIKE ? || '%'")
-    params.push(slug)
+  // city column stores HousingAnywhere's own names ("Munich", "Offenbach",
+  // "Garching bei München") — resolve the query against them first.
+  if (bbox) {
+    // "Search this area": the visible map bounds replace the city filter.
+    conditions.push('lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?')
+    params.push(bbox[0], bbox[2], bbox[1], bbox[3])
+  } else if (city.trim()) {
+    const cities = await matchingCities('partner_listings', city)
+    if (!cities.length) return { listings: [], total: 0, hasMore: false }
+    conditions.push(`city IN ${inList(cities.length)}`)
+    params.push(...cities)
   }
 
   if (filters.minPrice !== undefined) { conditions.push('price >= ?'); params.push(filters.minPrice) }
@@ -101,10 +102,8 @@ export async function searchPartnerListings(
   if (sort) {
     orderBy = sort === 'price_asc' ? 'price ASC' : 'price DESC'
   } else if (near) {
-    const lat = "CAST(json_extract(raw_json, '$.location.coordinates.latitude') AS REAL)"
-    const lng = "CAST(json_extract(raw_json, '$.location.coordinates.longitude') AS REAL)"
     const k = Math.cos(near[0] * Math.PI / 180)
-    orderBy = `(${lat} - ?) * (${lat} - ?) + (${lng} - ?) * (${lng} - ?) * ?`
+    orderBy = '(lat - ?) * (lat - ?) + (lng - ?) * (lng - ?) * ?'
     orderParams.push(near[0], near[0], near[1], near[1], k * k)
   }
   const rows = await d1Query<{ raw_json: string }>(

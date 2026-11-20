@@ -6,6 +6,7 @@ import AppNav from '../components/AppNav';
 import DocumentsMobile from './DocumentsMobile';
 import { useDocuments, DOC_TYPE_OPTIONS, formatSize } from './useDocuments';
 import styles from './page.module.css';
+import PageSpinner from '@/app/components/PageSpinner';
 
 function Icon({ paths, size = 18, stroke = 'currentColor', sw = 2 }: { paths: string[]; size?: number; stroke?: string; sw?: number }) {
   return (
@@ -107,7 +108,7 @@ function DocumentsDesktop() {
             <div className={styles.fieldLabel}>Uploaded</div>
             <div className={styles.uploadedList}>
               {loading ? (
-                <p className={styles.emptyState}>Loading…</p>
+                <PageSpinner inline />
               ) : documents.length === 0 ? (
                 <p className={styles.emptyState}>No documents uploaded yet.</p>
               ) : (

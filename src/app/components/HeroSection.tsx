@@ -116,7 +116,7 @@ export default function HeroSection() {
 
   /* WHEN */
   const hasWhen = !!whenLabel;
-  const whenText = whenLabel || 'Add dates';
+  const whenText = whenLabel || 'From today · No end date';
 
   return (
     <>

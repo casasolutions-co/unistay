@@ -12,6 +12,7 @@ import { Property, PropertyPhoto } from '../../data/properties';
 import AppNav from '../../components/AppNav';
 import styles from './page.module.css';
 import ApartmentDetailsMobile from './ApartmentDetailsMobile';
+import PageSpinner from '@/app/components/PageSpinner';
 
 const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
 
@@ -153,7 +154,7 @@ export default function DetailsPage({ params }: PageProps) {
   }, [lightbox, listing]);
 
   if (notFound) return <div style={{ padding: 40, textAlign: 'center' }}>Listing not found.</div>;
-  if (!listing) return <div style={{ padding: 40, textAlign: 'center' }}>Loading…</div>;
+  if (!listing) return <PageSpinner />;
 
   const property = listing;
 

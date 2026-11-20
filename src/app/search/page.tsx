@@ -17,6 +17,7 @@ import { useKeepPanelVisible } from '@/lib/useKeepPanelVisible';
 import DatePickerPanel from '../components/DatePickerPanel';
 import MobileWhenFields from '../components/MobileWhenFields';
 import { HOUSING_TYPES } from '@/lib/profileOptions';
+import { parseBbox, bboxParam, type Bbox } from '@/lib/mapArea';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -89,6 +90,19 @@ function SearchPageInner() {
   const { query, setQuery, groups, selectCity, placeFor } = useCitySearch(searchParams.get('city') ?? '', placeFromParams(searchParams));
   const place = placeFor(query);
 
+  /* ── "Search this area" ── the map bounds replace the location while the
+     search text is unchanged; typing or picking a new place drops it. */
+  const [area, setArea] = useState<{ bbox: Bbox; q: string } | null>(() => {
+    const bbox = parseBbox(searchParams.get('bbox'));
+    return bbox ? { bbox, q: placeFromParams(searchParams)?.label ?? searchParams.get('city') ?? '' } : null;
+  });
+  const activeBbox = area && area.q === query ? bboxParam(area.bbox) : '';
+  const searchArea = useCallback((bbox: Bbox) => setArea({ bbox, q: query }), [query]);
+  function locationParams(params: URLSearchParams) {
+    if (activeBbox) params.set('bbox', activeBbox);
+    else placeSearchParams(params, query, place);
+  }
+
   /* ── Mobile state ── */
   const [mobileSheet,     setMobileSheet]     = useState<'filters' | 'sort' | null>(null);
   const [mobileMapOpen,   setMobileMapOpen]   = useState(false);
@@ -153,12 +167,12 @@ function SearchPageInner() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets pagination when a filter changes, before the fetch-effect below re-runs on the new page
     setPage(1);
     setListings([]);
-  }, [query, place, filterType, filterSource, filterSort, minVal, maxVal, moveIn]);
+  }, [query, place, activeBbox, filterType, filterSource, filterSort, minVal, maxVal, moveIn]);
 
   useEffect(() => {
     // Always fetch — HOST listings don't require a city. Partner/CASA skip themselves server-side when city is empty.
     const params = new URLSearchParams({ page: String(page) });
-    placeSearchParams(params, query, place);
+    locationParams(params);
     if (minVal > 0)              params.set('minPrice', String(lo));
     if (maxVal < 3000)           params.set('maxPrice', String(hi));
     if (typeSet)                 params.set('type', filterType);
@@ -194,13 +208,15 @@ function SearchPageInner() {
       .catch(() => { setLoading(false); setLoadingMore(false); });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, place, page, filterType, filterSource, filterSort, lo, hi, moveIn]);
+  }, [query, place, activeBbox, page, filterType, filterSource, filterSort, lo, hi, moveIn]);
 
   // Keep the address bar in sync with the active filters, so refreshing,
   // sharing the link, or hitting back restores what's on screen.
   useEffect(() => {
     const params = new URLSearchParams();
+    // Keep the search text alongside bbox so a reload restores both (and the area stays active).
     placeSearchParams(params, query, place);
+    if (activeBbox)     params.set('bbox', activeBbox);
     if (typeSet)        params.set('type', filterType);
     if (minVal > 0)     params.set('minPrice', String(lo));
     if (maxVal < 3000)  params.set('maxPrice', String(hi));
@@ -210,7 +226,7 @@ function SearchPageInner() {
     const qs = params.toString();
     router.replace(qs ? `/search?${qs}` : '/search', { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, place, filterType, filterSource, lo, hi, moveIn, moveOut]);
+  }, [query, place, activeBbox, filterType, filterSource, lo, hi, moveIn, moveOut]);
 
   let filtered = listings;
   if      (filterSort === 'price_asc')  filtered = [...listings].sort((a, b) => a.price - b.price);
@@ -224,9 +240,9 @@ function SearchPageInner() {
   }));
 
 
-  const cityName = resolvedLabel ?? query.trim();
+  const cityName = activeBbox ? 'this map area' : resolvedLabel ?? query.trim();
   const stayQuery = moveIn ? new URLSearchParams(moveOut ? { moveIn, moveOut } : { moveIn }).toString() : undefined;
-  const inOrNear = resolvedLabel || (place && place.kind !== 'city') ? 'near' : 'in';
+  const inOrNear = !activeBbox && (resolvedLabel || (place && place.kind !== 'city')) ? 'near' : 'in';
 
   const resetFilters = () => {
     setFilterType('Any type'); setFilterSource('all');
@@ -423,7 +439,7 @@ function SearchPageInner() {
         {/* ── Map overlay ── */}
         {mobileMapOpen && (
           <div className={styles.mobileMapOverlay}>
-            <MapPanel properties={mapProps} />
+            <MapPanel properties={mapProps} linkQuery={stayQuery} onSearchArea={searchArea} autoFit={!activeBbox} initialBounds={activeBbox ? area!.bbox : undefined} />
             <button type="button" className={styles.mobileListFab} onClick={() => setMobileMapOpen(false)}>
               <IListIcon /> List
             </button>
@@ -615,7 +631,7 @@ function SearchPageInner() {
           <div className={styles.pillWrap}>
             <button type="button" className={styles.pillDark} onClick={() => toggle('when')}>
               <ICal />
-              {whenLabel || 'Add dates'}
+              {whenLabel || 'From today · No end date'}
               <IChevW open={isOpen('when')} />
             </button>
             {isOpen('when') && (
@@ -781,7 +797,7 @@ function SearchPageInner() {
 
           {/* Map */}
           <div className={styles.mapPanelWrap}>
-            <MapPanel properties={mapProps} />
+            <MapPanel properties={mapProps} linkQuery={stayQuery} onSearchArea={searchArea} autoFit={!activeBbox} initialBounds={activeBbox ? area!.bbox : undefined} />
           </div>
         </div>
       </div>

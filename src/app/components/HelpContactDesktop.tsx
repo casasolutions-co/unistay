@@ -6,6 +6,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AppNav from './AppNav';
 import styles from './HelpContactDesktop.module.css';
+import PageSpinner from '@/app/components/PageSpinner';
 
 const SUPPORT_EMAIL = 'support@unistay.de';
 
@@ -179,7 +180,7 @@ export default function HelpContactDesktop() {
 
                 <p className={styles.groupLabel}>{faqsLoading ? 'Frequently asked' : resultsLabel}</p>
                 <div className={styles.faqCard}>
-                  {faqsLoading && <div className={styles.noResults}>Loading…</div>}
+                  {faqsLoading && <PageSpinner inline />}
                   {!faqsLoading && filtered.map(f => (
                     <div key={f.id} className={styles.faqRow}>
                       <button type="button" className={styles.faqQuestionBtn} onClick={() => toggleFaq(f.id)}>

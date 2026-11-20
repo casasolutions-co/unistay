@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AppNav from '../components/AppNav';
 import { useMyListings } from './useMyListings';
 import styles from './MyListingsDesktop.module.css';
+import PageSpinner from '@/app/components/PageSpinner';
 
 type Tab = 'published' | 'drafts';
 
@@ -31,7 +32,7 @@ export default function MyListingsDesktop() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmUnpublish, setConfirmUnpublish] = useState<string | null>(null);
 
-  if (!authReady) return null;
+  if (!authReady) return <PageSpinner />;
 
   if (!user) {
     return (

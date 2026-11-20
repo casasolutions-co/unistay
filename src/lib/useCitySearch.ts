@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { getRecentSearches, addRecentSearch, type RecentSearch } from './recentSearches';
-import { foldUmlauts, cityMatchTerms } from './city-aliases';
+import { foldUmlauts, cityMatchTerms, normaliseCity } from './city-aliases';
 import { usePlaceSearch, type Place } from './usePlaceSearch';
+import { UNIVERSITIES, matchUniversities, universityPlace } from './universities';
 
 export type { Place };
 export type SuggestionKind = 'recent' | 'city' | 'uni' | 'place';
@@ -23,38 +24,6 @@ const POPULAR_CITIES = [
   { name: 'Leipzig', sub: 'Germany' },
 ];
 
-const UNIS = [
-  { name: 'Technical University of Munich', sub: 'München, Germany' },
-  { name: 'Ludwig-Maximilians-Universität München', sub: 'München, Germany' },
-  { name: 'University of Seville', sub: 'Seville, Spain' },
-  { name: 'Sapienza Università di Roma', sub: 'Rome, Italy' },
-  { name: 'University of Amsterdam', sub: 'Amsterdam, Netherlands' },
-];
-
-// Normalise a city string for prefix matching:
-// - expand common German abbreviations (i.d. → in der, b. → bei, OPf. → Oberpfalz …)
-// - collapse hyphens/brackets to spaces so "Neu-Ulm" == "Neu Ulm"
-function normaliseCity(s: string): string {
-  return s
-    .replace(/\bi\.d\.\s*/g, 'in der ')
-    .replace(/\ba\.d\.\s*/g, 'an der ')
-    .replace(/\bi\.\s*/g, 'im ')
-    .replace(/\bv\.\s*/g, 'vor ')
-    .replace(/\bb\.\s*/g, 'bei ')
-    .replace(/\bNbg\./g, 'Nürnberg')
-    .replace(/\bOPf\./g, 'Oberpfalz')
-    .replace(/\bThür\./g, 'Thüringen')
-    .replace(/\bSachs\./g, 'Sachsen')
-    .replace(/\bObb\./g, 'Oberbayern')
-    .replace(/\bBay\./g, 'Bayern')
-    .replace(/\bSchw\./g, 'Schwaben')
-    .replace(/\bWestf\./g, 'Westfalen')
-    .replace(/\bRhld\./g, 'Rheinland')
-    .replace(/[-()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
 
 // normaliseCity() only expands abbreviations; also fold umlauts so 'munchen'
 // (ascii) and 'münchen' compare equal for prefix matching.
@@ -145,11 +114,13 @@ function buildGroups(
     });
   }
 
-  const uniMatch = (it: { name: string; sub: string }) =>
-    !hasQ || terms.some(t => foldUmlauts(it.name + ' ' + it.sub).includes(t));
-  const unis = UNIS.filter(uniMatch);
+  // A picked uni carries its campus as `place`, so the search is its city, nearest-first.
+  const unis = (hasQ ? matchUniversities(terms) : UNIVERSITIES).slice(0, hasQ ? 6 : 5);
   if (unis.length) {
-    groups.push({ title: 'Popular universities', items: unis.map(it => ({ ...it, kind: 'uni' as SuggestionKind })) });
+    groups.push({
+      title: hasQ ? 'Universities' : 'Popular universities',
+      items: unis.map(u => ({ name: u.name, sub: `${u.city}, Germany`, kind: 'uni' as SuggestionKind, place: universityPlace(u) })),
+    });
   }
 
   return groups;

@@ -8,6 +8,7 @@ import MenuSheet, { MenuItem } from "./MenuSheet";
 import ReportUserModal from "./ReportUserModal";
 import ProposeTimesSheet, { ProposedSlot } from "./ProposeTimesSheet";
 import styles from "./page.module.css";
+import PageSpinner from '@/app/components/PageSpinner';
 
 /* ── Icons ──────────────────────────────────────────────────────── */
 const ISearch = () => (
@@ -1328,19 +1329,7 @@ export default function MessagesPage() {
           </div>
 
           <div className={`${styles.threadList} us-scroll`}>
-            {loadingInbox && (
-              <div
-                style={{
-                  padding: "32px 22px",
-                  textAlign: "center",
-                  color: "var(--text-soft)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                Loading…
-              </div>
-            )}
+            {loadingInbox && <PageSpinner inline />}
             {!loadingInbox && threads.length === 0 && (
               <div
                 style={{
@@ -1617,19 +1606,7 @@ export default function MessagesPage() {
 
               {/* messages */}
               <div className={`${styles.messages} us-scroll`}>
-                {loadingThread && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: 32,
-                      color: "var(--text-soft)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Loading messages…
-                  </div>
-                )}
+                {loadingThread && <PageSpinner inline label="Loading messages" />}
                 {!loadingThread && messages.length === 0 && (
                   <div
                     style={{

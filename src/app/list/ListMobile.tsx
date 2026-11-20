@@ -8,6 +8,7 @@ import { previewUrlFor } from '@/lib/heicPreview';
 import { useDraftAutosave } from './useDraftAutosave';
 import StreetAutocomplete from './StreetAutocomplete';
 import styles from './ListMobile.module.css';
+import PageSpinner from '@/app/components/PageSpinner';
 
 type Photo = { r2Key: string; previewUrl: string; uploading?: boolean; error?: string };
 type PType = 'studio' | 'apartment' | 'room' | 'house';
@@ -402,7 +403,7 @@ function ListMobileInner() {
 
   const barColors = [1, 2, 3, 4].map(n => step >= n ? '#6d28d9' : '#ece8f6');
 
-  if (draftId && !formReady) return null;
+  if (draftId && !formReady) return <PageSpinner />;
 
   return (
     <div className={styles.screen}>

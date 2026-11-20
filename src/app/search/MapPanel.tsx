@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useState, useCallback, useEffect, useRef, type RefObject } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import 'leaflet/dist/leaflet.css';
 import styles from './MapPanel.module.css';
+import { areaTooBig, type Bbox } from '@/lib/mapArea';
 
 export interface MapProperty {
   id: string;
@@ -21,6 +24,14 @@ export interface MapProperty {
 
 interface Props {
   properties: MapProperty[];
+  /** Appended to listing links (chosen dates), same as the cards. */
+  linkQuery?: string;
+  /** Shows a "Search this area" button once the user pans/zooms; called with the visible bounds. */
+  onSearchArea?: (bbox: Bbox) => void;
+  /** Fit the map to the results when the city changes. Off while an area search is active, so the map stays put. */
+  autoFit?: boolean;
+  /** Start the map on these bounds (an active area search) instead of the default centre. */
+  initialBounds?: Bbox;
 }
 
 function fmtN(n: number) {
@@ -59,24 +70,63 @@ function ZoomControls() {
   );
 }
 
-function FitBoundsOnCity({ cityKey, pins }: { cityKey: string; pins: MapProperty[] }) {
+function FitBoundsOnCity({ cityKey, pins, enabled, fittingRef }: { cityKey: string; pins: MapProperty[]; enabled: boolean; fittingRef: RefObject<boolean> }) {
   const map = useMap();
   const lastKey = useRef('');
 
   useEffect(() => {
+    // Forget the last fit while disabled, so returning to a city search refits even to the same city.
+    if (!enabled) { lastKey.current = ''; return; }
     if (pins.length === 0 || cityKey === lastKey.current) return;
     lastKey.current = cityKey;
+    // Non-animated so movestart fires synchronously inside the flag — that's how
+    // SearchAreaControl tells this programmatic move apart from the user's.
+    fittingRef.current = true;
     if (pins.length === 1) {
-      map.setView([pins[0].lat, pins[0].lng], 13);
-      return;
+      map.setView([pins[0].lat, pins[0].lng], 13, { animate: false });
+    } else {
+      map.fitBounds(L.latLngBounds(pins.map(p => [p.lat, p.lng] as [number, number])), { padding: [48, 48], animate: false });
     }
-    const bounds = L.latLngBounds(pins.map(p => [p.lat, p.lng] as [number, number]));
-    map.fitBounds(bounds, { padding: [48, 48] });
-  }, [map, cityKey, pins]);
+    fittingRef.current = false;
+  }, [map, cityKey, pins, enabled, fittingRef]);
   return null;
 }
 
-export default function MapPanel({ properties }: Props) {
+function SearchAreaControl({ onSearch, fittingRef }: { onSearch: (b: Bbox) => void; fittingRef: RefObject<boolean> }) {
+  const [moved, setMoved] = useState(false);
+  const [tooBig, setTooBig] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  const bbox = (m: L.Map): Bbox => {
+    const b = m.getBounds();
+    return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+  };
+  const map = useMapEvents({
+    movestart: () => { if (!fittingRef.current) setMoved(true); },
+    moveend: () => setTooBig(areaTooBig(bbox(map))),
+  });
+  // Clicks/drags on the button must not reach the map underneath.
+  useEffect(() => {
+    if (ref.current) { L.DomEvent.disableClickPropagation(ref.current); L.DomEvent.disableScrollPropagation(ref.current); }
+  }, [moved]);
+
+  if (!moved) return null;
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={styles.searchAreaBtn}
+      disabled={tooBig}
+      onClick={() => { onSearch(bbox(map)); setMoved(false); }}
+    >
+      {tooBig ? 'Zoom in to search this area' : 'Search this area'}
+    </button>
+  );
+}
+
+export default function MapPanel({ properties, linkQuery, onSearchArea, autoFit = true, initialBounds }: Props) {
+  const fittingRef = useRef(false);
+  const router = useRouter();
+  const href = (id: string) => linkQuery ? `/search/${id}?${linkQuery}` : `/search/${id}`;
   const [mounted, setMounted] = useState(false);
   const [hovered, setHovered] = useState<MapProperty | null>(null);
   // react-leaflet v5 bug: MapContainer never clears its internal mapInstanceRef on cleanup,
@@ -115,8 +165,9 @@ export default function MapPanel({ properties }: Props) {
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <MapContainer
         key={mapKey}
-        center={[48.137, 11.582]}
-        zoom={12}
+        {...(initialBounds
+          ? { bounds: L.latLngBounds([initialBounds[0], initialBounds[1]], [initialBounds[2], initialBounds[3]]) }
+          : { center: [48.137, 11.582] as [number, number], zoom: 12 })}
         style={{ width: '100%', height: '100%' }}
         zoomControl={false}
         attributionControl={true}
@@ -126,17 +177,18 @@ export default function MapPanel({ properties }: Props) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         <ZoomControls />
-        <FitBoundsOnCity cityKey={cityKey} pins={pins} />
+        <FitBoundsOnCity cityKey={cityKey} pins={pins} enabled={autoFit} fittingRef={fittingRef} />
+        {onSearchArea && <SearchAreaControl onSearch={onSearchArea} fittingRef={fittingRef} />}
         {pins.map(p => (
           <Marker
             key={p.id}
             position={[p.lat, p.lng]}
             icon={makePinIcon(p.price, p.featured, p.badge)}
-            eventHandlers={{ mouseover: () => onEnter(p), mouseout: onLeave }}
+            eventHandlers={{ mouseover: () => onEnter(p), mouseout: onLeave, click: () => router.push(href(p.id)) }}
           >
             {hovered?.id === p.id && (
               <Popup offset={[0, -8]} closeButton={false} autoPan={false}>
-                <div className={styles.popup}>
+                <Link href={href(p.id)} className={styles.popup} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <p className={styles.popupTitle}>{p.title}</p>
                   <p className={styles.popupAddress}>{p.address}</p>
                   <div className={styles.popupFooter}>
@@ -146,7 +198,7 @@ export default function MapPanel({ properties }: Props) {
                       {p.avail}
                     </span>
                   </div>
-                </div>
+                </Link>
               </Popup>
             )}
           </Marker>

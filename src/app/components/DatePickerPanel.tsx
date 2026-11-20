@@ -63,7 +63,7 @@ interface Props {
 export default function DatePickerPanel({ initialMoveIn = '', initialMoveOut = '', onApply, onClear }: Props) {
   const [mode, setMode] = useState<'date' | 'month'>('date');
   const [monthOffset, setMonthOffset] = useState(0);
-  const [moveIn, setMoveIn] = useState<string | null>(initialMoveIn || null);
+  const [moveIn, setMoveIn] = useState<string | null>(initialMoveIn || todayStr()); // default: from today, no end date
   const [moveOut, setMoveOut] = useState<string | null>(initialMoveOut || null);
   const [flex, setFlex] = useState<'exact' | '1week' | '2weeks'>('exact');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());

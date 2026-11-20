@@ -6,10 +6,12 @@ import { adminAuth } from '@/lib/firebase-admin'
 import { d1Query } from '@/lib/d1'
 import { getSignedUrl } from '@/lib/r2'
 import { cityCoords } from '@/lib/city-coords'
-import { cityMatchTerms } from '@/lib/city-aliases'
+import { matchingCities, inList } from '@/lib/listings/cities'
 import { geocodeAddress } from '@/lib/geocode'
 import { getAppSetting } from '@/lib/settings'
 import { searchPlaces, type Place } from '@/lib/places'
+import { findUniversity, universityPlace } from '@/lib/universities'
+import { parseBbox, bboxCenter, type Bbox } from '@/lib/mapArea'
 
 const LIMIT = 20
 
@@ -58,7 +60,10 @@ export async function GET(req: NextRequest) {
   const minPrice  = sp.has('minPrice')  ? parseInt(sp.get('minPrice')!)  : undefined
   const maxPrice  = sp.has('maxPrice')  ? parseInt(sp.get('maxPrice')!)  : undefined
   const type      = sp.get('type')      ?? undefined
-  const moveIn    = sp.get('moveIn')    ?? undefined
+  // Default search is "from today, no end date" = no availability filter; only a
+  // future move-in date narrows to listings available by then.
+  const moveInRaw = sp.get('moveIn') ?? ''
+  const moveIn    = moveInRaw > new Date().toISOString().slice(0, 10) ? moveInRaw : undefined
   const source    = sp.get('source')    ?? 'all'   // 'all' | 'CASA' | 'PARTNER' | 'PRIVATE'
   const sortParam = sp.get('sort')
   const sort      = sortParam === 'price_asc' || sortParam === 'price_desc' ? sortParam : undefined
@@ -66,17 +71,21 @@ export async function GET(req: NextRequest) {
   // near=lat,lng — set when the user picked an address/neighbourhood; results
   // stay scoped to `city` but come back nearest-first.
   const nearParts = (sp.get('near') ?? '').split(',').map(Number)
-  const near: [number, number] | null =
-    nearParts.length === 2 && nearParts.every(Number.isFinite) ? [nearParts[0], nearParts[1]] : null
+  // bbox=s,w,n,e — "Search this area" on the map: listings inside the visible
+  // bounds from every source, any city, nearest the map centre first.
+  const bbox = parseBbox(sp.get('bbox'))
+  const near: [number, number] | null = bbox ? bboxCenter(bbox)
+    : nearParts.length === 2 && nearParts.every(Number.isFinite) ? [nearParts[0], nearParts[1]] : null
 
   let result: Awaited<ReturnType<typeof getListingsData>> & { resolvedPlace?: Place } =
-    await getCachedListings(city, minPrice, maxPrice, type, moveIn, source, page, near, sort)
+    await getCachedListings(bbox ? '' : city, minPrice, maxPrice, type, moveIn, source, page, near, sort, bbox)
 
-  // Typed an address/street/neighbourhood without picking a suggestion: the text matches
-  // no city, so look it up and search that place's city nearest-first instead of
-  // showing 0 results.
-  if (result.total === 0 && city.trim().length >= 3 && !near) {
-    const [place] = await searchPlaces(city, 'any')
+  // Typed a university or address/street/neighbourhood without picking a suggestion: the
+  // text matches no city, so look it up and search that place's city nearest-first
+  // instead of showing 0 results.
+  if (result.total === 0 && city.trim().length >= 2 && !near) {
+    const uni = findUniversity(city)
+    const [place] = uni ? [universityPlace(uni)] : await searchPlaces(city, 'any')
     if (place && place.city.toLowerCase() !== city.trim().toLowerCase()) {
       const resolved = await getCachedListings(place.city, minPrice, maxPrice, type, moveIn, source, page, [place.lat, place.lng], sort)
       result = { ...resolved, resolvedPlace: place }
@@ -105,24 +114,27 @@ async function getListingsData(
   page: number,
   near: [number, number] | null = null,
   sort?: 'price_asc' | 'price_desc',
+  bbox: Bbox | null = null,
 ) {
-  // Normalise umlauts + English/German aliases so 'munich' matches 'München' etc.
-  const cityAlts = cityMatchTerms(city)
-  const q = cityAlts[0] ?? ''
+  // Stored city names this search matches (aliases, umlauts, "am Main"-style
+  // qualifiers). A city query matching none skips the host/CASA queries.
+  const q = city.trim()
+  const hostCities = q
+    ? await matchingCities('listings', q).catch(err => { console.error('[GET /api/listings] city lookup failed:', err); return [] })
+    : []
 
   // ── HOST (user-submitted listings in D1) ──────────────────────
   let hostListings: UnifiedListing[] = []
-  if (source === 'all' || source === 'PRIVATE') {
+  if ((source === 'all' || source === 'PRIVATE') && (!q || hostCities.length)) {
     const params: (string | number)[] = []
     const conditions: string[] = ["l.status = 'published'", "(l.source IS NULL OR l.source = 'private')"]
 
-    if (q) {
-      // Normalise both sides so 'munich' matches 'München'; cityAlts also covers 'munchen' for 'münchen'
-      const cityLikeClauses = cityAlts.map(() =>
-        "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(l.city,'ü','u'),'ä','a'),'ö','o'),'ß','ss')) LIKE ?"
-      )
-      conditions.push(`(${cityLikeClauses.join(' OR ')})`)
-      for (const alt of cityAlts) params.push(`%${alt}%`)
+    if (bbox) {
+      conditions.push('l.lat BETWEEN ? AND ? AND l.lng BETWEEN ? AND ?')
+      params.push(bbox[0], bbox[2], bbox[1], bbox[3])
+    } else if (q) {
+      conditions.push(`l.city IN ${inList(hostCities.length)}`)
+      params.push(...hostCities)
     }
     if (minPrice !== undefined) {
       conditions.push('(l.cold_rent + l.utilities) >= ?')
@@ -201,16 +213,16 @@ async function getListingsData(
 
   // ── CASA (admin-curated, D1-backed) ────────────────────────────
   let d1CasaListings: UnifiedListing[] = []
-  if (source === 'all' || source === 'CASA') {
+  if ((source === 'all' || source === 'CASA') && (!q || hostCities.length)) {
     const params: (string | number)[] = []
     const conditions: string[] = ["l.status = 'published'", "l.source = 'casa'"]
 
-    if (q) {
-      const cityLikeClauses = cityAlts.map(() =>
-        "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(l.city,'ü','u'),'ä','a'),'ö','o'),'ß','ss')) LIKE ?"
-      )
-      conditions.push(`(${cityLikeClauses.join(' OR ')})`)
-      for (const alt of cityAlts) params.push(`%${alt}%`)
+    if (bbox) {
+      conditions.push('l.lat BETWEEN ? AND ? AND l.lng BETWEEN ? AND ?')
+      params.push(bbox[0], bbox[2], bbox[1], bbox[3])
+    } else if (q) {
+      conditions.push(`l.city IN ${inList(hostCities.length)}`)
+      params.push(...hostCities)
     }
     if (minPrice !== undefined) {
       conditions.push('(l.cold_rent + l.utilities) >= ?')
@@ -289,9 +301,11 @@ async function getListingsData(
   const casaListings = d1CasaListings
 
   // ── PARTNER (D1-backed, paginated; city optional — browses all when empty) ──
+  const noPartners = { listings: [], total: 0, hasMore: false }
   const partnerResult = source === 'all' || source === 'PARTNER'
-    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT, near, sort)
-    : { listings: [], total: 0, hasMore: false }
+    ? await searchPartnerListings(city, { minPrice, maxPrice, type, moveIn }, page, LIMIT, near, sort, bbox)
+        .catch(err => { console.error('[GET /api/listings] partner query failed:', err); return noPartners })
+    : noPartners
 
   // Page 1: HOST + CASA first, then partners. Page 2+: partners only.
   // With `near`, page 1 is re-sorted nearest-first (partners already arrive in distance order).
