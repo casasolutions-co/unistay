@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useVerifyFlow } from './useVerifyFlow';
+import AboutMeStep from './AboutMeStep';
 import styles from './VerifyMobile.module.css';
 
 function Icon({ paths, size = 17, stroke = 'currentColor', sw = 1.8 }: { paths: string[]; size?: number; stroke?: string; sw?: number }) {
@@ -37,7 +38,7 @@ const RIGHTS = [
 
 export default function VerifyMobile() {
   const {
-    stage, consent, setConsent,
+    stage, consent, setConsent, aboutDraft, profileSaved, user,
     checkingPending, stillPendingNotice, redirectError,
     canSubmit, submitId, refreshPending, goBack, goConsent,
   } = useVerifyFlow();
@@ -65,6 +66,8 @@ export default function VerifyMobile() {
 
       {/* SCROLL CONTENT */}
       <div className={`${styles.usScroll} ${styles.scroll}`}>
+
+        {stage === 'profile' && <AboutMeStep user={user} draft={aboutDraft} onSaved={profileSaved} />}
 
         {stage === 'intro' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>

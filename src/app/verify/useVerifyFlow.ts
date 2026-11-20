@@ -3,10 +3,19 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { aboutMeMissing, type Occupation } from '@/lib/aboutMe';
 
-export type Stage = 'intro' | 'consent' | 'redirecting' | 'pending' | 'verified';
+export type Stage = 'loading' | 'profile' | 'intro' | 'consent' | 'redirecting' | 'pending' | 'verified';
 
-type ProfileResponse = { user?: { verification_status?: string } };
+type ProfileUser = {
+  verification_status?: string; role?: string; job_title?: string | null; university?: string | null;
+  photo_url?: string | null; occupation?: string | null; traits?: string[]; about?: string | null;
+};
+
+// What the "about me" step starts from: saved values, else a guess from signup.
+export type AboutMeDraft = { photoUrl: string | null; occupation: Occupation | null; traits: string[]; about: string };
+
+type ProfileResponse = { user?: ProfileUser };
 
 function stageForStatus(status: string | undefined): Stage | null {
   if (status === 'verified') return 'verified';
@@ -16,14 +25,18 @@ function stageForStatus(status: string | undefined): Stage | null {
 
 export function useVerifyFlow() {
   const [user, setUser] = useState<User | null>(null);
-  const [stage, setStage] = useState<Stage>('intro');
+  const [stage, setStage] = useState<Stage>('loading');
+  const [aboutDraft, setAboutDraft] = useState<AboutMeDraft>({ photoUrl: null, occupation: null, traits: [], about: '' });
   const [consent, setConsent] = useState(false);
   const [checkingPending, setCheckingPending] = useState(false);
   const [stillPendingNotice, setStillPendingNotice] = useState(false);
   const [redirectError, setRedirectError] = useState('');
   const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  useEffect(() => onAuthStateChanged(auth, u => {
+    setUser(u);
+    if (!u) setStage(s => (s === 'loading' ? 'intro' : s));
+  }), []);
 
   // On first load, jump straight to whatever stage matches the user's real status
   // (e.g. returning to this page after a Didit session, or re-visiting while pending).
@@ -35,10 +48,20 @@ export function useVerifyFlow() {
         .then(r => r.json())
         .then((d: ProfileResponse) => {
           if (cancelled) return;
-          const s = stageForStatus(d.user?.verification_status);
-          if (s) setStage(s);
+          const u = d.user ?? {};
+          const draft: AboutMeDraft = {
+            photoUrl: u.photo_url ?? null,
+            occupation: (u.occupation as Occupation | null)
+              ?? (u.role === 'landlord' ? 'landlord' : u.job_title ? 'professional' : u.university ? 'student' : null),
+            traits: u.traits ?? [],
+            about: u.about ?? '',
+          };
+          setAboutDraft(draft);
+          const incomplete = aboutMeMissing({ ...draft, hasPhoto: !!draft.photoUrl }).length > 0;
+          setStage(stageForStatus(u.verification_status) ?? (incomplete ? 'profile' : 'intro'));
         })
-        .catch(() => {})
+        // Server still refuses to start Didit with an incomplete profile.
+        .catch(() => { if (!cancelled) setStage('intro'); })
         .finally(() => { if (!cancelled) setInitialized(true); })
     );
     return () => { cancelled = true; };
@@ -94,6 +117,8 @@ export function useVerifyFlow() {
 
   return {
     stage, setStage,
+    aboutDraft, profileSaved: () => setStage('intro'), editProfile: () => setStage('profile'),
+    user,
     consent, setConsent,
     checkingPending, stillPendingNotice, redirectError,
     canSubmit,

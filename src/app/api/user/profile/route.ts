@@ -3,6 +3,8 @@ import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { DIDIT_OWNED_STATUSES, reconcileWithDidit } from '@/lib/didit';
 import { saveProfile } from '@/lib/userProfile';
+import { getSignedUrl } from '@/lib/r2';
+import { parseTraits } from '@/lib/aboutMe';
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -19,13 +21,14 @@ export async function GET(req: NextRequest) {
 
   const [row] = await d1Query<{ preferences: string | null; verification_status: string; didit_session_id: string | null; decision_processed_at: number | null; [key: string]: unknown }>(
     `SELECT id, email, name, phone, nationality, residence_country, residence_city, role, university, program,
-            start_year, job_title, why, profile_complete, verification_status, preferences, didit_session_id, decision_processed_at
+            start_year, job_title, why, profile_complete, verification_status, preferences, didit_session_id, decision_processed_at,
+            photo_key, occupation, traits, about
      FROM users WHERE id = ?`,
     [decoded.uid]
   );
 
   if (!row) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  const { didit_session_id, decision_processed_at, ...user } = row;
+  const { didit_session_id, decision_processed_at, photo_key, traits, ...user } = row as typeof row & { photo_key: string | null; traits: string | null };
 
   // Webhook may not have reached us; pull the outcome from Didit so every page shows the
   // real status. Skipped once a final outcome is stored (verified, admin-rejected/banned,
@@ -41,7 +44,8 @@ export async function GET(req: NextRequest) {
   const defaultPreferences = { showActivityStatus: true, emailDigest: false, savedListingIds: [] as string[] };
   const preferences = user.preferences ? { ...defaultPreferences, ...JSON.parse(user.preferences) } : defaultPreferences;
 
-  return NextResponse.json({ user: { ...user, preferences } });
+  const photo_url = photo_key ? getSignedUrl(photo_key) : null;
+  return NextResponse.json({ user: { ...user, preferences, photo_url, traits: parseTraits(traits) } });
 }
 
 export async function POST(req: NextRequest) {

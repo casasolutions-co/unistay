@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { DIDIT_OWNED_STATUSES, reconcileWithDidit, type DiditDecision } from '@/lib/didit';
+import { aboutMeMissing, parseTraits } from '@/lib/aboutMe';
 
 // Terminal statuses where Didit considers the session over — a fresh one is required.
 // Expired: TTL elapsed before the user opened the link.
@@ -22,8 +23,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const [existing] = await d1Query<{ didit_session_id: string | null; verification_status: string }>(
-    'SELECT didit_session_id, verification_status FROM users WHERE id = ?',
+  const [existing] = await d1Query<{
+    didit_session_id: string | null; verification_status: string;
+    photo_key: string | null; occupation: string | null; traits: string | null; about: string | null;
+  }>(
+    'SELECT didit_session_id, verification_status, photo_key, occupation, traits, about FROM users WHERE id = ?',
     [decoded.uid]
   );
 
@@ -34,6 +38,15 @@ export async function POST(req: NextRequest) {
   // send them through Didit for nothing.
   if (existing && !DIDIT_OWNED_STATUSES.includes(existing.verification_status)) {
     return NextResponse.json({ error: 'Your verification was reviewed by our team. Please contact support.' }, { status: 403 });
+  }
+
+  // The "about me" profile has to be complete before anyone can start verification.
+  const missing = existing ? aboutMeMissing({
+    hasPhoto: !!existing.photo_key, occupation: existing.occupation,
+    traits: parseTraits(existing.traits), about: existing.about ?? '',
+  }) : [];
+  if (missing.length) {
+    return NextResponse.json({ error: `Complete your profile first — still needed: ${missing.join(', ')}` }, { status: 400 });
   }
 
   if (existing?.didit_session_id) {

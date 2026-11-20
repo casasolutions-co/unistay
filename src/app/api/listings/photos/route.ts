@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import heicConvert from 'heic-convert';
 import { adminAuth } from '@/lib/firebase-admin';
 import { uploadToR2 } from '@/lib/r2';
 import { d1Query } from '@/lib/d1';
-import { sniffMime } from '@/lib/sniff-mime';
-import { shrinkPhoto } from '@/lib/shrink-photo';
+import { prepareImage } from '@/lib/prepareImage';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-const HEIC_TYPES = ['image/heic', 'image/heif'];
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB per photo
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Extension is derived from the sniffed content type, never the client filename,
-// so it can't be used for path traversal in the R2 key.
-const EXT_FOR_TYPE: Record<string, string> = {
-  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
-};
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
@@ -66,46 +56,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: 'Only JPEG, PNG, WebP and HEIC images are allowed' }, { status: 400 });
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: 'Photo must be under 10 MB' }, { status: 400 });
-  }
-
-  let buffer = Buffer.from(await file.arrayBuffer());
-
-  // The declared file.type is whatever the browser/client claims — sniff the
-  // actual bytes so a renamed/relabeled file can't sneak past the allow-list.
-  const sniffed = sniffMime(buffer, file.type);
-  if (!sniffed || !ALLOWED_TYPES.includes(sniffed)) {
-    return NextResponse.json({ error: 'File content does not match its declared type' }, { status: 400 });
-  }
-  let contentType = sniffed;
-  let ext = EXT_FOR_TYPE[contentType] ?? 'jpg';
-
-  // Browsers can't render HEIC/HEIF natively — convert to JPEG so uploaded
-  // photos actually display once stored, instead of ever hitting R2 as HEIC.
-  if (HEIC_TYPES.includes(contentType)) {
-    try {
-      const jpegBuffer = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
-      buffer = Buffer.from(jpegBuffer);
-      contentType = 'image/jpeg';
-      ext = 'jpg';
-    } catch (err) {
-      console.error('[POST /api/listings/photos] HEIC conversion failed:', err);
-      return NextResponse.json({ error: 'Could not process this HEIC photo. Try converting it to JPEG first.' }, { status: 400 });
-    }
-  }
-
-  try {
-    buffer = Buffer.from(await shrinkPhoto(buffer));
-    contentType = 'image/jpeg';
-    ext = 'jpg';
-  } catch (err) {
-    // Unusual-but-valid image sharp can't handle — store the original rather than fail.
-    console.error('[POST /api/listings/photos] resize failed, storing original:', err);
-  }
+  const img = await prepareImage(file, 'POST /api/listings/photos');
+  if ('error' in img) return NextResponse.json({ error: img.error }, { status: 400 });
+  const { buffer, contentType, ext } = img;
 
   const r2Key = `listings/${listingId}/${crypto.randomUUID()}.${ext}`;
 
