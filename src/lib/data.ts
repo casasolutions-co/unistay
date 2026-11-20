@@ -1,5 +1,5 @@
 import { d1All, d1First, d1Run, nowSeconds, relativeTime, toMs } from './d1'
-import type { User, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory, LandlordApplication, LandlordStatus } from './types'
+import type { User, UserProfile, Listing, Message, MessageThread, ThreadMessage, Document, Report, AppSetting, AuditLogEntry, DashboardCounts, Faq, FaqCategory, LandlordApplication, LandlordStatus } from './types'
 import { findStaticListing } from './staticListings'
 import { deletePhoto } from './r2'
 import { refreshUserAppListings } from './userApp'
@@ -22,6 +22,25 @@ interface UserRow {
   ban_reason: string | null
   ban_expires_at: number | null
   created_at: number | null
+  // Profile (student app /profile + signup). Optional: older rows / pre-migration DBs.
+  role?: string | null
+  occupation?: string | null
+  email_verified?: number | null
+  email_verified_at?: number | null
+  nationality?: string | null
+  residence_country?: string | null
+  residence_city?: string | null
+  program?: string | null
+  start_year?: string | null
+  job_title?: string | null
+  management_type?: string | null
+  properties_count?: number | null
+  property_cities?: string | null
+  why?: string | null
+  photo_key?: string | null
+  traits?: string | null
+  about?: string | null
+  preferences?: string | null
 }
 
 interface ListingRow {
@@ -100,6 +119,35 @@ function mapUser(r: UserRow): User {
     bannedAt: r.banned_at ? relativeTime(r.banned_at) : null,
     banReason: r.ban_reason,
     banExpiresAt: r.ban_expires_at ? new Date(r.ban_expires_at * 1000).toISOString() : null,
+    profile: mapProfile(r),
+  }
+}
+
+function parseJson<T>(json: string | null | undefined, fallback: T): T {
+  try { return json ? JSON.parse(json) as T : fallback } catch { return fallback }
+}
+
+function mapProfile(r: UserRow): UserProfile {
+  const occ = r.occupation === 'student' || r.occupation === 'professional' || r.occupation === 'landlord' ? r.occupation : null
+  const traits = parseJson<unknown>(r.traits, [])
+  return {
+    occupation: occ ?? (r.role === 'landlord' ? 'landlord' : r.job_title ? 'professional' : r.role ? 'student' : null),
+    emailVerified: !!r.email_verified,
+    emailVerifiedAt: r.email_verified_at ? relativeTime(r.email_verified_at) : null,
+    nationality: r.nationality ?? null,
+    residence: [r.residence_city, r.residence_country].filter(Boolean).join(', ') || null,
+    university: r.university,
+    program: r.program ?? null,
+    startYear: r.start_year ?? null,
+    jobTitle: r.job_title ?? null,
+    managementType: r.management_type ?? null,
+    propertiesCount: r.properties_count ?? null,
+    propertyCities: r.property_cities ?? null,
+    why: r.why ?? null,
+    photoKey: r.photo_key ?? null,
+    traits: Array.isArray(traits) ? traits.filter((t): t is string => typeof t === 'string') : [],
+    about: r.about ?? null,
+    housing: parseJson<{ housing?: UserProfile['housing'] }>(r.preferences, {}).housing ?? null,
   }
 }
 

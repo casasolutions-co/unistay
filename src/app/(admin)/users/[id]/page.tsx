@@ -9,6 +9,28 @@ import UserRowActions from '../UserRowActions'
 import DocRowActions from '../../documents/DocRowActions'
 import { userStatus, listingStatus, docStatus, thumbBg } from '@/lib/utils'
 
+const OCC_LABEL = { student: 'Student', professional: 'Professional', landlord: 'Landlord' } as const
+const OCC_HEADING = { student: 'Studies', professional: 'Work', landlord: 'Renting out' } as const
+const MGMT: Record<string, string> = { private: 'Private owner', agency: 'Agency', company: 'Company' }
+
+function ProfileFacts({ title, rows }: { title: string; rows: [string, string | number | null][] }) {
+  const shown = rows.filter(([, v]) => v != null && v !== '')
+  return (
+    <div style={{ borderTop: '1px solid #f1eef7', marginTop: 14, paddingTop: 14 }}>
+      <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 10 }}>{title.toUpperCase()}</div>
+      {shown.length === 0 && <div style={{ fontSize: 13, fontWeight: 600, color: '#b0aabf' }}>Not filled in.</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px 18px' }}>
+        {shown.map(([label, val]) => (
+          <div key={label}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#9a94a8' }}>{label}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1c1530' }}>{val}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const user = await getUser(id)
@@ -20,6 +42,18 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     getMessagesByUser(id),
   ])
   const st = userStatus(user.status)
+  const p = user.profile
+  const h = p.housing
+  const occRows: [string, string | number | null][] =
+    p.occupation === 'landlord' ? [['Rents as', p.managementType && (MGMT[p.managementType] ?? p.managementType)], ['Properties', p.propertiesCount], ['Cities', p.propertyCities]]
+    : p.occupation === 'professional' ? [['Job title', p.jobTitle]]
+    : [['University', p.university], ['Program', p.program], ['Start year', p.startYear]]
+  const housingRows: [string, string | number | null][] = h ? [
+    ['City', h.city || null],
+    ['Type of place', h.types?.join(', ') || null],
+    ['Budget', h.minPrice != null || h.maxPrice != null ? `€${h.minPrice ?? 0} – €${h.maxPrice ?? '…'} / month` : null],
+    ['Move-in', h.moveIn || null],
+  ] : []
   const verify = verifyUser.bind(null, id)
   const reject = rejectUser.bind(null, id)
   const ban    = banUser.bind(null, id)
@@ -42,11 +76,15 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
 
       {/* Header card */}
       <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: '22px 26px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <Avatar name={user.name} size={56} fontSize={19} />
+        {p.photoKey
+          // eslint-disable-next-line @next/next/no-img-element -- authenticated R2 proxy
+          ? <img src={`/api/admin-photo?key=${encodeURIComponent(p.photoKey)}`} alt="" width={56} height={56} style={{ borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+          : <Avatar name={user.name} size={56} fontSize={19} />}
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h2 style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 800, fontSize: 22, margin: 0, letterSpacing: '-.02em' }}>{user.name}</h2>
             <StatusBadge label={st.label} bg={st.bg} color={st.color} />
+            {p.occupation && <StatusBadge label={OCC_LABEL[p.occupation]} bg="#f3effe" color="#6d28d9" />}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#9a94a8', marginTop: 4 }}>{user.email} · joined {user.joined}</div>
           {user.status === 'rejected' && user.verificationNote && (
@@ -78,7 +116,13 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
             <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', marginBottom: 12 }}>CONTACT</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, fontWeight: 600, color: '#4a4654' }}>
-              {[['Email', user.email], ['Phone', user.phone], ['University', user.university]].map(([label, val]) => (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ color: '#9a94a8' }}>Email verified</span>
+                <span style={{ textAlign: 'right', color: p.emailVerified ? '#1f8a5b' : '#b45309', fontWeight: 700 }}>
+                  {p.emailVerified ? `Yes${p.emailVerifiedAt ? ` · ${p.emailVerifiedAt}` : ''}` : 'Not yet'}
+                </span>
+              </div>
+              {[['Email', user.email], ['Phone', user.phone], ['Nationality', p.nationality ?? '—'], ['Lives in', p.residence ?? '—']].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <span style={{ color: '#9a94a8' }}>{label}</span>
                   <span style={{ textAlign: 'right' }}>{val}</span>
@@ -123,6 +167,24 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
 
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Profile (student app /profile) */}
+          <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', padding: 20 }}>
+            <div style={{ fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>About me</div>
+            {p.about
+              ? <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: '#4a4654', whiteSpace: 'pre-line' }}>{p.about}</p>
+              : <div style={{ fontSize: 13, fontWeight: 600, color: '#b0aabf' }}>No intro written yet.</div>}
+            {p.traits.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                {p.traits.map(t => <span key={t} style={{ fontSize: 12, fontWeight: 700, color: '#4a3d6b', background: '#f7f6fa', border: '1px solid #ece8f3', padding: '4px 10px', borderRadius: 999 }}>{t}</span>)}
+              </div>
+            )}
+            {p.why && (
+              <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600, color: '#9a94a8' }}>Sign-up “Why UniStay?”: <span style={{ color: '#4a4654' }}>{p.why}</span></div>
+            )}
+            <ProfileFacts title={p.occupation ? OCC_HEADING[p.occupation] : 'Details'} rows={occRows} />
+            {p.occupation !== 'landlord' && <ProfileFacts title="Looking for" rows={housingRows} />}
+          </div>
+
           {/* Listings */}
           <div style={{ background: '#fff', border: '1px solid #ece8f3', borderRadius: 18, boxShadow: '0 1px 3px rgba(34,18,68,.05)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1eef7', fontFamily: 'var(--font-bricolage)', fontWeight: 700, fontSize: 15 }}>Listings by this user ({listings.length})</div>

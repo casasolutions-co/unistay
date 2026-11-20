@@ -17,6 +17,28 @@ export interface User {
   bannedAt?: string | null
   banReason?: string | null
   banExpiresAt?: string | null // null + banned = permanent
+  profile: UserProfile
+}
+
+// Everything the user fills in on the student app's /profile page (+ signup).
+export interface UserProfile {
+  occupation: 'student' | 'professional' | 'landlord' | null
+  emailVerified: boolean
+  emailVerifiedAt: string | null
+  nationality: string | null
+  residence: string | null
+  university: string | null
+  program: string | null
+  startYear: string | null
+  jobTitle: string | null
+  managementType: string | null
+  propertiesCount: number | null
+  propertyCities: string | null
+  why: string | null
+  photoKey: string | null
+  traits: string[]
+  about: string | null
+  housing: { city?: string; types?: string[]; minPrice?: number | null; maxPrice?: number | null; moveIn?: string } | null
 }
 
 export interface Listing {
