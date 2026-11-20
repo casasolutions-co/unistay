@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import AboutMeForm from '../components/AboutMeForm';
 import MobileTabBar from '../components/MobileTabBar';
 import styles from './ProfileMobile.module.css';
 
@@ -255,6 +256,8 @@ export default function ProfileMobile() {
             <div className={styles.strengthFill} style={{ width: '75%' }} />
           </div>
         </div>
+
+        <div className={styles.card}><AboutMeForm /></div>
 
         {/* Personal information */}
         <div className={styles.card}>

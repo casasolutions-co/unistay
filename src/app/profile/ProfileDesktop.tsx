@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import AboutMeForm from '../components/AboutMeForm';
 import AppNav from '../components/AppNav';
 import styles from './ProfileDesktop.module.css';
 
@@ -271,6 +272,8 @@ export default function ProfileDesktop() {
                 {editing ? 'Done' : 'Edit profile'}
               </button>
             </div>
+
+            <div className={styles.panel}><AboutMeForm /></div>
 
             {/* Personal information */}
             <div className={styles.panel}>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import VerifyMobile from './VerifyMobile';
 import { useVerifyFlow } from './useVerifyFlow';
-import AboutMeStep from './AboutMeStep';
+import ProfileNeeded from './ProfileNeeded';
 import styles from './page.module.css';
 
 function Icon({ paths, size = 18, stroke = 'currentColor', sw = 1.8 }: { paths: string[]; size?: number; stroke?: string; sw?: number }) {
@@ -45,7 +45,7 @@ const RIGHTS = [
 
 export default function VerifyIdentity() {
   const {
-    stage, consent, setConsent, aboutDraft, profileSaved, user,
+    stage, consent, setConsent, aboutMissing,
     checkingPending, stillPendingNotice, redirectError,
     canSubmit, submitId, refreshPending, goBack, goConsent,
   } = useVerifyFlow();
@@ -98,7 +98,7 @@ export default function VerifyIdentity() {
 
                 <div className={styles.cardBody}>
 
-                  {stage === 'profile' && <AboutMeStep user={user} draft={aboutDraft} onSaved={profileSaved} />}
+                  {stage === 'profile' && <ProfileNeeded missing={aboutMissing} />}
 
                   {stage === 'intro' && (
                     <div>
