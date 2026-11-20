@@ -329,9 +329,17 @@ export async function getUsers(opts: { filter?: string; q?: string } = {}): Prom
 interface LandlordRow {
   id: string; name: string | null; email: string
   landlord_status: LandlordStatus; landlord_note: string | null; landlord_applied_at: number | null
+  // Latest row from landlord_applications (the student app's apply form); NULL
+  // for users who applied before the form existed.
+  rental_type: string | null; listing_count: string | null; phone: string | null
+  company_name: string | null; company_website: string | null
+  declarations: string | null; terms_version: string | null
+  application_count: number
 }
 
 function mapLandlordApplication(r: LandlordRow): LandlordApplication {
+  let declarations: string[] = []
+  try { declarations = JSON.parse(r.declarations ?? '[]') } catch { /* leave empty */ }
   return {
     id: r.id,
     name: r.name ?? '(no name)',
@@ -339,6 +347,16 @@ function mapLandlordApplication(r: LandlordRow): LandlordApplication {
     applied: relativeTime(r.landlord_applied_at),
     status: r.landlord_status,
     note: r.landlord_note,
+    details: r.rental_type ? {
+      rentalType: r.rental_type,
+      listingCount: r.listing_count ?? '',
+      phone: r.phone ?? '',
+      companyName: r.company_name,
+      companyWebsite: r.company_website,
+      declarations,
+      termsVersion: r.terms_version ?? '',
+    } : null,
+    applicationCount: r.application_count,
   }
 }
 
@@ -346,14 +364,21 @@ export async function getLandlordApplications(opts: { filter?: string } = {}): P
   const clauses: string[] = []
   const params: (string | number)[] = []
   if (opts.filter && opts.filter !== 'all') {
-    clauses.push('landlord_status = ?')
+    clauses.push('u.landlord_status = ?')
     params.push(opts.filter)
   } else {
-    clauses.push(`landlord_status != 'none'`)
+    clauses.push(`u.landlord_status != 'none'`)
   }
   const rows = await d1All<LandlordRow>(
-    `SELECT id, name, email, landlord_status, landlord_note, landlord_applied_at FROM users
-     WHERE ${clauses.join(' AND ')} ORDER BY landlord_applied_at DESC`,
+    `SELECT u.id, u.name, u.email, u.landlord_status, u.landlord_note, u.landlord_applied_at,
+            la.rental_type, la.listing_count, la.phone, la.company_name, la.company_website,
+            la.declarations, la.terms_version,
+            (SELECT COUNT(*) FROM landlord_applications c WHERE c.user_id = u.id) as application_count
+       FROM users u
+       LEFT JOIN landlord_applications la ON la.id = (
+         SELECT id FROM landlord_applications WHERE user_id = u.id ORDER BY submitted_at DESC LIMIT 1
+       )
+     WHERE ${clauses.join(' AND ')} ORDER BY u.landlord_applied_at DESC`,
     params
   )
   return rows.map(mapLandlordApplication)

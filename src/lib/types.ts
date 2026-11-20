@@ -117,6 +117,17 @@ export interface LandlordApplication {
   applied: string
   status: LandlordStatus
   note?: string | null
+  // Answers from the latest application form; null if they applied before it existed.
+  details: {
+    rentalType: string        // owner | sublet | agency
+    listingCount: string      // 1 | 2-5 | 6+
+    phone: string
+    companyName: string | null
+    companyWebsite: string | null
+    declarations: string[]    // keys the applicant confirmed
+    termsVersion: string
+  } | null
+  applicationCount: number
 }
 
 export interface Document {
