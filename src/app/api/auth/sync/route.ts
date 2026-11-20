@@ -4,7 +4,8 @@ import { d1Query } from '@/lib/d1';
 import { getAppSetting } from '@/lib/settings';
 import { sendEmail } from '@/lib/email';
 import { welcomeEmail } from '@/lib/emails/templates';
-import { normalizeRole, saveProfile, type ProfileInput } from '@/lib/userProfile';
+import { normalizeRole, saveProfile, markEmailVerified, type ProfileInput } from '@/lib/userProfile';
+import { normalizeOccupation } from '@/lib/aboutMe';
 
 export async function POST(req: NextRequest) {
   // `profile` is sent by the email sign-up form so account + profile land in one request.
@@ -35,16 +36,18 @@ export async function POST(req: NextRequest) {
   // Upsert user into D1 — safe to call on every login
   // Role is only set on INSERT, never overwritten on login
   await d1Query(
-    `INSERT INTO users (id, email, name, role, verification_status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'unverified', ?, ?)
+    `INSERT INTO users (id, email, name, role, occupation, verification_status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'unverified', ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        email = excluded.email,
        name = COALESCE(users.name, excluded.name),
        updated_at = excluded.updated_at`,
-    [decoded.uid, decoded.email ?? '', decoded.name ?? null, userRole, now, now]
+    [decoded.uid, decoded.email ?? '', decoded.name ?? null, userRole, normalizeOccupation(role) ?? userRole, now, now]
   );
 
-  if (profile) await saveProfile(decoded.uid, { ...profile, role: userRole });
+  // occupation keeps the raw signup choice ("employed" → professional); role collapses it.
+  if (profile) await saveProfile(decoded.uid, { ...profile, role: userRole, occupation: role });
+  if (decoded.email_verified) await markEmailVerified(decoded.uid);
 
   if (!existing && decoded.email) {
     // The token can predate updateProfile(displayName), so prefer the name the form sent.

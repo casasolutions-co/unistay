@@ -41,3 +41,9 @@ export function parseTraits(json: string | null | undefined): string[] {
     return [];
   }
 }
+
+// Signup sends "employed" for professionals; everything else uses OCCUPATIONS values.
+export function normalizeOccupation(v: unknown): Occupation | null {
+  if (v === 'employed') return 'professional';
+  return OCCUPATIONS.some(o => o.value === v) ? (v as Occupation) : null;
+}
