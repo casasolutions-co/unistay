@@ -9,7 +9,7 @@ import { auth } from '@/lib/firebase';
 import { previewUrlFor } from '@/lib/heicPreview';
 import ListMobile from './ListMobile';
 import VerifyIdentity from '../verify/page';
-import ApplyLandlordGate, { LandlordStatus } from './ApplyLandlordGate';
+import ApplyLandlordGate, { LandlordStatus, SavedApplication } from './ApplyLandlordGate';
 import { useDraftAutosave } from './useDraftAutosave';
 import StreetAutocomplete from './StreetAutocomplete';
 import styles from './page.module.css';
@@ -171,6 +171,7 @@ function ListYourPlaceInner() {
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [landlordStatus, setLandlordStatus] = useState<LandlordStatus | null>(null);
   const [landlordNote, setLandlordNote] = useState<string | null>(null);
+  const [landlordApp, setLandlordApp] = useState<SavedApplication | null>(null);
 
   // Stable listing ID generated once — used as R2 key prefix before publish
   const listingIdRef = useRef(crypto.randomUUID());
@@ -200,10 +201,11 @@ function ListYourPlaceInner() {
     user.getIdToken().then(token =>
       fetch('/api/user/apply-landlord', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
-        .then((d: { landlordStatus?: LandlordStatus; landlordNote?: string | null }) => {
+        .then((d: { landlordStatus?: LandlordStatus; landlordNote?: string | null; application?: SavedApplication | null }) => {
           if (cancelled) return;
           setLandlordStatus(d.landlordStatus ?? 'none');
           setLandlordNote(d.landlordNote ?? null);
+          setLandlordApp(d.application ?? null);
         })
         .catch(() => { if (!cancelled) setLandlordStatus('none'); })
     );
@@ -522,7 +524,8 @@ function ListYourPlaceInner() {
         user={user}
         status={landlordStatus as Exclude<LandlordStatus, 'approved'>}
         note={landlordNote}
-        onApplied={setLandlordStatus}
+        saved={landlordApp}
+        onApplied={(st, app) => { setLandlordApp(app); setLandlordStatus(st); }}
       />
     );
   }
