@@ -1,15 +1,14 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getUser, getDocsByUser, getListingsByHost, getMessagesByUser } from '@/lib/data'
+import { getUser, getDocsByUser, getListingsByHost, getMessagesByUser, getUserActivity } from '@/lib/data'
 import { verifyUser, rejectUser, banUser, unbanUser, deleteUser, approveDoc, rejectDoc } from '@/lib/actions'
 import Avatar from '@/components/ui/Avatar'
 import StatusBadge from '@/components/ui/StatusBadge'
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal'
 import UserRowActions from '../UserRowActions'
 import DocRowActions from '../../documents/DocRowActions'
-import { userStatus, listingStatus, docStatus, thumbBg } from '@/lib/utils'
+import { userStatus, listingStatus, docStatus, thumbBg, OCC_LABEL } from '@/lib/utils'
 
-const OCC_LABEL = { student: 'Student', professional: 'Professional', landlord: 'Landlord' } as const
 const OCC_HEADING = { student: 'Studies', professional: 'Work', landlord: 'Renting out' } as const
 const MGMT: Record<string, string> = { private: 'Private owner', agency: 'Agency', company: 'Company' }
 
@@ -36,10 +35,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const user = await getUser(id)
   if (!user) notFound()
 
-  const [docs, listings, userMessages] = await Promise.all([
+  const [docs, listings, userMessages, activity] = await Promise.all([
     getDocsByUser(id),
     getListingsByHost(id),
     getMessagesByUser(id),
+    getUserActivity(id),
   ])
   const st = userStatus(user.status)
   const p = user.profile
@@ -58,12 +58,6 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const reject = rejectUser.bind(null, id)
   const ban    = banUser.bind(null, id)
   const unban  = unbanUser.bind(null, id)
-
-  const activity = [
-    { label: 'Account created', time: user.joined, dot: '#6d28d9' },
-    ...docs.slice(0, 1).map(d => ({ label: `Uploaded ${docs.length} document${docs.length > 1 ? 's' : ''}`, time: d.uploaded, dot: '#d97706' })),
-    ...listings.map(l => ({ label: `Submitted listing "${l.title}"`, time: l.submitted, dot: '#9a94a8' })),
-  ]
 
   return (
     <>
@@ -228,7 +222,10 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             {activity.map((a, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: a.dot, flex: 'none' }} />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#4a4654' }}>{a.label}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#4a4654' }}>
+                  {a.label}
+                  {a.by && <span style={{ display: 'block', fontSize: 11.5, color: '#b0aabf' }}>by {a.by}</span>}
+                </span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#b0aabf' }}>{a.time}</span>
               </div>
             ))}

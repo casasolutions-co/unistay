@@ -112,7 +112,6 @@ function mapUser(r: UserRow): User {
     name: r.name ?? '(no name)',
     email: r.email,
     phone: r.phone ?? '—',
-    university: r.university ?? '—',
     joined: relativeTime(r.created_at),
     status: r.banned_at ? 'banned' : (r.verification_status as User['status']),
     verificationNote: r.verification_note,
@@ -604,6 +603,40 @@ export async function getListingsByHost(hostId: string): Promise<Listing[]> {
     [hostId]
   )
   return rows.map(r => mapListing(r))
+}
+
+const USER_ACTIVITY: Record<string, { label: string; dot: string }> = {
+  'user.verify':      { label: 'Verified by admin',            dot: '#16a34a' },
+  'user.reject':      { label: 'Verification rejected',        dot: '#dc2626' },
+  'user.ban':         { label: 'Banned',                       dot: '#dc2626' },
+  'user.unban':       { label: 'Unbanned',                     dot: '#16a34a' },
+  'landlord.approve': { label: 'Landlord approved',            dot: '#16a34a' },
+  'landlord.reject':  { label: 'Landlord rejected',            dot: '#dc2626' },
+  'doc.approve':      { label: 'Document approved',            dot: '#16a34a' },
+  'doc.reject':       { label: 'Document rejected',            dot: '#dc2626' },
+}
+
+// Account events plus admin actions on the user and their documents, newest first.
+export async function getUserActivity(userId: string): Promise<{ label: string; time: string; dot: string; by?: string }[]> {
+  const rows = await d1All<{ kind: string; detail: string | null; n: number | null; admin: string | null; ts: number | null }>(
+    `SELECT 'created' AS kind, NULL AS detail, NULL AS n, NULL AS admin, created_at AS ts FROM users WHERE id = ?1
+     UNION ALL SELECT 'docs', NULL, COUNT(*), NULL, MAX(created_at) FROM user_documents WHERE user_id = ?1 HAVING COUNT(*) > 0
+     UNION ALL SELECT 'listing', title, NULL, NULL, created_at FROM listings WHERE landlord_id = ?1
+     UNION ALL SELECT action, note, NULL, admin_id, created_at FROM admin_audit_log
+       WHERE (target_type = 'user' AND target_id = ?1)
+          OR (target_type = 'verification_doc' AND target_id IN (SELECT id FROM user_documents WHERE user_id = ?1))`,
+    [userId]
+  )
+  // created_at is seconds in some tables and ms in others; normalise before sorting.
+  const secs = (t: number | null) => t == null ? 0 : t > 10_000_000_000 ? t / 1000 : t
+  return rows.sort((a, b) => secs(b.ts) - secs(a.ts)).map(r => {
+    const time = relativeTime(r.ts)
+    if (r.kind === 'created') return { label: 'Account created', time, dot: '#6d28d9' }
+    if (r.kind === 'docs') return { label: `Uploaded ${r.n} document${r.n === 1 ? '' : 's'}`, time, dot: '#d97706' }
+    if (r.kind === 'listing') return { label: `Submitted listing "${r.detail}"`, time, dot: '#9a94a8' }
+    const a = USER_ACTIVITY[r.kind] ?? { label: r.kind, dot: '#9a94a8' }
+    return { label: r.detail ? `${a.label} — ${r.detail}` : a.label, time, dot: a.dot, by: r.admin ?? undefined }
+  })
 }
 
 export async function getMessagesByUser(userId: string): Promise<Message[]> {

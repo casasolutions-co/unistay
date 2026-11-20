@@ -8,7 +8,7 @@ import SearchInput from '@/components/ui/SearchInput'
 import ActionBtn from '@/components/ui/ActionBtn'
 import UserRowActions from './UserRowActions'
 import Link from 'next/link'
-import { userStatus } from '@/lib/utils'
+import { userStatus, OCC_LABEL } from '@/lib/utils'
 
 const FILTER_PILLS = [
   { label: 'All',        value: 'all',        href: '/users' },
@@ -45,7 +45,7 @@ export default async function UsersPage({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
           <thead>
             <tr style={{ background: '#fbfafd' }}>
-              {['USER', 'UNIVERSITY', 'JOINED', 'STATUS', 'DOCS', 'ACTIONS'].map((h, i) => (
+              {['USER', 'TYPE', 'JOINED', 'STATUS', 'DOCS', 'ACTIONS'].map((h, i) => (
                 <th key={h} style={{ textAlign: i === 5 ? 'right' : 'left', padding: i === 0 || i === 5 ? '13px 20px' : '13px 16px', fontSize: 11.5, fontWeight: 800, letterSpacing: '.04em', color: '#9a94a8', borderBottom: '1px solid #f1eef7' }}>{h}</th>
               ))}
             </tr>
@@ -68,7 +68,7 @@ export default async function UsersPage({
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600 }}>{u.university}</td>
+                  <td style={{ padding: '13px 16px', color: '#4a4654', fontWeight: 600 }}>{u.profile.occupation ? OCC_LABEL[u.profile.occupation] : '—'}</td>
                   <td style={{ padding: '13px 16px', color: '#9a94a8', fontWeight: 600 }}>{u.joined}</td>
                   <td style={{ padding: '13px 16px' }}><StatusBadge label={st.label} bg={st.bg} color={st.color} /></td>
                   <td style={{ padding: '13px 16px' }}>

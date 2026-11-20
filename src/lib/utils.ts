@@ -9,6 +9,8 @@ const AVATAR_COLORS = [
   'linear-gradient(135deg,#14b8a6,#0f766e)',
 ]
 
+export const OCC_LABEL = { student: 'Student', professional: 'Professional', landlord: 'Landlord' } as const
+
 export const THUMBS = [
   'repeating-linear-gradient(135deg,#c4b5fd 0 8px,#a78bfa 8px 16px)',
   'repeating-linear-gradient(135deg,#a7f3d0 0 8px,#6ee7b7 8px 16px)',
