@@ -7,6 +7,8 @@ import { cityCoords } from '@/lib/city-coords'
 import { adminAuth } from '@/lib/firebase-admin'
 import { getAppSetting } from '@/lib/settings'
 import { bumpInquiryAndNotify } from '@/lib/chat'
+import { sendEmail } from '@/lib/email'
+import { bookingClosedEmail } from '@/lib/emails/templates'
 
 // Listing marked Rented: the accepted booking becomes confirmed, every other
 // open request is closed and its student gets a note in their chat thread.
@@ -20,6 +22,7 @@ async function closeBookingsOnRent(listingId: string, landlordId: string, now: n
      WHERE listing_id = ? AND status = 'pending' RETURNING inquiry_id, student_id`,
     [now, listingId]
   )
+  const [listing] = await d1Query<{ title: string | null }>('SELECT title FROM listings WHERE id = ?', [listingId])
   for (const b of closed) {
     await d1Query(
       `INSERT INTO messages (id, inquiry_id, sender_id, body, msg_type, created_at)
@@ -27,6 +30,13 @@ async function closeBookingsOnRent(listingId: string, landlordId: string, now: n
       [crypto.randomUUID(), b.inquiry_id, landlordId, 'This room has been rented, so your booking request was closed.', now]
     )
     await bumpInquiryAndNotify(b.inquiry_id, b.student_id, now)
+    const [student] = await d1Query<{ email: string; name: string | null }>(
+      'SELECT email, name FROM users WHERE id = ?', [b.student_id]
+    )
+    if (student?.email) {
+      const { subject, html } = bookingClosedEmail({ name: student.name, listingTitle: listing?.title ?? 'the listing', reason: 'rented' })
+      void sendEmail(student.email, subject, html)
+    }
   }
 }
 

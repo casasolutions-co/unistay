@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
   const listingPhotos = await d1Query<{ r2_key: string }>(
     'SELECT r2_key FROM listing_photos WHERE listing_id IN (SELECT id FROM listings WHERE landlord_id = ?)', [uid]
   );
+  const [me] = await d1Query<{ photo_key: string | null }>('SELECT photo_key FROM users WHERE id = ?', [uid]);
   const attachments = await d1Query<{ metadata: string | null }>(
     `SELECT metadata FROM messages WHERE sender_id = ? AND msg_type = 'file'`, [uid]
   );
@@ -53,6 +54,9 @@ export async function POST(req: NextRequest) {
       console.error('[delete-account] failed to delete listing photo', p.r2_key, err))),
     ...attachmentKeys.map(k => deleteFromR2(k).catch(err =>
       console.error('[delete-account] failed to delete chat attachment', k, err))),
+    // Profile photo is a face image — must go too.
+    ...(me?.photo_key ? [deleteFromR2(me.photo_key).catch(err =>
+      console.error('[delete-account] failed to delete profile photo', me.photo_key, err))] : []),
   ]);
 
   // email has a NOT NULL constraint (it's how Firebase auth records link back
@@ -61,12 +65,23 @@ export async function POST(req: NextRequest) {
   await d1Query(
     `UPDATE users
      SET deleted_at = ?, email = ?, name = NULL, phone = NULL, nationality = NULL,
+         residence_country = NULL, residence_city = NULL, university = NULL, program = NULL,
+         start_year = NULL, job_title = NULL, why = NULL,
+         photo_key = NULL, occupation = NULL, traits = NULL, about = NULL, preferences = NULL,
          didit_session_id = NULL, didit_decision_json = NULL, decision_processed_at = NULL
      WHERE id = ?`,
     [Date.now(), `deleted-${uid}@unistay.invalid`, uid]
   );
 
   await d1Query(`UPDATE listings SET status = 'archived' WHERE landlord_id = ?`, [uid]);
+
+  // Open bookings by or for this user must not keep a room on hold forever.
+  await d1Query(
+    `UPDATE bookings SET status = 'cancelled', updated_at = ?
+     WHERE status IN ('pending', 'accepted')
+       AND (student_id = ? OR listing_id IN (SELECT id FROM listings WHERE landlord_id = ?))`,
+    [Date.now(), uid, uid]
+  );
 
   await adminAuth.deleteUser(uid);
 

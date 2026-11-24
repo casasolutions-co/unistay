@@ -8,3 +8,10 @@ export function nextPath(fallback: string): string {
 export function loginUrl(next: string): string {
   return `/login?next=${encodeURIComponent(next)}`;
 }
+
+// `path` with the current page's `?next=` carried along, so a sign-up detour
+// (login → register → complete → preferences) still ends on the original page.
+export function withNext(path: string): string {
+  const next = nextPath('');
+  return next ? `${path}${path.includes('?') ? '&' : '?'}next=${encodeURIComponent(next)}` : path;
+}

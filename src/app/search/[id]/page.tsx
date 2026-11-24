@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, use, useRef } from 'react';
+import { useState, useEffect, use } from 'react';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -17,14 +16,6 @@ import { loginUrl } from '@/lib/nextPath';
 
 const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
 
-function initials(user: User | null) {
-  if (!user) return '??';
-  if (user.displayName) {
-    const parts = user.displayName.trim().split(/\s+/);
-    return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
-  }
-  return (user.email?.[0] ?? '?').toUpperCase();
-}
 
 /* ── SVGs ───────────────────────────────────────────────────────── */
 const IBack = () => (
@@ -72,18 +63,7 @@ const ISearch = () => (
   </svg>
 );
 
-const IPlus = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-);
 
-const IBell = () => (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-  </svg>
-);
 
 const IClose = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -172,11 +152,9 @@ export default function DetailsPage({ params }: PageProps) {
   const coldRent = property.coldRent;
   const utilities = property.utilities;
   const warmRent = coldRent + utilities;
-  const deposit = coldRent * 2;
-  const serviceFee = property.serviceFee;
+  const deposit = property.deposit ?? 0; // was coldRent * 2, which disagreed with mobile and the booking
   // CASA-only one-time fee from the admin panel; the API sends 0 for everything else.
   const adminFee = property.adminFee ?? 0;
-  const totalDue = warmRent + deposit + serviceFee;
 
   // Actions
   const handleShare = () => {
@@ -210,13 +188,16 @@ export default function DetailsPage({ params }: PageProps) {
         let error = 'Failed to send booking request. Try again.';
         let code: string | undefined;
         try { const j = JSON.parse(text); error = j.error ?? error; code = j.code; } catch { /* non-JSON body */ }
-        if (code === 'unverified') { router.push('/verify'); return; }
+        if (code === 'unverified') { router.push(`/verify?next=${encodeURIComponent(`/search/${id}?moveIn=${effMoveIn}&moveOut=${effMoveOut}`)}`); return; }
         setBookError(error);
         setTimeout(() => setBookError(''), 4000);
         return;
       }
       setBooked(true);
       setReviewing(false);
+      // Show the request where the conversation with the host continues.
+      const { inquiry_id } = await res.json().catch(() => ({}));
+      if (inquiry_id) router.push(`/messages?thread=${inquiry_id}`);
       setTimeout(() => setBooked(false), 3000);
     } catch (err) {
       console.error('[handleBook]', err);

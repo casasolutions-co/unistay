@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import LegalModal from '../components/LegalModal';
 import { useVerifyFlow } from './useVerifyFlow';
 import ProfileNeeded from './ProfileNeeded';
 import styles from './VerifyMobile.module.css';
@@ -41,7 +43,9 @@ export default function VerifyMobile() {
     stage, consent, setConsent, aboutMissing,
     checkingPending, stillPendingNotice, redirectError,
     canSubmit, submitId, refreshPending, goBack, goConsent,
+    done,
   } = useVerifyFlow();
+  const [termsOpen, setTermsOpen] = useState(false);
 
   const isFormStage = stage === 'consent';
   const headerTitle = stage === 'consent' ? 'Verify with Didit' : '';
@@ -61,7 +65,7 @@ export default function VerifyMobile() {
           </Link>
         )}
         <span style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, color: 'var(--text)' }}>{headerTitle}</span>
-        <a href="#" style={{ flex: 'none', width: 38, textAlign: 'right', fontWeight: 600, fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>Help</a>
+        <a href="/help" style={{ flex: 'none', width: 38, textAlign: 'right', fontWeight: 600, fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>Help</a>
       </div>
 
       {/* SCROLL CONTENT */}
@@ -131,7 +135,7 @@ export default function VerifyMobile() {
                 {consent && <Icon size={13} sw={3} stroke="#fff" paths={['M20 6 9 17l-5-5']} />}
               </span>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: '#4a4654', lineHeight: 1.5 }}>
-                I agree to share my ID and a live photo with Didit for verification, per Didit&apos;s <a href="#" style={{ color: 'var(--brand)' }}>Privacy Policy</a> and UniStay&apos;s <a href="#" style={{ color: 'var(--brand)' }}>Terms</a>.
+                I agree to share my ID and a live photo with Didit for verification, per Didit&apos;s <a href="https://didit.me/terms/privacy-policy/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>Privacy Policy</a> and UniStay&apos;s <a href="#" onClick={e => { e.preventDefault(); setTermsOpen(true); }} style={{ color: 'var(--brand)' }}>Terms</a>.
               </span>
             </button>
           </div>
@@ -197,12 +201,12 @@ export default function VerifyMobile() {
               <Icon size={46} sw={2.4} stroke="#15803d" paths={['M20 6 9 17l-5-5']} />
             </div>
             <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 1.08, letterSpacing: '-.03em', margin: 0, color: 'var(--text)' }}>You&apos;re verified!</h1>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-muted)', margin: '12px 0 26px' }}>You can publish listings on UniStay whenever you&apos;re ready.</p>
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-muted)', margin: '12px 0 26px' }}>{done.text}</p>
             <Link
-              href="/list"
+              href={done.href}
               style={{ width: '100%', height: 54, borderRadius: 14, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'linear-gradient(180deg, #7c3aed, #6d28d9)', boxShadow: '0 10px 22px -6px rgba(109,40,217,.55), inset 0 1px 0 rgba(255,255,255,.22)' }}
             >
-              Continue to list your place
+              {done.label}
               <Icon size={18} sw={2.4} paths={['M5 12h14M13 6l6 6-6 6']} />
             </Link>
             <Link href="/settings" style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textDecoration: 'none' }}>Back to Settings</Link>
@@ -229,6 +233,7 @@ export default function VerifyMobile() {
           )}
         </div>
       )}
+      <LegalModal isOpen={termsOpen} onClose={() => setTermsOpen(false)} initialDoc="terms" mode="view" />
     </div>
   );
 }

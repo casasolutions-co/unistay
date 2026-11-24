@@ -1,10 +1,15 @@
+'use client';
+
+import { useState } from 'react';
 import styles from './Footer.module.css';
+import LegalModal from './LegalModal';
 
 const STUDENT_LINKS = ['Refer and Earn', 'Become an Ambassador', 'Success Stories', 'Careers'];
 const PARTNER_LINKS = ['Become an Agent', 'Partner with Us'];
-const LEGAL_LINKS = ['Imprint', 'Privacy Policy'];
 
 export default function Footer() {
+  const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
+  const openLegal = (doc: 'terms' | 'privacy') => (e: React.MouseEvent) => { e.preventDefault(); setLegalDoc(doc); };
   return (
     <footer className={styles.footer}>
       <div className={styles.inner}>
@@ -48,7 +53,9 @@ export default function Footer() {
           <div>
             <div className={styles.heading}>Legal</div>
             <div className={styles.linkCol}>
-              {LEGAL_LINKS.map(l => <a key={l} href="#" className={styles.link}>{l}</a>)}
+              <a href="#" className={styles.link}>Imprint</a>
+              <a href="#" className={styles.link} onClick={openLegal('privacy')}>Privacy Policy</a>
+              <a href="#" className={styles.link} onClick={openLegal('terms')}>Terms</a>
             </div>
           </div>
 
@@ -83,6 +90,7 @@ export default function Footer() {
         <div className={styles.divider} />
         <div className={styles.copyright}>© 2026 CASA Solutions. All rights reserved.</div>
       </div>
+      {legalDoc && <LegalModal isOpen onClose={() => setLegalDoc(null)} initialDoc={legalDoc} mode="view" />}
     </footer>
   );
 }

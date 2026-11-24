@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { aboutMeMissing } from '@/lib/aboutMe';
+import { nextPath } from '@/lib/nextPath';
 
 export type Stage = 'loading' | 'profile' | 'intro' | 'consent' | 'redirecting' | 'pending' | 'verified';
 
 type ProfileUser = {
-  verification_status?: string; photo_url?: string | null; occupation?: string | null; traits?: string[]; about?: string | null;
+  verification_status?: string; role?: string; photo_url?: string | null; occupation?: string | null; traits?: string[]; about?: string | null;
 };
 
 type ProfileResponse = { user?: ProfileUser };
@@ -28,6 +29,7 @@ export function useVerifyFlow() {
   const [stillPendingNotice, setStillPendingNotice] = useState(false);
   const [redirectError, setRedirectError] = useState('');
   const [initialized, setInitialized] = useState(false);
+  const [role, setRole] = useState<string | undefined>();
 
   useEffect(() => onAuthStateChanged(auth, u => {
     setUser(u);
@@ -50,6 +52,7 @@ export function useVerifyFlow() {
             hasPhoto: !!u.photo_url, occupation: u.occupation ?? null, traits: u.traits ?? [], about: u.about ?? '',
           });
           setAboutMissing(missing);
+          setRole(u.role);
           setStage(stageForStatus(u.verification_status) ?? (missing.length ? 'profile' : 'intro'));
         })
         // Server still refuses to start Didit with an incomplete profile.
@@ -107,7 +110,17 @@ export function useVerifyFlow() {
     }
   }
 
+  // Where the "You're verified" screen sends people: back to the page that sent
+  // them here (e.g. a listing they wanted to book), else by role.
+  const next = nextPath('');
+  const done = next
+    ? { href: next, label: 'Continue', text: "You're all set — pick up where you left off." }
+    : role === 'landlord'
+      ? { href: '/list', label: 'Continue to list your place', text: 'You can publish listings on UniStay whenever you’re ready.' }
+      : { href: '/search', label: 'Find a place', text: 'You can now send booking requests to hosts.' };
+
   return {
+    done,
     stage, setStage,
     aboutMissing,
     consent, setConsent,

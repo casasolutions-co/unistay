@@ -7,11 +7,12 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import styles from "./LoginMobile.module.css";
 import { suspendedMessage } from "@/lib/authErrors";
-import { nextPath } from "@/lib/nextPath";
+import { nextPath, withNext } from "@/lib/nextPath";
 
 async function syncUser(token: string): Promise<boolean> {
   const res = await fetch("/api/auth/sync", {
@@ -155,6 +156,18 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [notice, setNotice] = useState("");
+  // Firebase sends the reset link. Same message whether or not the account
+  // exists, so the form can't be used to probe for registered emails.
+  async function handleForgotPassword(e: React.MouseEvent) {
+    e.preventDefault();
+    setNotice("");
+    if (!email.trim()) { setError("Enter your email above first, then tap “Forgot password?”."); return; }
+    setError("");
+    try { await sendPasswordResetEmail(auth, email.trim()); } catch { /* see comment above */ }
+    setNotice("If an account exists for that email, we’ve sent a link to reset your password.");
+  }
+
   const handleBack = () => router.push("/");
 
   const handleSignIn = async (e: React.SyntheticEvent) => {
@@ -166,7 +179,7 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
-      router.push(profileComplete ? nextPath("/search") : "/register/complete");
+      router.push(profileComplete ? nextPath("/search") : withNext("/register/complete"));
     } catch (e) {
       setError(suspendedMessage(e) ?? "Incorrect email or password.");
     } finally {
@@ -181,7 +194,7 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
-      router.push(profileComplete ? nextPath("/search") : "/register/complete");
+      router.push(profileComplete ? nextPath("/search") : withNext("/register/complete"));
     } catch (e) {
       setError(suspendedMessage(e) ?? "Google sign-in failed.");
     } finally {
@@ -268,7 +281,7 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
           {/* Password field */}
           <div className={styles.pwLabelRow}>
             <label className={styles.label}>Password</label>
-            <a href="#" className={styles.forgotLink}>
+            <a href="#" className={styles.forgotLink} onClick={handleForgotPassword}>
               Forgot?
             </a>
           </div>
@@ -304,6 +317,9 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
             </button>
           </div>
 
+          {notice && !error && (
+            <p style={{ fontSize: 13, fontWeight: 600, color: "#1f8a5b", margin: "0 0 12px", textAlign: "center" }}>{notice}</p>
+          )}
           {error && (
             <p
               style={{
@@ -347,7 +363,7 @@ export default function LoginMobile({ onOpenLegal }: LoginMobileProps) {
           {/* Footer link to register */}
           <p className={styles.footerText} style={{ marginBottom: 14 }}>
             New to UniStay?{" "}
-            <a href="/register" className={styles.footerLink}>
+            <a href="/register" onClick={e => { e.preventDefault(); router.push(withNext("/register")); }} className={styles.footerLink}>
               Create account
             </a>
           </p>

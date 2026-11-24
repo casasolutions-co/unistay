@@ -860,6 +860,17 @@ export default function MessagesPage() {
     [token, loadThread],
   );
 
+  // Deep link: /messages?thread=<inquiryId> opens that conversation once
+  // (e.g. right after "Request to book").
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || !token) return;
+    const id = new URLSearchParams(window.location.search).get("thread");
+    deepLinked.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from the URL, guarded by deepLinked
+    if (id) selectThread(id);
+  }, [token, selectThread]);
+
   /* ── Polling — only while a thread is open ── */
   useEffect(() => {
     if (!activeId || !token) return;

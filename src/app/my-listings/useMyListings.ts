@@ -11,7 +11,7 @@ export interface DraftListing {
 export interface PublishedListing {
   id: string; title: string; location: string;
   status: PublishedStatus;
-  rent: string; applications: number; publishedText: string; coverPhoto: string | null;
+  rent: string; requests: number; held: boolean; publishedText: string; coverPhoto: string | null;
 }
 
 // Shared data/actions behind the My Listings page — identical on desktop and

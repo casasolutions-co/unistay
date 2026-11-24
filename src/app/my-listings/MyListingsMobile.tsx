@@ -202,7 +202,11 @@ export default function MyListingsMobile() {
               )}
 
               <div className={styles.cardFooter}>
-                <span className={styles.savedText}>{p.publishedText} · {p.applications} {p.applications === 1 ? 'application' : 'applications'}</span>
+                <span className={styles.savedText}>
+                  {p.publishedText}
+                  {p.held && <> · <strong style={{ color: '#b45309' }}>Room on hold</strong></>}
+                  {p.requests > 0 && <> · <Link href="/messages" style={{ color: '#6d28d9', fontWeight: 700 }}>{p.requests} booking {p.requests === 1 ? 'request' : 'requests'} →</Link></>}
+                </span>
                 <div className={styles.actions}>
                   <Link href={`/search/${p.id}`} className={styles.secondaryBtn}>Preview</Link>
                   <button type="button" className={styles.primaryBtn} onClick={() => router.push(`/list?draft=${p.id}`)}>Edit</button>

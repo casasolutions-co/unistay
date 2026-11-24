@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
+import { isBlockedPair } from '@/lib/chat';
 import { sendEmail } from '@/lib/email';
 import { newInquiryEmail } from '@/lib/emails/templates';
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   let uid: string;
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    const decoded = await adminAuth.verifyIdToken(token, true); // true: a ban (revoked tokens) applies immediately
     uid = decoded.uid;
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -36,6 +37,9 @@ export async function POST(req: NextRequest) {
 
     if (landlordId && landlordId === uid) {
       return NextResponse.json({ error: 'Cannot message your own listing' }, { status: 400 });
+    }
+    if (landlordId && (await isBlockedPair(uid, landlordId))) {
+      return NextResponse.json({ error: 'You can no longer contact this host.' }, { status: 403 });
     }
 
     // Upsert inquiry — one per student+listing pair

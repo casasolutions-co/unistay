@@ -7,13 +7,14 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import styles from "./page.module.css";
 import LoginMobile from "./LoginMobile";
 import LegalModal from "../components/LegalModal";
 import { suspendedMessage } from "@/lib/authErrors";
-import { nextPath } from "@/lib/nextPath";
+import { nextPath, withNext } from "@/lib/nextPath";
 
 async function syncUser(token: string): Promise<boolean> {
   const res = await fetch("/api/auth/sync", {
@@ -86,6 +87,18 @@ export default function LoginPage() {
   const [pwVisible, setPwVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [notice, setNotice] = useState("");
+  // Firebase sends the reset link. Same message whether or not the account
+  // exists, so the form can't be used to probe for registered emails.
+  async function handleForgotPassword(e: React.MouseEvent) {
+    e.preventDefault();
+    setNotice("");
+    if (!email.trim()) { setError("Enter your email above first, then tap “Forgot password?”."); return; }
+    setError("");
+    try { await sendPasswordResetEmail(auth, email.trim()); } catch { /* see comment above */ }
+    setNotice("If an account exists for that email, we’ve sent a link to reset your password.");
+  }
   const [legalOpen, setLegalOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<"terms" | "privacy">("terms");
 
@@ -102,7 +115,7 @@ export default function LoginPage() {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
-      router.push(profileComplete ? nextPath("/search") : "/register/complete");
+      router.push(profileComplete ? nextPath("/search") : withNext("/register/complete"));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Login failed";
       const suspended = suspendedMessage(e);
@@ -129,7 +142,7 @@ export default function LoginPage() {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
-      router.push(profileComplete ? nextPath("/search") : "/register/complete");
+      router.push(profileComplete ? nextPath("/search") : withNext("/register/complete"));
     } catch (e) {
       setError(suspendedMessage(e) ?? "Google sign-in failed. Please try again.");
     } finally {
@@ -205,7 +218,7 @@ export default function LoginPage() {
                   <label className={styles.label} style={{ margin: 0 }}>
                     Password
                   </label>
-                  <a href="#" className={styles.forgotLink}>
+                  <a href="#" className={styles.forgotLink} onClick={handleForgotPassword}>
                     Forgot password?
                   </a>
                 </div>
@@ -244,6 +257,9 @@ export default function LoginPage() {
                   </button>
                 </div>
 
+                {notice && !error && (
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#1f8a5b", margin: "0 0 12px", textAlign: "center" }}>{notice}</p>
+                )}
                 {/* Error */}
                 {error && (
                   <p
@@ -301,7 +317,7 @@ export default function LoginPage() {
 
                 <p className={styles.footerText}>
                   Don&apos;t have an account?{" "}
-                  <a href="/register" className={styles.link}>
+                  <a href="/register" onClick={e => { e.preventDefault(); router.push(withNext("/register")); }} className={styles.link}>
                     Create one for free
                   </a>
                 </p>

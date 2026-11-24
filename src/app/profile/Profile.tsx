@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { nextPath } from '@/lib/nextPath';
 import { onAuthStateChanged, sendEmailVerification, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import {
@@ -55,11 +56,6 @@ function fmtDate(iso: string) {
   return isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// Only same-origin paths, so ?next= can't send the user off-site.
-function nextPath(): string | null {
-  const next = new URLSearchParams(window.location.search).get('next');
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : null;
-}
 
 function Check({ size = 12 }: { size?: number }) {
   return (
@@ -214,7 +210,7 @@ export default function Profile() {
       setSaved(draft);
       setEditing(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      const next = nextPath();
+      const next = nextPath('');
       if (next && !aboutMeMissing({ hasPhoto, occupation: draft.occupation, traits: draft.traits, about: draft.about }).length) router.push(next);
     } catch {
       setError('Could not save your profile. Please try again.');

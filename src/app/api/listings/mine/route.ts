@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     description: string; status: string;
     created_at: number; updated_at: number;
     cover_r2_key: string | null;
-    amenity_count: number; photo_count: number; inquiry_count: number;
+    amenity_count: number; photo_count: number;
+    request_count: number; held: number;
   }>(
     `SELECT l.id, l.ptype, l.title, l.street, l.city, l.postcode,
             l.cold_rent, l.utilities,
@@ -45,7 +46,8 @@ export async function GET(req: NextRequest) {
             (SELECT r2_key FROM listing_photos WHERE listing_id = l.id AND is_cover = 1 LIMIT 1) AS cover_r2_key,
             (SELECT COUNT(*) FROM listing_amenities WHERE listing_id = l.id) AS amenity_count,
             (SELECT COUNT(*) FROM listing_photos WHERE listing_id = l.id) AS photo_count,
-            (SELECT COUNT(*) FROM inquiries WHERE listing_id = l.id) AS inquiry_count
+            (SELECT COUNT(*) FROM bookings WHERE listing_id = l.id AND status = 'pending') AS request_count,
+            EXISTS (SELECT 1 FROM bookings WHERE listing_id = l.id AND status = 'accepted' AND room_held = 1) AS held
      FROM listings l
      WHERE l.landlord_id = ? AND l.status != 'archived'
      ORDER BY l.updated_at DESC`,
@@ -81,7 +83,8 @@ export async function GET(req: NextRequest) {
       location: location(r.street, r.city),
       status: r.status, // 'pending_review' | 'published' | 'rented'
       rent: `€${r.cold_rent + r.utilities}`,
-      applications: r.inquiry_count,
+      requests: r.request_count, // pending booking requests awaiting the landlord
+      held: !!r.held,            // an accepted booking is holding the room
       publishedText: `Published ${relativeTime(r.created_at)}`,
       coverPhoto: r.cover_r2_key ? getSignedUrl(r.cover_r2_key) : null,
     }))

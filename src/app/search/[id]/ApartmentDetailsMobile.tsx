@@ -115,13 +115,16 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
         let error = 'Failed to send booking request. Try again.';
         let code: string | undefined;
         try { const j = JSON.parse(text); error = j.error ?? error; code = j.code; } catch { /* non-JSON body */ }
-        if (code === 'unverified') { router.push('/verify'); return; }
+        if (code === 'unverified') { router.push(`/verify?next=${encodeURIComponent(`/search/${p.id}?moveIn=${effMoveIn}&moveOut=${effMoveOut}`)}`); return; }
         setBookError(error);
         setTimeout(() => setBookError(''), 4000);
         return;
       }
       setBooked(true);
       setReviewing(false);
+      // Show the request where the conversation with the host continues.
+      const { inquiry_id } = await res.json().catch(() => ({}));
+      if (inquiry_id) router.push(`/messages?thread=${inquiry_id}`);
       setTimeout(() => setBooked(false), 3000);
     } catch (err) {
       console.error('[handleBook]', err);

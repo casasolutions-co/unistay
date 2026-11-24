@@ -10,6 +10,7 @@ import RegisterMobile from './RegisterMobile';
 import LegalModal from '../components/LegalModal';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 import { suspendedMessage } from '@/lib/authErrors';
+import { nextPath, withNext } from "@/lib/nextPath";
 import {
   type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
   landlordPayload, PasswordMeter, Spinner, RoleCards, LandlordFields,
@@ -102,7 +103,7 @@ export default function RegisterPage() {
           university, program, startYear, jobTitle, why, ...landlordPayload(role, landlord),
         }),
       ]);
-      router.push(afterSignupPath(role));
+      router.push(withNext(afterSignupPath(role)));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('email-already-in-use')) {
@@ -124,7 +125,7 @@ export default function RegisterPage() {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token, 'student');
-      router.push(profileComplete ? '/search' : '/register/complete');
+      router.push(profileComplete ? nextPath('/search') : withNext('/register/complete'));
     } catch (e) {
       setError(suspendedMessage(e) ?? 'Google sign-in failed. Please try again.');
     } finally {
@@ -312,7 +313,7 @@ export default function RegisterPage() {
 
                 <p className={styles.footerText}>
                   Already have an account?{' '}
-                  <a href="/login" className={styles.link}>Sign in</a>
+                  <a href="/login" onClick={e => { e.preventDefault(); router.push(withNext("/login")); }} className={styles.link}>Sign in</a>
                 </p>
               </div>
             )}

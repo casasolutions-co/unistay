@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
 import { bearerToken, verifyParticipant, bumpInquiryAndNotify, resolveRecipient } from '@/lib/chat';
 import { sendEmail } from '@/lib/email';
-import { bookingStatusEmail } from '@/lib/emails/templates';
+import { bookingStatusEmail, bookingClosedEmail } from '@/lib/emails/templates';
 
 const RESPONDABLE_TYPES = ['booking', 'viewing', 'viewing_times'];
 
@@ -31,7 +32,7 @@ export async function PATCH(
 
   let uid: string;
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    const decoded = await adminAuth.verifyIdToken(token, true); // true: a ban (revoked tokens) applies immediately
     uid = decoded.uid;
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -113,6 +114,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'This booking has already changed. Refresh to see its status.' }, { status: 409 });
     }
     updatedMetadata = JSON.stringify({ ...meta, status, room_held: roomHeld });
+    // Search is cached; a hold placed or released must show up there right away.
+    if (roomHeld || status === 'cancelled') revalidateTag('listings', { expire: 0 });
     confirmationBody =
       status === 'accepted' ? `Booking request accepted ✓${roomHeld ? ' — room on hold' : ''}`
       : status === 'declined' ? 'Booking request declined'
@@ -139,21 +142,27 @@ export async function PATCH(
   const other = await resolveRecipient(uid, inquiryId);
   await bumpInquiryAndNotify(inquiryId, other?.recipientId ?? null, now);
 
-  if (message.msg_type === 'booking' && (payload.status === 'accepted' || payload.status === 'declined')) {
-    const [recipient] = await d1Query<{ email: string; name: string | null }>(
-      'SELECT email, name FROM users WHERE id = ?',
-      [message.sender_id]
-    );
+  if (message.msg_type === 'booking') {
+    // Email whoever didn't act: the student on accept/decline/host-cancel, the host on withdraw.
+    const emailTo = other?.recipientId ?? null;
+    const people = emailTo
+      ? await d1Query<{ id: string; email: string; name: string | null }>(
+          'SELECT id, email, name FROM users WHERE id IN (?, ?)', [emailTo, uid])
+      : [];
+    const recipient = people.find(p => p.id === emailTo);
+    const actor = people.find(p => p.id === uid);
     const [row] = await d1Query<{ title: string | null }>(
       `SELECT l.title FROM inquiries i LEFT JOIN listings l ON l.id = i.listing_id WHERE i.id = ?`,
       [inquiryId]
     );
+    const listingTitle = row?.title ?? 'the listing';
     if (recipient?.email) {
-      const { subject, html } = bookingStatusEmail({
-        studentName: recipient.name,
-        listingTitle: row?.title ?? 'the listing',
-        status: payload.status,
-      });
+      const { subject, html } = payload.status === 'cancelled'
+        ? bookingClosedEmail({
+            name: recipient.name, otherName: actor?.name, listingTitle,
+            reason: isSender ? 'withdrawn' : 'host_cancelled',
+          })
+        : bookingStatusEmail({ studentName: recipient.name, listingTitle, status: payload.status });
       void sendEmail(recipient.email, subject, html);
     }
   }

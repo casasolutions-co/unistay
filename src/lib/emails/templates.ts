@@ -130,6 +130,48 @@ export function bookingStatusEmail(opts: {
   };
 }
 
+// Booking ended without a landlord decision: the student withdrew, the host
+// cancelled an accepted booking, or the room was rented to someone else.
+export type BookingClosedReason = 'withdrawn' | 'host_cancelled' | 'rented';
+
+export function bookingClosedEmail(opts: {
+  name?: string | null;
+  otherName?: string | null;
+  listingTitle: string;
+  reason: BookingClosedReason;
+}): EmailPayload {
+  const name = esc(opts.name?.trim() || 'there');
+  const other = esc(opts.otherName?.trim() || (opts.reason === 'withdrawn' ? 'The student' : 'The host'));
+  const title = `<strong>${esc(opts.listingTitle)}</strong>`;
+  const copy = {
+    withdrawn: {
+      heading: 'A booking request was withdrawn',
+      body: `${other} withdrew their booking request for ${title}. If the room was on hold, it is available again.`,
+      cta: ['View in Messages', `${APP_URL}/messages`],
+    },
+    host_cancelled: {
+      heading: 'Your booking was cancelled',
+      body: `${other} cancelled your booking for ${title}. Keep browsing — there are other listings that might fit.`,
+      cta: ['Browse listings', `${APP_URL}/search`],
+    },
+    rented: {
+      heading: 'This room has been rented',
+      body: `${title} has been rented to someone else, so your booking request was closed. Keep browsing — there are other listings that might fit.`,
+      cta: ['Browse listings', `${APP_URL}/search`],
+    },
+  }[opts.reason];
+  return {
+    subject: `Booking update: ${opts.listingTitle}`,
+    html: wrapEmail({
+      preheader: copy.heading,
+      heading: copy.heading,
+      bodyHtml: `<p>Hi ${name}, ${copy.body}</p>`,
+      ctaLabel: copy.cta[0],
+      ctaUrl: copy.cta[1],
+    }),
+  };
+}
+
 // --- Support tickets -------------------------------------------------------
 
 export function supportTicketCreatedEmail(opts: {

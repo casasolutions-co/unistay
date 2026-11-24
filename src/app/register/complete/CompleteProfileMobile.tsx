@@ -7,6 +7,7 @@ import { updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import styles from '../RegisterMobile.module.css';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
+import { withNext } from '@/lib/nextPath';
 import {
   type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
   landlordPayload, Spinner, RoleCards, LandlordFields, useNeedsName,
@@ -70,7 +71,7 @@ export default function CompleteProfileMobile() {
       });
       if (!res.ok) throw new Error('Failed');
       if (needsName) await updateProfile(user, { displayName: name.trim() });
-      router.push(afterSignupPath(role));
+      router.push(withNext(afterSignupPath(role)));
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {

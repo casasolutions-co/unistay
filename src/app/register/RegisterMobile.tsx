@@ -8,6 +8,7 @@ import { auth } from '@/lib/firebase';
 import styles from './RegisterMobile.module.css';
 import { COUNTRIES, START_YEARS } from '@/lib/profileOptions';
 import { suspendedMessage } from '@/lib/authErrors';
+import { nextPath, withNext } from "@/lib/nextPath";
 import {
   type Role, type LandlordInfo, EMPTY_LANDLORD, missingFields, MissingHint, afterSignupPath,
   landlordPayload, PasswordMeter, Spinner, RoleCards, LandlordFields,
@@ -201,7 +202,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
             university, program, startYear, jobTitle, why, ...landlordPayload(role, landlord),
           }),
         ]);
-        router.push(afterSignupPath(role));
+        router.push(withNext(afterSignupPath(role)));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '';
         if (msg.includes('email-already-in-use')) setError('An account with this email already exists.');
@@ -220,7 +221,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token, 'student');
-      router.push(profileComplete ? '/search' : '/register/complete');
+      router.push(profileComplete ? nextPath('/search') : withNext('/register/complete'));
     } catch (e) {
       setError(suspendedMessage(e) ?? 'Google sign-in failed. Please try again.');
     } finally {
@@ -480,7 +481,7 @@ export default function RegisterMobile({ legalAgreed, onOpenLegal }: RegisterMob
           <p className={styles.ctaFooter}>
             {step === 1 ? (
               <>Already have an account?{' '}
-                <a href="/login" className={styles.ctaLink}>Sign in</a>
+                <a href="/login" onClick={e => { e.preventDefault(); router.push(withNext("/login")); }} className={styles.ctaLink}>Sign in</a>
               </>
             ) : (
               'By continuing you accept our terms.'

@@ -11,11 +11,11 @@ type RawMessage = {
 
 // Adds a signed download URL for `file` messages so the client never needs to know
 // about R2 keys directly.
-function withSignedUrls(messages: RawMessage[]) {
+function withSignedUrls(messages: RawMessage[], inquiryId: string) {
   return messages.map(m => {
     if (m.msg_type !== 'file' || !m.metadata) return m;
     const meta = JSON.parse(m.metadata);
-    if (!meta.r2Key) return m;
+    if (typeof meta.r2Key !== 'string' || !meta.r2Key.startsWith(`chat/${inquiryId}/`)) return m;
     return { ...m, metadata: JSON.stringify({ ...meta, ...attachmentUrls(meta.r2Key, meta.name ?? m.body) }) };
   });
 }
@@ -67,7 +67,7 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ messages: withSignedUrls(await withBookingStatus(messages)), uid });
+  return NextResponse.json({ messages: withSignedUrls(await withBookingStatus(messages), inquiryId), uid });
 }
 
 // Booking cards show the live status from the bookings table, not the
@@ -101,7 +101,7 @@ export async function POST(
 
   let uid: string;
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    const decoded = await adminAuth.verifyIdToken(token, true); // true: a ban (revoked tokens) applies immediately
     uid = decoded.uid;
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -113,8 +113,22 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { body, msg_type = 'text', metadata = null } = await req.json();
+  const { body, msg_type = 'text', metadata: rawMeta = null } = await req.json();
   if (!body?.trim()) return NextResponse.json({ error: 'Empty message' }, { status: 400 });
+  // Files and booking cards have their own routes. Letting the client post them
+  // here would let it forge a card or point a 'file' message at any R2 key.
+  if (msg_type !== 'text' && msg_type !== 'viewing_times') {
+    return NextResponse.json({ error: 'Unsupported message type' }, { status: 400 });
+  }
+  let metadata: { slots: { date: string; time: string }[]; status: 'pending' } | null = null;
+  if (msg_type === 'viewing_times') {
+    const slots = Array.isArray(rawMeta?.slots) ? rawMeta.slots : [];
+    if (!slots.length || slots.length > 10 || !slots.every((x: unknown) =>
+      typeof (x as { date?: unknown })?.date === 'string' && typeof (x as { time?: unknown })?.time === 'string')) {
+      return NextResponse.json({ error: 'Invalid viewing times' }, { status: 400 });
+    }
+    metadata = { slots: slots.map((x: { date: string; time: string }) => ({ date: x.date.slice(0, 40), time: x.time.slice(0, 40) })), status: 'pending' };
+  }
 
   const inquiry = await resolveRecipient(uid, inquiryId);
   const recipientId = inquiry?.recipientId ?? null;

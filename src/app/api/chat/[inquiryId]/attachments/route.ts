@@ -32,7 +32,7 @@ export async function POST(
 
   let uid: string;
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    const decoded = await adminAuth.verifyIdToken(token, true); // true: a ban (revoked tokens) applies immediately
     uid = decoded.uid;
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });

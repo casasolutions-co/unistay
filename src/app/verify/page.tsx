@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import LegalModal from '../components/LegalModal';
 import VerifyMobile from './VerifyMobile';
 import { useVerifyFlow } from './useVerifyFlow';
 import ProfileNeeded from './ProfileNeeded';
@@ -48,7 +50,9 @@ export default function VerifyIdentity() {
     stage, consent, setConsent, aboutMissing,
     checkingPending, stillPendingNotice, redirectError,
     canSubmit, submitId, refreshPending, goBack, goConsent,
+    done,
   } = useVerifyFlow();
+  const [termsOpen, setTermsOpen] = useState(false);
 
   const isFormStage = stage === 'consent';
   const headerTitle = stage === 'consent' ? 'Verify with Didit' : '';
@@ -156,7 +160,7 @@ export default function VerifyIdentity() {
                           {consent && <Icon size={13} sw={3} stroke="#fff" paths={['M20 6 9 17l-5-5']} />}
                         </span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: '#4a4654', lineHeight: 1.55 }}>
-                          I agree to share my ID and a live photo with Didit for verification, per Didit&apos;s <a href="#" style={{ color: 'var(--brand)' }}>Privacy Policy</a> and UniStay&apos;s <a href="#" style={{ color: 'var(--brand)' }}>Terms</a>.
+                          I agree to share my ID and a live photo with Didit for verification, per Didit&apos;s <a href="https://didit.me/terms/privacy-policy/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>Privacy Policy</a> and UniStay&apos;s <a href="#" onClick={e => { e.preventDefault(); setTermsOpen(true); }} style={{ color: 'var(--brand)' }}>Terms</a>.
                         </span>
                       </button>
 
@@ -241,12 +245,12 @@ export default function VerifyIdentity() {
                         <Icon size={44} sw={2.4} stroke="#15803d" paths={['M20 6 9 17l-5-5']} />
                       </div>
                       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, letterSpacing: '-.025em', margin: 0, color: 'var(--text)' }}>You&apos;re verified!</h2>
-                      <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-muted)', margin: '12px 0 26px', maxWidth: 340 }}>You can publish listings on UniStay whenever you&apos;re ready.</p>
+                      <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-muted)', margin: '12px 0 26px', maxWidth: 340 }}>{done.text}</p>
                       <Link
-                        href="/list"
+                        href={done.href}
                         style={{ height: 50, padding: '0 30px', borderRadius: 13, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 14.5, fontWeight: 700, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'linear-gradient(180deg, #7c3aed, #6d28d9)', boxShadow: '0 10px 22px -6px rgba(109,40,217,.45), inset 0 1px 0 rgba(255,255,255,.22)' }}
                       >
-                        Continue to list your place
+                        {done.label}
                         <Icon size={17} sw={2.4} paths={['M5 12h14M13 6l6 6-6 6']} />
                       </Link>
                     </div>
@@ -259,6 +263,7 @@ export default function VerifyIdentity() {
           </div>
         </div>
       </div>
+      <LegalModal isOpen={termsOpen} onClose={() => setTermsOpen(false)} initialDoc="terms" mode="view" />
     </>
   );
 }

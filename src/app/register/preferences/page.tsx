@@ -9,6 +9,7 @@ import { useCitySearch } from '@/lib/useCitySearch';
 import AppNav from '../../components/AppNav';
 import styles from '../page.module.css';
 import p from './page.module.css';
+import { nextPath } from '@/lib/nextPath';
 
 const Check = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
@@ -62,7 +63,7 @@ export default function HousingPreferences() {
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      router.push('/search');
+      router.push(nextPath('/search'));
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -170,7 +171,7 @@ export default function HousingPreferences() {
               style={{ marginTop: 24, width: '100%' }}>
               {saving ? 'Saving…' : 'Save & start searching'}
             </button>
-            <button type="button" className={p.skipBtn} onClick={() => router.push('/search')}>
+            <button type="button" className={p.skipBtn} onClick={() => router.push(nextPath('/search'))}>
               Skip for now
             </button>
           </div>
