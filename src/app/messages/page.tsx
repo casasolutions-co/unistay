@@ -378,6 +378,8 @@ function ListingRef({
   );
 }
 
+type RespondStatus = "accepted" | "declined" | "cancelled";
+
 function CardActions({
   status,
   canRespond,
@@ -408,6 +410,52 @@ function CardActions({
   );
 }
 
+const statusText = (color: string, text: string) => (
+  <span style={{ fontSize: 12.5, fontWeight: 700, color }}>{text}</span>
+);
+
+// Booking card actions. The card is sent by the student, so the recipient is
+// the landlord. Live status comes from the bookings table (see chat GET).
+function BookingActions({
+  status,
+  roomHeld,
+  isLandlord,
+  onRespond,
+}: {
+  status?: string;
+  roomHeld: boolean;
+  isLandlord: boolean;
+  onRespond: (status: RespondStatus, hold?: boolean) => void;
+}) {
+  const cancel = (
+    <button className={styles.declineBtn} onClick={() => onRespond("cancelled")}>
+      {isLandlord ? "Cancel booking" : "Withdraw"}
+    </button>
+  );
+  if (status === "pending" || !status) {
+    return isLandlord ? (
+      <div className={styles.cardActions}>
+        <button className={styles.declineBtn} onClick={() => onRespond("declined")}>Decline</button>
+        <button className={styles.declineBtn} onClick={() => onRespond("accepted", false)}>Accept</button>
+        <button className={styles.acceptBtn} onClick={() => onRespond("accepted", true)}>Accept & hold room</button>
+      </div>
+    ) : (
+      <div className={styles.cardActions}>{statusText("#9a94a8", "Awaiting response")}{cancel}</div>
+    );
+  }
+  if (status === "accepted") {
+    return (
+      <div className={styles.cardActions}>
+        {statusText("#1f8a5b", roomHeld ? "Accepted ✓ · room on hold" : "Accepted ✓")}
+        {cancel}
+      </div>
+    );
+  }
+  if (status === "confirmed") return <div className={styles.cardActions}>{statusText("#1f8a5b", "Booking confirmed ✓")}</div>;
+  if (status === "declined") return <div className={styles.cardActions}>{statusText("#dc2626", "Declined")}</div>;
+  return <div className={styles.cardActions}>{statusText("#9a94a8", "Cancelled")}</div>;
+}
+
 function BookingCard({
   msg,
   thread,
@@ -417,7 +465,7 @@ function BookingCard({
   msg: ChatMessage;
   thread: InboxThread;
   uid: string;
-  onRespond: (messageId: string, status: "accepted" | "declined") => void;
+  onRespond: (messageId: string, status: RespondStatus, hold?: boolean) => void;
 }) {
   const meta = msg.metadata ? JSON.parse(msg.metadata) : {};
   return (
@@ -449,12 +497,11 @@ function BookingCard({
             {meta.deposit && ` · deposit €${meta.deposit}`}
           </div>
         </div>
-        <CardActions
+        <BookingActions
           status={meta.status}
-          canRespond={msg.sender_id !== uid}
-          onAccept={() => onRespond(msg.id, "accepted")}
-          onDecline={() => onRespond(msg.id, "declined")}
-          acceptLabel="Accept & book"
+          roomHeld={!!meta.room_held}
+          isLandlord={msg.sender_id !== uid}
+          onRespond={(status, hold) => onRespond(msg.id, status, hold)}
         />
       </div>
       <span className={styles.timeIn}>{fmtMsgTime(msg.created_at)}</span>
@@ -471,7 +518,7 @@ function ViewingCard({
   msg: ChatMessage;
   thread: InboxThread;
   uid: string;
-  onRespond: (messageId: string, status: "accepted" | "declined") => void;
+  onRespond: (messageId: string, status: RespondStatus, hold?: boolean) => void;
 }) {
   const meta = msg.metadata ? JSON.parse(msg.metadata) : {};
   return (
@@ -596,7 +643,7 @@ function MessageBubble({
   msg: ChatMessage;
   uid: string;
   thread: InboxThread;
-  onRespond: (messageId: string, status: "accepted" | "declined") => void;
+  onRespond: (messageId: string, status: RespondStatus, hold?: boolean) => void;
   onSelectViewingSlot: (messageId: string, index: number) => void;
 }) {
   const isOut = msg.sender_id === uid;
@@ -995,7 +1042,7 @@ export default function MessagesPage() {
 
   /* ── Respond to a booking/viewing card ── */
   const respondToBooking = useCallback(
-    async (messageId: string, status: "accepted" | "declined") => {
+    async (messageId: string, status: RespondStatus, hold?: boolean) => {
       if (!activeId) return;
       try {
         const freshToken = await authUser?.getIdToken();
@@ -1007,7 +1054,7 @@ export default function MessagesPage() {
               Authorization: `Bearer ${freshToken ?? token}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ status }),
+            body: JSON.stringify({ status, hold }),
           },
         );
         if (!res.ok) {
@@ -1023,10 +1070,7 @@ export default function MessagesPage() {
             {
               id: confirmation.id,
               sender_id: uid,
-              body:
-                status === "accepted"
-                  ? "Request accepted ✓"
-                  : "Request declined",
+              body: confirmation.body,
               msg_type: "text",
               metadata: null,
               created_at: confirmation.created_at,

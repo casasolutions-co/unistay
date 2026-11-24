@@ -133,6 +133,28 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_inquiry ON messages(inquiry_id, created_at);
 
+-- See scripts/migrate-bookings.sql. id = messages.id of the booking card.
+CREATE TABLE IF NOT EXISTS bookings (
+  id          TEXT PRIMARY KEY,
+  inquiry_id  TEXT NOT NULL REFERENCES inquiries(id),
+  listing_id  TEXT NOT NULL,
+  student_id  TEXT NOT NULL REFERENCES users(id),
+  move_in     TEXT,
+  move_out    TEXT,
+  price       INTEGER,
+  deposit     INTEGER,
+  status      TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'accepted', 'confirmed', 'declined', 'cancelled')),
+  room_held   INTEGER NOT NULL DEFAULT 0,  -- landlord chose "hold room" on accept
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS one_open_booking
+  ON bookings(listing_id, student_id) WHERE status IN ('pending', 'accepted');
+CREATE UNIQUE INDEX IF NOT EXISTS one_accepted_booking
+  ON bookings(listing_id) WHERE status = 'accepted';
+CREATE INDEX IF NOT EXISTS idx_bookings_listing ON bookings(listing_id, status);
+
 CREATE TABLE IF NOT EXISTS user_inbox_counts (
   user_id TEXT PRIMARY KEY REFERENCES users(id),
   unread  INTEGER DEFAULT 0

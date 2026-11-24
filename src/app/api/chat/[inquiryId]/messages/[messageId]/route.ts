@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { d1Query } from '@/lib/d1';
-import { bearerToken, verifyParticipant, bumpInquiryAndNotify } from '@/lib/chat';
+import { bearerToken, verifyParticipant, bumpInquiryAndNotify, resolveRecipient } from '@/lib/chat';
 import { sendEmail } from '@/lib/email';
 import { bookingStatusEmail } from '@/lib/emails/templates';
 
 const RESPONDABLE_TYPES = ['booking', 'viewing', 'viewing_times'];
 
+// Booking moves: target status → statuses it may come from. The booking card
+// is sent by the student, so the card's recipient is the landlord.
+const LANDLORD_MOVES: Record<string, string[]> = {
+  accepted: ['pending'],
+  declined: ['pending'],
+  cancelled: ['accepted'],          // release the room
+};
+const STUDENT_MOVES: Record<string, string[]> = {
+  cancelled: ['pending', 'accepted'], // withdraw
+};
+
 // PATCH /api/chat/[inquiryId]/messages/[messageId]
 // Recipient of a booking/viewing card responds accept/decline, or — for a
-// `viewing_times` proposal — picks one of the proposed slots.
+// `viewing_times` proposal — picks one of the proposed slots. The student who
+// sent a booking card may withdraw it.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ inquiryId: string; messageId: string }> }
@@ -41,7 +53,8 @@ export async function PATCH(
   );
 
   if (!message) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
-  if (message.sender_id === uid) {
+  const isSender = message.sender_id === uid;
+  if (isSender && message.msg_type !== 'booking') {
     return NextResponse.json({ error: 'Only the recipient can respond' }, { status: 403 });
   }
   if (!RESPONDABLE_TYPES.includes(message.msg_type)) {
@@ -72,14 +85,46 @@ export async function PATCH(
     });
     const slot = slots[selectedIndex];
     confirmationBody = `Viewing time confirmed: ${slot.date} · ${slot.time}`;
+  } else if (message.msg_type === 'booking') {
+    const { status } = payload;
+    const from = (isSender ? STUDENT_MOVES : LANDLORD_MOVES)[status];
+    if (!from) {
+      return NextResponse.json({ error: 'That action is not allowed on this booking.' }, { status: 400 });
+    }
+    // "Provider holds room?" — only meaningful on accept.
+    const roomHeld = status === 'accepted' && payload.hold === true ? 1 : 0;
+    let updated: { id: string }[];
+    try {
+      updated = await d1Query<{ id: string }>(
+        `UPDATE bookings SET status = ?, room_held = ?, updated_at = ?
+         WHERE id = ? AND status IN (${from.map(() => '?').join(',')}) RETURNING id`,
+        [status, roomHeld, now, messageId, ...from]
+      );
+    } catch (err) {
+      if (String(err).includes('UNIQUE')) {
+        return NextResponse.json(
+          { error: "You've already accepted another student for this room. Cancel that booking first." },
+          { status: 409 }
+        );
+      }
+      throw err;
+    }
+    if (!updated.length) {
+      return NextResponse.json({ error: 'This booking has already changed. Refresh to see its status.' }, { status: 409 });
+    }
+    updatedMetadata = JSON.stringify({ ...meta, status, room_held: roomHeld });
+    confirmationBody =
+      status === 'accepted' ? `Booking request accepted ✓${roomHeld ? ' — room on hold' : ''}`
+      : status === 'declined' ? 'Booking request declined'
+      : isSender ? 'Booking request withdrawn'
+      : 'Booking cancelled by the host — the room is available again';
   } else {
     const { status } = payload;
     if (status !== 'accepted' && status !== 'declined') {
       return NextResponse.json({ error: 'status must be accepted or declined' }, { status: 400 });
     }
     updatedMetadata = JSON.stringify({ ...meta, status });
-    const label = message.msg_type === 'booking' ? 'Booking request' : 'Viewing request';
-    confirmationBody = `${label} ${status === 'accepted' ? 'accepted ✓' : 'declined'}`;
+    confirmationBody = `Viewing request ${status === 'accepted' ? 'accepted ✓' : 'declined'}`;
   }
 
   await d1Query('UPDATE messages SET metadata = ? WHERE id = ?', [updatedMetadata, messageId]);
@@ -91,7 +136,8 @@ export async function PATCH(
     [confirmationId, inquiryId, uid, confirmationBody, now]
   );
 
-  await bumpInquiryAndNotify(inquiryId, message.sender_id, now);
+  const other = await resolveRecipient(uid, inquiryId);
+  await bumpInquiryAndNotify(inquiryId, other?.recipientId ?? null, now);
 
   if (message.msg_type === 'booking' && (payload.status === 'accepted' || payload.status === 'declined')) {
     const [recipient] = await d1Query<{ email: string; name: string | null }>(

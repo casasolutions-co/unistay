@@ -6,6 +6,29 @@ import { getSignedUrl } from '@/lib/r2'
 import { cityCoords } from '@/lib/city-coords'
 import { adminAuth } from '@/lib/firebase-admin'
 import { getAppSetting } from '@/lib/settings'
+import { bumpInquiryAndNotify } from '@/lib/chat'
+
+// Listing marked Rented: the accepted booking becomes confirmed, every other
+// open request is closed and its student gets a note in their chat thread.
+async function closeBookingsOnRent(listingId: string, landlordId: string, now: number) {
+  await d1Query(
+    "UPDATE bookings SET status = 'confirmed', updated_at = ? WHERE listing_id = ? AND status = 'accepted'",
+    [now, listingId]
+  )
+  const closed = await d1Query<{ inquiry_id: string; student_id: string }>(
+    `UPDATE bookings SET status = 'declined', updated_at = ?
+     WHERE listing_id = ? AND status = 'pending' RETURNING inquiry_id, student_id`,
+    [now, listingId]
+  )
+  for (const b of closed) {
+    await d1Query(
+      `INSERT INTO messages (id, inquiry_id, sender_id, body, msg_type, created_at)
+       VALUES (?, ?, ?, ?, 'text', ?)`,
+      [crypto.randomUUID(), b.inquiry_id, landlordId, 'This room has been rented, so your booking request was closed.', now]
+    )
+    await bumpInquiryAndNotify(b.inquiry_id, b.student_id, now)
+  }
+}
 
 function bearerUid(req: NextRequest): Promise<string | null> {
   const authHeader = req.headers.get('authorization') ?? ''
@@ -163,6 +186,9 @@ export async function GET(
       "SELECT COUNT(*) AS n FROM listings WHERE landlord_id = ? AND status = 'published'",
       [row.landlord_id]
     )
+    const heldRows = await d1Query(
+      "SELECT 1 FROM bookings WHERE listing_id = ? AND status = 'accepted' AND room_held = 1 LIMIT 1", [id]
+    )
 
     const listing = {
       id: row.id,
@@ -202,6 +228,7 @@ export async function GET(
       hostListings: String(Math.max(1, hostCount?.n ?? 1)),
       landlord_id: row.landlord_id,
       status: row.status,
+      held: heldRows.length > 0, // accepted + held booking → temporarily unavailable
     }
 
     // Raw form-shaped fields for the List Your Place resume flow (edit/resume a
@@ -293,7 +320,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!(allowedNext[existing.status] ?? []).includes(status)) {
       return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 })
     }
-    await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', [status, Date.now(), id])
+    const now = Date.now()
+    await d1Query('UPDATE listings SET status = ?, updated_at = ? WHERE id = ?', [status, now, id])
+    if (status === 'rented') await closeBookingsOnRent(id, uid, now)
     revalidateTag('listings', { expire: 0 })
     return NextResponse.json({ ok: true })
   }

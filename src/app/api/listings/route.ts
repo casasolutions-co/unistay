@@ -104,6 +104,9 @@ const getCachedListings = unstable_cache(getListingsData, ['listings'], {
   revalidate: 300,
 })
 
+// A listing whose landlord accepted a student and chose to hold the room is temporarily unavailable.
+const HELD_FILTER = "NOT EXISTS (SELECT 1 FROM bookings b WHERE b.listing_id = l.id AND b.status = 'accepted' AND b.room_held = 1)"
+
 async function getListingsData(
   city: string,
   minPrice: number | undefined,
@@ -127,7 +130,7 @@ async function getListingsData(
   let hostListings: UnifiedListing[] = []
   if ((source === 'all' || source === 'PRIVATE') && (!q || hostCities.length)) {
     const params: (string | number)[] = []
-    const conditions: string[] = ["l.status = 'published'", "(l.source IS NULL OR l.source = 'private')"]
+    const conditions: string[] = ["l.status = 'published'", "(l.source IS NULL OR l.source = 'private')", HELD_FILTER]
 
     if (bbox) {
       conditions.push('l.lat BETWEEN ? AND ? AND l.lng BETWEEN ? AND ?')
@@ -215,7 +218,7 @@ async function getListingsData(
   let d1CasaListings: UnifiedListing[] = []
   if ((source === 'all' || source === 'CASA') && (!q || hostCities.length)) {
     const params: (string | number)[] = []
-    const conditions: string[] = ["l.status = 'published'", "l.source = 'casa'"]
+    const conditions: string[] = ["l.status = 'published'", "l.source = 'casa'", HELD_FILTER]
 
     if (bbox) {
       conditions.push('l.lat BETWEEN ? AND ? AND l.lng BETWEEN ? AND ?')

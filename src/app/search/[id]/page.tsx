@@ -13,6 +13,7 @@ import AppNav from '../../components/AppNav';
 import styles from './page.module.css';
 import ApartmentDetailsMobile from './ApartmentDetailsMobile';
 import PageSpinner from '@/app/components/PageSpinner';
+import { loginUrl } from '@/lib/nextPath';
 
 const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
 
@@ -140,6 +141,7 @@ export default function DetailsPage({ params }: PageProps) {
   const [booked, setBooked] = useState(false);
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState('');
+  const [reviewing, setReviewing] = useState(false); // "Review request" step before sending
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -185,7 +187,8 @@ export default function DetailsPage({ params }: PageProps) {
 
   const handleBook = async () => {
     if (booking) return;
-    if (!authUser) { setBookError('Sign in to request a booking.'); return; }
+    if (!authUser) { router.push(loginUrl(`/search/${id}?moveIn=${effMoveIn}&moveOut=${effMoveOut}`)); return; }
+    if (!reviewing) { setReviewing(true); return; }
 
     setBooking(true);
     setBookError('');
@@ -205,12 +208,15 @@ export default function DetailsPage({ params }: PageProps) {
       if (!res.ok) {
         const text = await res.text();
         let error = 'Failed to send booking request. Try again.';
-        try { error = JSON.parse(text).error ?? error; } catch { /* non-JSON body */ }
+        let code: string | undefined;
+        try { const j = JSON.parse(text); error = j.error ?? error; code = j.code; } catch { /* non-JSON body */ }
+        if (code === 'unverified') { router.push('/verify'); return; }
         setBookError(error);
         setTimeout(() => setBookError(''), 4000);
         return;
       }
       setBooked(true);
+      setReviewing(false);
       setTimeout(() => setBooked(false), 3000);
     } catch (err) {
       console.error('[handleBook]', err);
@@ -562,8 +568,17 @@ export default function DetailsPage({ params }: PageProps) {
                 </a>
               ) : (
                 <>
-                  <button type="button" className={styles.bookBtn} onClick={handleBook} disabled={booking}>
-                    {booking ? 'Sending…' : 'Request to book'}
+                  {reviewing && !property.held && (
+                    <div style={{ border: '1.5px solid var(--border, #e5e1ec)', borderRadius: 12, padding: '12px 14px', margin: '12px 0', fontSize: 13, lineHeight: 1.5 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>Review your request</div>
+                      <div>{effMoveIn} → {effMoveOut}</div>
+                      <div>€{fmtN(warmRent)}/mo · deposit €{fmtN(property.deposit ?? 0)}</div>
+                      <div style={{ opacity: 0.7, marginTop: 4 }}>The host sees your profile and replies in Messages. You won&apos;t be charged.</div>
+                      <button type="button" onClick={() => setReviewing(false)} style={{ marginTop: 6, background: 'none', border: 'none', padding: 0, color: '#6d28d9', fontWeight: 700, cursor: 'pointer' }}>Edit dates</button>
+                    </div>
+                  )}
+                  <button type="button" className={styles.bookBtn} onClick={handleBook} disabled={booking || property.held}>
+                    {property.held ? 'Temporarily unavailable' : booking ? 'Sending…' : reviewing ? 'Send request' : 'Request to book'}
                   </button>
                   <button type="button" className={styles.msgBtn} onClick={() => setMsgModal(true)}>
                     <IMessage /> Message host

@@ -46,6 +46,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot book your own listing' }, { status: 400 });
     }
 
+    const [me] = await d1Query<{ verification_status: string | null }>(
+      'SELECT verification_status FROM users WHERE id = ?',
+      [uid]
+    );
+    if (me?.verification_status !== 'verified') {
+      return NextResponse.json(
+        { error: 'Verify your identity before requesting a booking.', code: 'unverified' },
+        { status: 403 }
+      );
+    }
+
+    // Friendly errors for the two cases the unique indexes also enforce.
+    const open = await d1Query<{ student_id: string }>(
+      `SELECT student_id FROM bookings
+       WHERE listing_id = ? AND (
+         (student_id = ? AND status IN ('pending', 'accepted'))
+         OR (status = 'accepted' AND room_held = 1))`,
+      [listing_id, uid]
+    );
+    if (open.some(b => b.student_id === uid)) {
+      return NextResponse.json({ error: 'You already have an open booking request for this listing.' }, { status: 409 });
+    }
+    if (open.length) {
+      return NextResponse.json({ error: 'This room is temporarily unavailable.' }, { status: 409 });
+    }
+
     // Upsert inquiry — one per student+listing pair, shared with the messaging flow
     let inquiryId: string;
     const [existing] = await d1Query<{ id: string }>(
@@ -66,6 +92,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Card display snapshot; the live status comes from the bookings row.
     const metadata = JSON.stringify({
       price: price ?? null,
       move_in: move_in ?? null,
@@ -74,12 +101,32 @@ export async function POST(req: NextRequest) {
       status: 'pending',
     });
 
+    // Booking row first: its unique indexes are the real guard against
+    // double-clicks and races. Its id doubles as the card message's id.
     const msgId = crypto.randomUUID();
-    await d1Query(
-      `INSERT INTO messages (id, inquiry_id, sender_id, body, msg_type, metadata, created_at)
-       VALUES (?, ?, ?, ?, 'booking', ?, ?)`,
-      [msgId, inquiryId, uid, summary, metadata, now]
-    );
+    try {
+      await d1Query(
+        `INSERT INTO bookings (id, inquiry_id, listing_id, student_id, move_in, move_out, price, deposit, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+        [msgId, inquiryId, listing_id, uid, move_in, move_out, price, deposit, now, now]
+      );
+    } catch (err) {
+      if (String(err).includes('UNIQUE')) {
+        return NextResponse.json({ error: 'You already have an open booking request for this listing.' }, { status: 409 });
+      }
+      throw err;
+    }
+    try {
+      await d1Query(
+        `INSERT INTO messages (id, inquiry_id, sender_id, body, msg_type, metadata, created_at)
+         VALUES (?, ?, ?, ?, 'booking', ?, ?)`,
+        [msgId, inquiryId, uid, summary, metadata, now]
+      );
+    } catch (err) {
+      // No card means the landlord can't act on it, so don't leave it blocking a retry.
+      await d1Query('DELETE FROM bookings WHERE id = ?', [msgId]).catch(() => {});
+      throw err;
+    }
 
     await d1Query('UPDATE inquiries SET updated_at = ? WHERE id = ?', [now, inquiryId]);
 

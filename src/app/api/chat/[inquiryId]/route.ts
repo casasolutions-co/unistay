@@ -67,7 +67,28 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ messages: withSignedUrls(messages), uid });
+  return NextResponse.json({ messages: withSignedUrls(await withBookingStatus(messages)), uid });
+}
+
+// Booking cards show the live status from the bookings table, not the
+// snapshot in metadata. A card with no row (duplicate skipped by the
+// migration backfill) shows as cancelled.
+async function withBookingStatus(messages: RawMessage[]) {
+  const ids = messages.filter(m => m.msg_type === 'booking').map(m => m.id);
+  if (!ids.length) return messages;
+  const rows = await d1Query<{ id: string; status: string; room_held: number }>(
+    `SELECT id, status, room_held FROM bookings WHERE id IN (${ids.map(() => '?').join(',')})`,
+    ids
+  );
+  const byId = new Map(rows.map(r => [r.id, r]));
+  return messages.map(m => m.msg_type !== 'booking' ? m : {
+    ...m,
+    metadata: JSON.stringify({
+      ...(m.metadata ? JSON.parse(m.metadata) : {}),
+      status: byId.get(m.id)?.status ?? 'cancelled',
+      room_held: byId.get(m.id)?.room_held ?? 0,
+    }),
+  });
 }
 
 // POST /api/chat/[inquiryId]  — send a message

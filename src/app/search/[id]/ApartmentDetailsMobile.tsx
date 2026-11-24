@@ -13,6 +13,7 @@ const ListingMap = dynamic(() => import('./ListingMap'), { ssr: false });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyListing = Omit<Property, 'badge'> & { badge: 'CASA' | 'PARTNER' | 'PRIVATE'; source?: string; externalLink?: string | null; [key: string]: any };
 import styles from './ApartmentDetailsMobile.module.css';
+import { loginUrl } from '@/lib/nextPath';
 
 function fmtN(n: number) { return n.toLocaleString('en-US'); }
 
@@ -45,6 +46,7 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
   const [moveIn, setMoveIn] = useState('');
   const [moveOut, setMoveOut] = useState('');
   const [bookError, setBookError] = useState('');
+  const [reviewing, setReviewing] = useState(false); // "Review request" step before sending
 
   const photos = p.photos ?? [];
   const warmRent = p.price;
@@ -96,7 +98,8 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
 
   const handleBook = async () => {
     if (booking) return;
-    if (!authUser) { router.push('/login'); return; }
+    if (!authUser) { router.push(loginUrl(`/search/${p.id}?moveIn=${effMoveIn}&moveOut=${effMoveOut}`)); return; }
+    if (!reviewing) { setReviewing(true); return; }
 
     setBooking(true);
     setBookError('');
@@ -110,12 +113,15 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
       if (!res.ok) {
         const text = await res.text();
         let error = 'Failed to send booking request. Try again.';
-        try { error = JSON.parse(text).error ?? error; } catch { /* non-JSON body */ }
+        let code: string | undefined;
+        try { const j = JSON.parse(text); error = j.error ?? error; code = j.code; } catch { /* non-JSON body */ }
+        if (code === 'unverified') { router.push('/verify'); return; }
         setBookError(error);
         setTimeout(() => setBookError(''), 4000);
         return;
       }
       setBooked(true);
+      setReviewing(false);
       setTimeout(() => setBooked(false), 3000);
     } catch (err) {
       console.error('[handleBook]', err);
@@ -404,6 +410,23 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
         </div>
       )}
 
+      {/* ── Review request (shown above the booking bar before sending) ── */}
+      {reviewing && !p.held && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 150, background: 'rgba(0,0,0,0.5)', top: 0 }} onClick={() => setReviewing(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: '#1c1530', color: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 16px calc(20px + env(safe-area-inset-bottom))', fontSize: 14, lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Review your request</div>
+            <div>{effMoveIn} → {effMoveOut}</div>
+            <div>€{fmtN(warmRent)}/mo · deposit €{fmtN(p.deposit ?? 0)}</div>
+            <div style={{ opacity: 0.7, marginTop: 6 }}>The host sees your profile and replies in Messages. You won&apos;t be charged.</div>
+            {bookError && <p style={{ color: '#fca5a5', fontSize: 13, marginTop: 8 }}>{bookError}</p>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button type="button" onClick={() => setReviewing(false)} style={{ flex: 1, padding: '13px 0', borderRadius: 999, border: '1.5px solid #4b4360', background: 'none', color: '#fff', fontWeight: 700, fontSize: 14 }}>Edit dates</button>
+              <button type="button" onClick={handleBook} disabled={booking} style={{ flex: 1, padding: '13px 0', borderRadius: 999, border: 'none', background: '#6d28d9', color: '#fff', fontWeight: 700, fontSize: 14 }}>{booking ? 'Sending…' : 'Send request'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Booking bar ── */}
       <div className={styles.bookingBar}>
         <div className={styles.bookingPrice}>
@@ -421,8 +444,8 @@ export default function ApartmentDetailsMobile({ property: p }: Props) {
             View on HousingAnywhere →
           </a>
         ) : (
-          <button type="button" className={styles.bookingBtn} onClick={handleBook} disabled={booking}>
-            {booking ? 'Sending…' : 'Request to book'}
+          <button type="button" className={styles.bookingBtn} onClick={handleBook} disabled={booking || p.held}>
+            {p.held ? 'Temporarily unavailable' : booking ? 'Sending…' : reviewing ? 'Send request' : 'Request to book'}
           </button>
         )}
       </div>

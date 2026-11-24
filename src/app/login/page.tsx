@@ -13,6 +13,7 @@ import styles from "./page.module.css";
 import LoginMobile from "./LoginMobile";
 import LegalModal from "../components/LegalModal";
 import { suspendedMessage } from "@/lib/authErrors";
+import { nextPath } from "@/lib/nextPath";
 
 async function syncUser(token: string): Promise<boolean> {
   const res = await fetch("/api/auth/sync", {
@@ -101,7 +102,7 @@ export default function LoginPage() {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
-      router.push(profileComplete ? "/search" : "/register/complete");
+      router.push(profileComplete ? nextPath("/search") : "/register/complete");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Login failed";
       const suspended = suspendedMessage(e);
@@ -128,7 +129,7 @@ export default function LoginPage() {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const token = await cred.user.getIdToken();
       const profileComplete = await syncUser(token);
-      router.push(profileComplete ? "/search" : "/register/complete");
+      router.push(profileComplete ? nextPath("/search") : "/register/complete");
     } catch (e) {
       setError(suspendedMessage(e) ?? "Google sign-in failed. Please try again.");
     } finally {
